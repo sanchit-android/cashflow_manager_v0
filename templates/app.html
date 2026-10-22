@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Cashflow{% endblock %}
+{% block body %}
+<header class="top">
+  <span class="brand">Cashflow</span>
+  <nav class="tabs" id="tabs" hidden></nav>
+  <form method="post" action="/logout/">{% csrf_token %}<button class="link" type="submit">Sign out</button></form>
+</header>
+<main class="wrap" id="root"><p class="muted">Loading…</p></main>
+<script type="module" src="{% static 'js/app.js' %}"></script>
+{% endblock %}

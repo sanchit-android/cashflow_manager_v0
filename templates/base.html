@@ -1,0 +1,14 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cashflow{% endblock %}</title>
+  <meta name="description" content="{% block description %}Plan your month around when money comes in and goes out. Your data is encrypted in your browser.{% endblock %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/theme.js' %}"></script>
+</head>
+<body>
+{% block body %}{% endblock %}
+</body>
+</html>

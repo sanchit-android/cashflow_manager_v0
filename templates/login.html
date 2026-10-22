@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Sign in — Cashflow{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/">Cashflow</a></header>
+<main class="wrap narrow">
+  <div class="card">
+    <h1>Sign in</h1>
+    <form id="email-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <p><button class="primary" type="submit">Email me a code</button></p>
+    </form>
+    <form id="code-form" hidden>
+      <p class="muted" id="sent-to"></p>
+      <label for="code">6-digit code</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      <p class="row"><button class="primary" type="submit">Sign in</button><button class="link" type="button" id="restart">Use a different email</button></p>
+    </form>
+    <p class="error" id="err" role="alert"></p>
+  </div>
+</main>
+<script type="module" src="{% static 'js/login.js' %}"></script>
+{% endblock %}

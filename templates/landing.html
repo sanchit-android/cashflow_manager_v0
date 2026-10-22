@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Cashflow — know if this month adds to your savings or eats into them{% endblock %}
+{% block body %}
+<header class="top"><span class="brand">Cashflow</span><a href="/login/">Sign in</a></header>
+<main class="wrap landing">
+  <section class="hero">
+    <h1>Know whether this month adds to your savings or eats into them.</h1>
+    <p class="muted">Track spending, monthly commitments and big yearly bills in one sheet-like view. If you earn a salary, see how much more you can spend. If you live off savings, see how long they last.</p>
+    <p><a href="/login/"><button class="primary">Start free</button></a></p>
+  </section>
+  <section class="points">
+    <div class="card"><h3>Encrypted in your browser</h3><p>Your numbers are encrypted before they leave your device. We store scrambled data and never have your key, so we can't see your transactions or balances.</p></div>
+    <div class="card"><h3>Annual bills, planned</h3><p>School fees, insurance and taxes sit apart from day-to-day spending, so one big month doesn't hide the real trend.</p></div>
+    <div class="card"><h3>Works like a spreadsheet</h3><p>Edit rows inline. Enter each transaction, or one line per merchant for the month.</p></div>
+  </section>
+  <p class="muted"><a href="/privacy/">What we can and can't see</a></p>
+</main>
+{% endblock %}

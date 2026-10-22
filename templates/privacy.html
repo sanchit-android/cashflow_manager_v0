@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Privacy — what we can and can't see{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/">Cashflow</a><a href="/login/">Sign in</a></header>
+<main class="wrap narrow">
+  <h1>What we can and can't see</h1>
+  <div class="card">
+    <h3>We can't see</h3>
+    <p>Amounts, balances, account names, descriptions, categories, salary, or anything else you enter. It's encrypted in your browser with a key derived from your vault passphrase, which we never receive.</p>
+    <h3>We can see</h3>
+    <p>Your email address, when you sign in, how many records you have, each record's type (for example "transaction"), the month it belongs to, and when it changed.</p>
+    <h3>If you lose your passphrase</h3>
+    <p>Any one of your recovery keys unlocks your data. If you lose your passphrase and every recovery key, nobody can recover your data, including us.</p>
+    <h3>Deleting your data</h3>
+    <p>Settings → Delete account removes your account and every record immediately.</p>
+  </div>
+</main>
+{% endblock %}
