@@ -93,17 +93,25 @@ def request_code(request):
         return _err("Too many codes requested. Try again in an hour.", 429)
     code = f"{secrets.randbelow(1_000_000):06d}"
     LoginCode.objects.filter(email=email, used=False).update(used=True)
-    LoginCode.objects.create(
+    lc = LoginCode.objects.create(
         email=email, code_hash=_hash_code(email, code),
         expires_at=timezone.now() + timedelta(minutes=settings.LOGIN_CODE_TTL_MINUTES),
     )
+    try:
+        _send_code(email, code)
+    except Exception:
+        lc.delete()
+        return _err("We couldn't send the email just now. Try again in a minute.", 503)
+    return JsonResponse({"ok": True})
+
+
+def _send_code(email, code):
     send_mail(
         "Your sign-in code",
         f"Your sign-in code is {code}. It expires in {settings.LOGIN_CODE_TTL_MINUTES} minutes.\n\n"
         "If you didn't ask for this, ignore this email.",
         settings.DEFAULT_FROM_EMAIL, [email],
     )
-    return JsonResponse({"ok": True})
 
 
 @require_POST

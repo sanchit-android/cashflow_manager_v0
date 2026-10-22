@@ -81,13 +81,19 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
-if os.environ.get("EMAIL_HOST"):
+if os.environ.get("EMAIL_API_KEY"):
+    # HTTPS email API (works on Render free, which blocks SMTP)
+    EMAIL_BACKEND = "core.email_backend.HttpApiEmailBackend"
+    EMAIL_API_PROVIDER = os.environ.get("EMAIL_API_PROVIDER", "brevo")
+    EMAIL_API_KEY = os.environ["EMAIL_API_KEY"]
+elif os.environ.get("EMAIL_HOST"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.environ["EMAIL_HOST"]
     EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
     EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
     EMAIL_USE_TLS = True
+    EMAIL_TIMEOUT = 10
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@example.com")

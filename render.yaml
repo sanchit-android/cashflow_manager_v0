@@ -16,11 +16,9 @@ services:
         sync: false
       - key: DJANGO_ALLOWED_HOSTS
         sync: false
-      - key: EMAIL_HOST
-        sync: false
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
+      - key: EMAIL_API_PROVIDER
+        value: brevo
+      - key: EMAIL_API_KEY
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
