@@ -42,8 +42,8 @@ function showTip(tip, host, x, y, html) {
  * Stacked bars with an optional line, one y-axis (all in ₹).
  * { labels, stacks: [{name, color, values}], line: {name, color, values}, title }
  */
-export function stackedBars(host, { labels, stacks, line, title }) {
-  const H = 260, pad = { l: 56, r: 12, t: 12, b: 28 };
+export function stackedBars(host, { labels, stacks, line, title, height = 260 }) {
+  const H = height, pad = { l: 56, r: 12, t: 12, b: 28 };
   const { width, svg, tip } = frame(host, H);
   const totals = labels.map((_, i) => stacks.reduce((x, s) => x + Math.max(0, s.values[i] || 0), 0));
   const lineVals = line ? line.values : [];

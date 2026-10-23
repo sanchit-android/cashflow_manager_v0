@@ -569,7 +569,10 @@ function viewYear() {
       <div class="metric"><div class="label">Additional inflow</div><div class="value">${money(t.oneoff_inflow)}</div><div class="sub">one-off money in</div></div>
       <div class="metric"><div class="label">Invested</div><div class="value">${money(t.investments)}</div><div class="sub">not counted as spending</div></div>
     </div>
-    <div class="card"><h2>Spending against income, by month</h2><div id="ychart"></div></div>
+    <div class="card"><h2>Spending and money in, by month</h2>
+      <p class="muted">Two charts, each with its own scale so neither is flattened by the other. Months line up vertically.</p>
+      <h3 class="chart-h">Spending</h3><div id="ychart"></div>
+      <h3 class="chart-h">Money in</h3><div id="ichart"></div></div>
     <div class="card"><h2>Year at a glance</h2><p class="muted">Click a month to open it. Notes save as you type.</p>
       <div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh"></th>${ms.map((m) => `<th><a href="#" data-goto="${m.period}">${m.label}</a></th>`).join("")}<th>${year}</th></tr></thead><tbody>
       ${ROWS.map(([label, k, cls, hint]) => `<tr class="${cls || ""}"><th class="rowh" ${hint ? `title="${esc(hint)}"` : ""}>${label}</th>${ms.map((m) => {
@@ -594,7 +597,12 @@ function viewYear() {
     labels: ms.map((m) => m.label.slice(0, 3)),
     stacks: [{ name: "Monthly spending", color: "var(--series-1)", values: ms.map((m) => v(m, "monthly_expense")) },
              { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
-    line: { name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
+  });
+  stackedBars($("#ichart"), {
+    title: `Regular income and additional inflow, ${year}`, height: 190,
+    labels: ms.map((m) => m.label.slice(0, 3)),
+    stacks: [{ name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
+             { name: "Additional inflow", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_inflow")) }],
   });
 }
 

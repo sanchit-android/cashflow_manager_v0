@@ -319,3 +319,4 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
 .ml-del { color: var(--bad); }
 .more-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; padding: 14px 4px; font-size: 16px; min-height: 52px; }
 body.ml-open { overflow: hidden; }
+.chart-h { font-size: 14px; color: var(--muted); font-weight: 600; margin: 14px 0 4px; }
