@@ -80,3 +80,89 @@ table.sheet tfoot td { font-weight: 600; padding: 6px; }
 .google-btn { display: block; text-align: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600; }
 .google-btn:hover { background: var(--surface-2); }
 .or { text-align: center; margin: 4px 0 0; }
+
+/* ---------- more light themes ---------- */
+[data-theme="excel"] {
+  --bg: #f3f3f3; --surface: #ffffff; --surface-2: #f3f3f3; --text: #1f1f1f; --muted: #616161;
+  --border: #d4d4d4; --accent: #217346; --accent-text: #ffffff; --good: #217346; --bad: #c42b1c; --warn-bg: #fff4ce;
+  --font: "Aptos", "Segoe UI", Calibri, system-ui, sans-serif; --radius: 4px;
+  --grid-head: #f3f3f3; --grid-sel: #dcefe3; --grid-active: #217346;
+}
+[data-theme="sky"] {
+  --bg: #f3f7fc; --surface: #ffffff; --surface-2: #e8f0fa; --text: #14243a; --muted: #5a6b80;
+  --border: #d3deec; --accent: #1f6feb; --accent-text: #ffffff; --good: #1a7f37; --bad: #cf222e; --warn-bg: #fff8c5; --radius: 8px;
+}
+[data-theme="lavender"] {
+  --bg: #f7f5fc; --surface: #ffffff; --surface-2: #efebf9; --text: #231b3a; --muted: #6a6083;
+  --border: #ddd6ef; --accent: #6b4fbb; --accent-text: #ffffff; --good: #2f7d4f; --bad: #b4325b; --warn-bg: #fbf1d4; --radius: 10px;
+}
+[data-theme="sand"] {
+  --bg: #faf6ee; --surface: #fffdf8; --surface-2: #f2ebdc; --text: #2e2717; --muted: #7b6e55;
+  --border: #e4d9c3; --accent: #a0612a; --accent-text: #fffdf8; --good: #5b7a2a; --bad: #a3321b; --warn-bg: #fbecc2; --radius: 6px;
+}
+[data-theme="rose"] {
+  --bg: #fdf6f7; --surface: #ffffff; --surface-2: #f9e9ec; --text: #34191f; --muted: #82626a;
+  --border: #f0d6dc; --accent: #b4325b; --accent-text: #ffffff; --good: #2f7d4f; --bad: #b42318; --warn-bg: #fdf0cf; --radius: 12px;
+}
+
+/* ---------- spreadsheet ---------- */
+:root {
+  --grid-line: color-mix(in srgb, var(--border) 85%, var(--text) 15%);
+  --grid-head: var(--surface-2); --grid-head-text: var(--muted);
+  --grid-sel: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --grid-active: var(--accent);
+  --grid-font: "Aptos", "Segoe UI", Calibri, system-ui, sans-serif;
+}
+.xl { border: 1px solid var(--grid-line); background: var(--surface); font: 13px/1.3 var(--grid-font); outline: none; }
+.xl:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--grid-active) 35%, transparent); }
+.xl-fbar { display: flex; align-items: center; border-bottom: 1px solid var(--grid-line); background: var(--surface); }
+.xl-name { width: 76px; padding: 4px 8px; border-right: 1px solid var(--grid-line); font-size: 12px; color: var(--text); }
+.xl-fx { padding: 0 8px; color: var(--muted); font-style: italic; border-right: 1px solid var(--grid-line); }
+.xl-formula { flex: 1; border: 0 !important; border-radius: 0 !important; padding: 4px 8px !important; font: 13px var(--grid-font) !important; background: transparent !important; }
+.xl-scroll { overflow: auto; max-height: 62vh; scroll-padding: 44px 0 0 44px; }
+.xl-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: max-content; min-width: 100%; }
+.xl-table th, .xl-table td { border-right: 1px solid var(--grid-line); border-bottom: 1px solid var(--grid-line); height: 24px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
+.xl-table thead th { position: sticky; background: var(--grid-head); color: var(--grid-head-text); font-weight: 400; text-align: center; z-index: 2; }
+.xl-letters th { top: 0; height: 20px; font-size: 11px; }
+.xl-labels th { top: 20px; color: var(--text); font-weight: 600; text-align: left; }
+.xl-table .xl-rn, .xl-corner { position: sticky; left: 0; background: var(--grid-head); color: var(--grid-head-text); text-align: center; font-weight: 400; font-size: 11px; z-index: 1; }
+.xl-corner { z-index: 3 !important; }
+.xl-table th.xl-hl { background: color-mix(in srgb, var(--grid-active) 18%, var(--grid-head)); color: var(--grid-active); }
+.xl-table td { cursor: cell; user-select: none; }
+.xl-table td.xl-number { text-align: right; font-variant-numeric: tabular-nums; }
+.xl-table td.xl-ro { color: var(--muted); background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); }
+.xl-table td.xl-insel { background: var(--grid-sel); }
+.xl-table td.xl-active { outline: 2px solid var(--grid-active); outline-offset: -2px; background: var(--surface); }
+.xl-table td.xl-active.xl-insel { background: var(--surface); }
+.xl-table td.xl-delete { text-align: center; color: var(--muted); }
+.xl-table td.xl-delete.xl-active { color: var(--bad); }
+.xl-x { cursor: pointer; padding: 0 4px; }
+.xl-x:hover { color: var(--bad); }
+.xl-blank td.xl-delete .xl-x { visibility: hidden; }
+.xl-ghost { color: var(--muted); opacity: .55; }
+.xl-neg { color: var(--bad); }
+.xl-fmark { position: absolute; top: 0; left: 0; border-top: 6px solid var(--grid-active); border-right: 6px solid transparent; }
+.xl-editor { position: absolute; inset: 0; width: 100% !important; height: 100% !important; border: 2px solid var(--grid-active) !important; border-radius: 0 !important; padding: 0 4px !important; font: 13px var(--grid-font) !important; background: var(--surface) !important; z-index: 4; }
+td.xl-number .xl-editor { text-align: right; }
+.xl-list { position: absolute; inset: 0; z-index: 5; }
+.xl-list .xl-editor { position: absolute; inset: 0; }
+.xl-opts { position: absolute; top: 100%; left: -2px; min-width: 100%; max-height: 220px; overflow: auto; background: var(--surface); border: 1px solid var(--grid-line); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.xl-opt { padding: 4px 8px; white-space: nowrap; cursor: pointer; }
+.xl-opt.on, .xl-opt:hover { background: var(--grid-sel); }
+.xl-status { display: flex; justify-content: space-between; gap: 12px; padding: 3px 8px; border-top: 1px solid var(--grid-line); background: var(--grid-head); color: var(--grid-head-text); font-size: 12px; min-height: 22px; }
+.xl-status .xl-bad { color: var(--bad); }
+.xl-help { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.xl-help kbd { font: 11px var(--num); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; background: var(--surface); }
+
+/* account filter buttons */
+.acct-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+.acct-bar button { border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+.acct-bar button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.acct-bar button small { opacity: .8; margin-left: 6px; font-family: var(--num); }
+
+/* theme editor */
+.theme-editor { display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: center; }
+.theme-editor label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; color: var(--text); font-size: 14px; }
+.theme-editor input[type="color"] { width: 44px; height: 28px; padding: 0 2px; }
+.theme-editor input[type="range"] { width: 120px; }
+.theme-editor select { width: auto; }

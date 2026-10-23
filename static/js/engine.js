@@ -15,7 +15,7 @@
 
 export const NATURES = ["recurring", "variable", "oneoff", "annual", "emergency", "investment", "income", "income_oneoff"];
 export const CATEGORIES = ["Food", "Grocery", "Utilities", "Vehicle", "Health", "Travel", "Holiday", "Entertainment",
-  "Shopping", "Personal", "Household", "Education", "Insurance", "Rent", "Family", "Gift", "Emergency", "Other"];
+  "Shopping", "Transport", "Personal", "Household", "Education", "Insurance", "Rent", "Family", "Gift", "Emergency", "Other"];
 
 const num = (x) => (Number.isFinite(+x) ? +x : 0);
 const round = (x) => Math.round(x);

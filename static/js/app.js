@@ -3,6 +3,8 @@ import * as E from "./engine.js";
 import { api, device, store } from "./store.js";
 import { readXlsx } from "./xlsx.js";
 import * as I from "./importer.js";
+import { mountGrid } from "./grid.js";
+import { buildSuggest } from "./cells.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -14,20 +16,46 @@ const $ = (sel) => root.querySelector(sel);
 const $$ = (sel) => [...root.querySelectorAll(sel)];
 
 const THEMES = {
-  paper: ["Paper", "#f7f6f2", "#2457c5"], night: ["Night", "#121417", "#7aa7ff"],
-  chai: ["Chai", "#f6efe4", "#9a4a12"], mint: ["Mint", "#eef6f3", "#0f7a5c"], ink: ["Ink", "#ffffff", "#000000"],
+  excel: ["Excel", "#ffffff", "#217346"], paper: ["Paper", "#f7f6f2", "#2457c5"], sky: ["Sky", "#f3f7fc", "#1f6feb"],
+  lavender: ["Lavender", "#f7f5fc", "#6b4fbb"], sand: ["Sand", "#faf6ee", "#a0612a"], rose: ["Rose", "#fdf6f7", "#b4325b"],
+  mint: ["Mint", "#eef6f3", "#0f7a5c"], chai: ["Chai", "#f6efe4", "#9a4a12"], ink: ["Ink", "#ffffff", "#000000"], night: ["Night", "#121417", "#7aa7ff"],
 };
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem("theme", t); } catch (e) { /* ignore */ }
+// Tokens a custom theme can set, with labels for the editor.
+const THEME_VARS = [["--bg", "Page background"], ["--surface", "Cards and cells"], ["--surface-2", "Panels"], ["--text", "Text"], ["--muted", "Secondary text"],
+  ["--border", "Borders"], ["--accent", "Accent"], ["--good", "Positive numbers"], ["--bad", "Negative numbers"], ["--grid-head", "Sheet headers"],
+  ["--grid-line", "Gridlines"], ["--grid-sel", "Selected cells"]];
+const FONTS = { system: ["System", 'system-ui, -apple-system, "Segoe UI", sans-serif'], office: ["Office", '"Aptos", "Segoe UI", Calibri, sans-serif'],
+  serif: ["Serif", 'Georgia, "Iowan Old Style", serif'], rounded: ["Rounded", 'ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif'] };
+
+function themeStyle(custom) {
+  const vars = { ...(custom.vars || {}) };
+  if (custom.font && FONTS[custom.font]) vars["--font"] = vars["--grid-font"] = FONTS[custom.font][1];
+  if (custom.radius !== undefined) vars["--radius"] = custom.radius + "px";
+  if (vars["--accent"]) vars["--grid-active"] = vars["--accent"];
+  return vars;
 }
-const themePicker = (current) => `<div class="themes">${Object.entries(THEMES).map(([k, [name, bg, ac]]) =>
+function applyTheme(t, custom) {
+  const de = document.documentElement;
+  for (const k of [...THEME_VARS.map(([k]) => k), "--font", "--grid-font", "--radius", "--grid-active"]) de.style.removeProperty(k);
+  if (t === "custom" && custom) {
+    de.dataset.theme = custom.base || "excel";
+    const vars = themeStyle(custom);
+    for (const [k, v] of Object.entries(vars)) de.style.setProperty(k, v);
+    try { localStorage.setItem("theme", "custom"); localStorage.setItem("themeVars", JSON.stringify({ base: custom.base, vars })); } catch (e) { /* ignore */ }
+  } else {
+    de.dataset.theme = t;
+    try { localStorage.setItem("theme", t); localStorage.removeItem("themeVars"); } catch (e) { /* ignore */ }
+  }
+}
+const themePicker = (current, custom) => `<div class="themes">${Object.entries(THEMES).map(([k, [name, bg, ac]]) =>
   `<button type="button" class="theme-swatch ${k === current ? "on" : ""}" data-theme-pick="${k}">
-     <span style="background:${bg};border:1px solid #888"></span><span style="background:${ac}"></span> ${name}</button>`).join("")}</div>`;
-function wireThemePicker(onPick) {
+     <span style="background:${bg};border:1px solid #888"></span><span style="background:${ac}"></span> ${name}</button>`).join("")}
+  ${custom ? `<button type="button" class="theme-swatch ${current === "custom" ? "on" : ""}" data-theme-pick="custom">
+     <span style="background:${esc((custom.vars || {})["--bg"] || "#fff")};border:1px solid #888"></span><span style="background:${esc((custom.vars || {})["--accent"] || "#888")}"></span> My theme</button>` : ""}</div>`;
+function wireThemePicker(onPick, custom) {
   $$("[data-theme-pick]").forEach((b) => b.addEventListener("click", () => {
     $$("[data-theme-pick]").forEach((x) => x.classList.toggle("on", x === b));
-    applyTheme(b.dataset.themePick); onPick && onPick(b.dataset.themePick);
+    applyTheme(b.dataset.themePick, custom); onPick && onPick(b.dataset.themePick);
   }));
 }
 function showError(e) { const el = $("#err"); if (el) el.textContent = e.message || String(e); else alert(e.message || e); }
@@ -145,14 +173,14 @@ const settingsRec = () => store.ofType("settings")[0];
 function afterUnlock() {
   const s = settingsRec();
   if (!s) return onboarding();
-  if (s.data.theme) applyTheme(s.data.theme);
+  if (s.data.theme) applyTheme(s.data.theme, s.data.custom_theme);
   S.tab = "month";
   S.period = E.periodOf(today(), s.data);
   renderTabs(); render();
 }
 
 function onboarding() {
-  let theme = document.documentElement.dataset.theme || "paper";
+  let theme = document.documentElement.dataset.theme || "excel";
   html(`<div class="narrow card">
     <h1>Set up your month</h1>
     <label>Pick a look</label>${themePicker(theme)}
@@ -198,169 +226,197 @@ function render() {
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 
-// ================= editable sheet helper =================
-// cols: [{ key, label, type: text|number|date|select, options: [[value,label]], num }]
-function sheet({ id, rows, cols, type, defaults = {}, totalKey, extra }) {
-  const cell = (c, v) => {
-    if (c.type === "select") return `<select data-k="${c.key}">${c.options.map(([o, l]) => `<option value="${esc(o)}" ${String(o) === String(v ?? "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
-    return `<input data-k="${c.key}" type="${c.type || "text"}" value="${esc(v ?? "")}" ${c.type === "number" ? 'step="any"' : ""}>`;
-  };
-  const total = totalKey ? rows.reduce((x, r) => x + (+r[totalKey] || 0), 0) : null;
-  return `<div class="sheet-wrap"><table class="sheet" id="${id}" data-type="${type}" data-defaults='${esc(JSON.stringify(defaults))}'>
-    <thead><tr>${cols.map((c) => `<th>${esc(c.label)}</th>`).join("")}${extra ? `<th>${esc(extra.label)}</th>` : ""}<th></th></tr></thead>
-    <tbody>${rows.map((r) => `<tr data-id="${r.id}">${cols.map((c) => `<td class="${c.num ? "num" : ""}">${cell(c, r[c.key])}</td>`).join("")}
-      ${extra ? `<td class="static ${extra.num ? "num" : ""}">${extra.render(r)}</td>` : ""}<td><button class="link" data-del title="Delete row" aria-label="Delete row">✕</button></td></tr>`).join("")}
-      <tr data-id="" class="new">${cols.map((c) => `<td class="${c.num ? "num" : ""}">${cell(c, defaults[c.key])}</td>`).join("")}${extra ? "<td></td>" : ""}<td></td></tr></tbody>
-    ${totalKey ? `<tfoot><tr><td colspan="${cols.findIndex((c) => c.key === totalKey)}">Total</td><td class="num">${inr(total)}</td></tr></tfoot>` : ""}
-  </table></div>`;
-}
-// Spreadsheet behaviour: existing rows save on every change without redrawing (so Tab keeps working);
-// the new row saves once focus leaves it; totals redraw when focus leaves the table.
-function wireSheets(mapRow = (d) => d) {
-  $$("table.sheet").forEach((t) => {
-    const type = t.dataset.type, defaults = JSON.parse(t.dataset.defaults || "{}");
-    let dirty = false, saving = Promise.resolve();
-    const readRow = (tr) => {
-      const data = { ...defaults };
-      if (tr.dataset.id) Object.assign(data, store.rows.get(tr.dataset.id).data);
-      tr.querySelectorAll("[data-k]").forEach((el) => { data[el.dataset.k] = el.type === "number" ? (el.value === "" ? null : +el.value) : el.value; });
-      return mapRow(data, type);
-    };
-    const touched = (tr) => [...tr.querySelectorAll("[data-k]")].some((el) =>
-      el.tagName === "INPUT" && el.type !== "date" && el.value !== "" && String(defaults[el.dataset.k] ?? "") !== el.value);
-    t.addEventListener("change", (e) => {
-      const tr = e.target.closest("tr"); if (!tr || !tr.dataset.id) return;
-      const data = readRow(tr);
-      saving = saving.then(() => store.save({ id: tr.dataset.id, type, data })).then(() => { dirty = true; }, (x) => { alert(x.message); render(); });
-    });
-    t.addEventListener("focusout", async (e) => {
-      const tr = e.target.closest("tr");
-      const leavingRow = !tr || !tr.contains(e.relatedTarget);
-      const leavingTable = !t.contains(e.relatedTarget);
-      if (tr && tr.classList.contains("new") && leavingRow && touched(tr)) {
-        const data = readRow(tr);
-        await saving;
-        try { await store.save({ type, data }); } catch (x) { alert(x.message); }
-        render();
-        if (!leavingTable) { const n = document.querySelector(`#${t.id} tr.new [data-k]`); if (n) n.focus(); }
-        return;
-      }
-      if (leavingTable && dirty) { await saving; dirty = false; render(); }
-    });
-    t.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter" || !e.target.closest("tr.new")) return;
-      e.preventDefault();
-      // Moving focus out of the row triggers the save; the redraw then refocuses the new row.
-      const other = t.querySelector("tbody tr:not(.new) [data-k]");
-      if (other) other.focus(); else e.target.blur();
-    });
-    t.addEventListener("click", async (e) => {
-      if (!e.target.matches("[data-del]")) return;
-      const id = e.target.closest("tr").dataset.id;
-      if (id && confirm("Delete this row?")) { await store.remove(id); render(); }
-    });
-  });
-}
-
 const accountOptions = (filter = () => true) => store.ofType("account").filter((a) => filter(a.data)).map((a) => [a.id, a.data.name]);
 const opts = (arr) => arr.map((x) => [x, x]);
 const NATURE_LABELS = [["variable", "Day to day"], ["recurring", "Monthly fixed"], ["annual", "Annual"], ["oneoff", "One-off"], ["emergency", "Emergency"], ["investment", "Investment"], ["income", "Regular income"], ["income_oneoff", "One-off income"]];
+const rowsOf = (type, filter = () => true) => store.ofType(type).filter((r) => filter(r.data)).map((r) => ({ id: r.id, ...r.data }));
+const saveRec = (type) => async (id, data) => (await store.save({ id: id || undefined, type, period: data.period || "", data }))[0];
+const removeRec = async (id) => { await store.remove(id); };
+
+// Learn descriptions from every transaction; rebuilt only when data changes.
+let suggestCache = null, suggestKey = "";
+const suggest = {
+  get() {
+    const key = store.rows.size + ":" + store.lastSync + ":" + saves;
+    if (key !== suggestKey) { suggestCache = buildSuggest(store.ofType("transaction").map((r) => r.data)); suggestKey = key; }
+    return suggestCache;
+  },
+  complete: (p) => suggest.get().complete(p),
+  infer: (d) => suggest.get().infer(d),
+};
+let saves = 0;
+
+const SHORTCUTS = `<p class="xl-help">Type to replace a cell · <kbd>F2</kbd> edit · <kbd>Enter</kbd>/<kbd>Tab</kbd>/arrows move · <kbd>Enter</kbd> on ✕ deletes the row ·
+  <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy &amp; paste (from Excel too) · <kbd>Ctrl</kbd>+<kbd>D</kbd> fill down ·
+  <kbd>Ctrl</kbd>+<kbd>;</kbd> today · <kbd>Del</kbd> clear · <kbd>Alt</kbd>+<kbd>↓</kbd> open list · amounts accept <kbd>=120+340</kbd></p>`;
 
 // ================= Month =================
+function selectedAccount() {
+  const accts = store.ofType("account");
+  if (!S.account || !store.rows.get(S.account) || store.rows.get(S.account).deleted) {
+    let saved = null; try { saved = localStorage.getItem("account"); } catch (e) { /* ignore */ }
+    const def = accts.find((a) => a.id === saved) || accts.find((a) => a.data.is_default_spending) || accts[0];
+    S.account = def ? def.id : null;
+  }
+  return S.account;
+}
+
 function viewMonth() {
-  const d = db(), s = E.summarize(d, S.period), settings = settingsRec().data;
-  const v = s.verdict;
+  const settings = settingsRec().data;
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
+  html(`
+    <div class="row"><button id="prev" aria-label="Previous month">←</button><h1 style="margin:0">${esc(label)}${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}</h1><button id="next" aria-label="Next month">→</button></div>
+    <div id="summary" style="margin-top:12px"></div>
+    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="txgrid"></div>${SHORTCUTS}</div>
+    <div id="cats"></div>`);
+  $("#prev").onclick = () => { S.period = E.shiftPeriod(S.period, -1); render(); };
+  $("#next").onclick = () => { S.period = E.shiftPeriod(S.period, 1); render(); };
+  monthSummary();
+  mountTxGrid();
+}
+
+function accountBar() {
+  const sel = selectedAccount(), d = db();
+  const txns = d.transaction.filter((t) => t.period === S.period);
+  const accts = store.ofType("account").filter((a) => a.data.role !== "long_term" && a.data.role !== "receivable");
+  $("#acctbar").innerHTML = accts.map((a) => {
+    const n = txns.filter((t) => t.account_id === a.id || t.to_account_id === a.id).length;
+    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}" aria-pressed="${a.id === sel}">${esc(a.data.name)}<small>${n || ""}</small></button>`;
+  }).join("") || '<span class="muted">Add an account on the Accounts tab first.</span>';
+  $$("[data-acct]").forEach((b) => (b.onclick = () => {
+    S.account = b.dataset.acct; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
+    accountBar(); mountTxGrid();
+  }));
+}
+
+function mountTxGrid() {
+  accountBar();
+  const sel = selectedAccount(), host = $("#txgrid");
+  if (!sel) { host.innerHTML = ""; return; }
+  const settings = settingsRec().data, d = db();
+  const incoming = (t) => t.direction === "transfer" && t.to_account_id === sel && t.account_id !== sel;
+  const rows = d.transaction.filter((t) => t.period === S.period && (t.account_id === sel || t.to_account_id === sel))
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+    .map(({ period, ...t }) => t);
+  const name = (id) => (store.rows.get(id)?.data?.name) || "";
+  const grid = mountGrid(host, {
+    label: `Transactions for ${name(sel)}`,
+    rows, blankRows: 10, period: () => S.period, suggest,
+    newRow: () => ({ date: today().slice(0, 7) === S.period ? today() : S.period + "-01", account_id: sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
+    meaningful: (x) => !!(String(x.description || "").trim() || (x.amount !== null && x.amount !== undefined && x.amount !== "")),
+    columns: [
+      { key: "date", label: "Date", type: "date", width: 96 },
+      { key: "description", label: "Description", type: "text", width: 210, autocomplete: true },
+      { key: "direction", label: "Type", type: "select", width: 96, options: () => [["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]],
+        readonlyIf: incoming, display: (x) => (incoming(x) ? "Transfer in" : null) },
+      { key: "to_account_id", label: "To / from", type: "select", width: 140, options: () => [["", ""], ...accountOptions().filter(([v]) => v !== sel)],
+        readonlyIf: incoming, display: (x) => (incoming(x) ? "from " + name(x.account_id) : x.direction === "transfer" ? null : "") },
+      { key: "category", label: "Category", type: "select", width: 116, options: () => opts(E.CATEGORIES) },
+      { key: "nature", label: "Kind", type: "select", width: 124, options: () => NATURE_LABELS },
+      { key: "amount", label: "Amount", type: "number", width: 112 },
+    ],
+    async save(id, x) {
+      const data = { ...x };
+      if (data.direction === "in" && data.nature === "variable") data.nature = "income";
+      if (data.direction !== "in" && /^income/.test(data.nature || "")) data.nature = "variable";
+      if (data.direction !== "transfer") data.to_account_id = "";
+      data.period = E.periodOf(data.date, settings);
+      const newId = await saveRec("transaction")(id, data);
+      saves++;
+      if (data.nature !== x.nature || data.to_account_id !== x.to_account_id) grid.refreshRow(newId, data);
+      return newId;
+    },
+    remove: removeRec,
+    onChange: () => { monthSummary(); accountBar(); },
+  });
+  S.grid = grid;
+}
+
+function monthSummary() {
+  const d = db(), s = E.summarize(d, S.period), v = s.verdict;
+  const r = E.runway(d, S.period);
+  const pending = s.commitments.filter((c) => !c.paid);
   const verdict = v.kind === "ahead"
     ? `<span class="big good">${inr(v.amount)} ahead</span>Income covers this month's spending. ${s.commitments_pending ? `After ${inr(s.commitments_pending)} of commitments still due, you can spend up to <strong>${inr(Math.max(0, s.headroom))}</strong> more without touching savings.` : `You can spend up to <strong>${inr(v.amount)}</strong> more without touching savings.`}`
     : `<span class="big bad">${inr(v.amount)} from savings</span>This month spends more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
-  const r = E.runway(d, S.period);
-  const pending = s.commitments.filter((c) => !c.paid);
-  const defaultAcc = (store.ofType("account").find((a) => a.data.is_default_spending) || {}).id || "";
-
-  const txRows = d.transaction.filter((t) => t.period === S.period).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  html(`
-    <div class="row"><button id="prev" aria-label="Previous month">←</button><h1 style="margin:0">${esc(label)}${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}</h1><button id="next" aria-label="Next month">→</button></div>
-    <div class="card verdict" style="margin-top:12px">${verdict}
+  $("#summary").innerHTML = `
+    <div class="card verdict">${verdict}
       ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, liquid savings of ${inr(r.savings)} last about ${r.months} months.</p>` : ""}</div>
     <div class="grid">
       ${[["Opening", s.opening], ["Regular income", s.regular_inflow], ["Monthly spending", s.monthly_expense], ["Annual items", s.annual_expense],
         ["Investments", s.investments], ["One-off income", s.oneoff_inflow], ["Closing", s.closing]].map(([l, n]) => `<div class="card metric"><div class="label">${l}</div><div class="value">${inr(n)}</div></div>`).join("")}
     </div>
-    ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}
-    <div class="card"><h2>Transactions</h2>
-      <p class="muted">Type in the last row and press Enter to add. Use one row per transaction, or one row per merchant for the month.</p>
-      ${sheet({ id: "tx", type: "transaction", rows: txRows, totalKey: null,
-        defaults: { date: today().slice(0, 7) === S.period ? today() : S.period + "-01", account_id: defaultAcc, direction: "out", nature: "variable", category: "Other" },
-        cols: [
-          { key: "date", label: "Date", type: "date" },
-          { key: "description", label: "Description" },
-          { key: "account_id", label: "Account", type: "select", options: accountOptions() },
-          { key: "direction", label: "Type", type: "select", options: [["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]] },
-          { key: "to_account_id", label: "To (transfers)", type: "select", options: [["", ""], ...accountOptions()] },
-          { key: "category", label: "Category", type: "select", options: opts(E.CATEGORIES) },
-          { key: "nature", label: "Kind", type: "select", options: NATURE_LABELS },
-          { key: "amount", label: "Amount", type: "number", num: true },
-        ] })}
-    </div>
-    ${Object.keys(s.by_category).length ? `<div class="card"><h2>Spending by category</h2>${Object.entries(s.by_category).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="row"><span>${esc(k)}</span><span class="spacer"></span><span class="num">${inr(n)}</span></div>`).join("")}</div>` : ""}`);
-  $("#prev").onclick = () => { S.period = E.shiftPeriod(S.period, -1); render(); };
-  $("#next").onclick = () => { S.period = E.shiftPeriod(S.period, 1); render(); };
+    ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
+  $("#cats").innerHTML = Object.keys(s.by_category).length ? `<div class="card"><h2>Spending by category</h2>${Object.entries(s.by_category).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="row"><span>${esc(k)}</span><span class="spacer"></span><span class="num">${inr(n)}</span></div>`).join("")}</div>` : "";
   $$("[data-pay]").forEach((b) => (b.onclick = async () => {
     const c = store.rows.get(b.dataset.pay).data;
-    await store.save({ type: "transaction", data: { date: S.period + "-" + String(Math.min(c.day || 1, 28)).padStart(2, "0"), description: c.label, account_id: c.account_id || defaultAcc, direction: "out", category: c.category || "Other", nature: "recurring", amount: +c.amount, recurring_id: b.dataset.pay } });
-    render();
+    const acct = c.account_id || (mainAccount() || {}).id;
+    await store.save({ type: "transaction", period: S.period, data: { date: S.period + "-" + String(Math.min(c.day || 1, 28)).padStart(2, "0"), period: S.period, description: c.label, account_id: acct, direction: "out", category: c.category || "Other", nature: "recurring", amount: +c.amount, recurring_id: b.dataset.pay } });
+    saves++; monthSummary(); mountTxGrid();
   }));
-  wireSheets((data) => ({ ...data, period: E.periodOf(data.date, settingsRec().data) }));
 }
 
 // ================= Plan =================
 function viewPlan() {
-  const d = db(), year = +S.period.slice(0, 4);
-  const annual = E.annualStatus(d, year);
-  const up = E.upcoming(d, S.period, 3);
+  const year = +S.period.slice(0, 4);
   html(`
-    <div class="card"><h2>Monthly commitments</h2><p class="muted">Rent, help, tuition, family transfers. These show up every month as "still to pay" until marked paid.</p>
-      ${sheet({ id: "cm", type: "commitment", rows: store.ofType("commitment").map((r) => ({ id: r.id, ...r.data })), totalKey: "amount",
-        defaults: { category: "Household" },
-        cols: [{ key: "label", label: "What" }, { key: "category", label: "Category", type: "select", options: opts(E.CATEGORIES) },
-          { key: "day", label: "Day", type: "number" }, { key: "amount", label: "Amount", type: "number", num: true }] })}</div>
-    <div class="card"><h2>Annual items for ${year}</h2><p class="muted">School fees, insurance, taxes. Record payments below so paid and unpaid stay accurate.</p>
-      ${sheet({ id: "an", type: "annual", rows: annual, totalKey: "total", defaults: { year, mode: "card" },
-        extra: { label: "Paid / unpaid", num: true, render: (r) => `${inr(r.paid)} / <span class="${r.unpaid ? "bad" : "good"}">${inr(r.unpaid)}</span>` },
-        cols: [{ key: "label", label: "What" }, { key: "due_month", label: "Due month (1-12)", type: "number" },
-          { key: "mode", label: "Paid by", type: "select", options: [["card", "Card"], ["cash", "Bank / cash"]] },
-          { key: "total", label: "Total", type: "number", num: true }] })}
-      ${annual.some((a) => a.unpaid) ? `<h3 style="margin-top:16px">Record a payment</h3><div class="row"><select id="ap" style="width:auto">${annual.filter((a) => a.unpaid).map((a) => `<option value="${a.id}">${esc(a.label)} (${inr(a.unpaid)} left)</option>`).join("")}</select>
-        <input id="apamt" type="number" placeholder="Amount" style="width:140px"><select id="apacc" style="width:auto">${accountOptions().map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select><button id="apgo">Add payment</button></div>` : ""}
-      <p class="muted">Set aside each month for the rest of the year: <strong>${inr(annual.reduce((x, a) => x + a.unpaid, 0) / Math.max(1, 13 - (+S.period.slice(5))))}</strong></p></div>
-    <div class="card"><h2>Regular income</h2>
-      ${sheet({ id: "in", type: "income", rows: store.ofType("income").map((r) => ({ id: r.id, ...r.data })), totalKey: "amount", defaults: { kind: "other" },
-        cols: [{ key: "label", label: "Source" }, { key: "kind", label: "Kind", type: "select", options: [["salary", "Salary"], ["rent", "Rent"], ["interest", "Interest"], ["other", "Other"]] },
-          { key: "day", label: "Usual day", type: "number" }, { key: "amount", label: "Amount", type: "number", num: true }] })}</div>
-    <div class="card"><h2>Coming up (next 3 months)</h2>${up.length ? up.map((u) => `<div class="row"><span class="muted" style="width:80px">${u.period}</span><span>${esc(u.label)}</span><span class="muted">${u.kind}</span><span class="spacer"></span><span class="num">${inr(u.amount)}</span></div>`).join("") : '<p class="muted">Nothing due.</p>'}</div>`);
-  wireSheets();
+    <div class="card"><h2>Monthly commitments</h2><p class="muted">Rent, help, tuition, family transfers. They show as "still to pay" each month until marked paid.</p><div id="g-cm"></div></div>
+    <div class="card"><h2>Annual items for ${year}</h2><p class="muted">School fees, insurance, taxes.</p><div id="g-an"></div><div id="annsum"></div></div>
+    <div class="card"><h2>Regular income</h2><div id="g-in"></div></div>
+    <div class="card"><h2>Coming up (next 3 months)</h2><div id="upcoming"></div></div>`);
+  const common = { blankRows: 3, remove: removeRec, period: () => S.period, onChange: planSummary };
+  mountGrid($("#g-cm"), { ...common, label: "Monthly commitments", rows: rowsOf("commitment"), save: saveRec("commitment"),
+    newRow: () => ({ category: "Household" }), meaningful: (x) => !!String(x.label || "").trim(),
+    columns: [{ key: "label", label: "What", type: "text", width: 240 }, { key: "category", label: "Category", type: "select", width: 130, options: () => opts(E.CATEGORIES) },
+      { key: "day", label: "Day", type: "number", width: 60 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
+  mountGrid($("#g-an"), { ...common, label: "Annual items", rows: rowsOf("annual", (x) => +x.year === year), save: saveRec("annual"),
+    newRow: () => ({ year, mode: "card" }), meaningful: (x) => !!String(x.label || "").trim(),
+    columns: [{ key: "label", label: "What", type: "text", width: 220 }, { key: "due_month", label: "Due month", type: "number", width: 84 },
+      { key: "mode", label: "Paid by", type: "select", width: 110, options: () => [["card", "Card"], ["cash", "Bank / cash"]] },
+      { key: "total", label: "Total", type: "number", width: 110 },
+      { key: "_status", label: "Paid / unpaid", type: "readonly", width: 170, render: (row) => {
+        const a = E.annualStatus(db(), year).find((x) => x.id === row.id); if (!a) return "";
+        return `${inr(a.paid)} / <span class="${a.unpaid ? "bad" : "good"}">${inr(a.unpaid)}</span>`; } }] });
+  mountGrid($("#g-in"), { ...common, label: "Regular income", rows: rowsOf("income"), save: saveRec("income"),
+    newRow: () => ({ kind: "other" }), meaningful: (x) => !!String(x.label || "").trim(),
+    columns: [{ key: "label", label: "Source", type: "text", width: 220 }, { key: "kind", label: "Kind", type: "select", width: 110, options: () => [["salary", "Salary"], ["rent", "Rent"], ["interest", "Interest"], ["other", "Other"]] },
+      { key: "day", label: "Usual day", type: "number", width: 84 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
+  planSummary();
+}
+
+function planSummary() {
+  const d = db(), year = +S.period.slice(0, 4), annual = E.annualStatus(d, year), up = E.upcoming(d, S.period, 3);
+  $("#annsum").innerHTML = `
+    ${annual.some((a) => a.unpaid) ? `<h3 style="margin-top:16px">Record a payment</h3><div class="row"><select id="ap" style="width:auto">${annual.filter((a) => a.unpaid).map((a) => `<option value="${a.id}">${esc(a.label)} (${inr(a.unpaid)} left)</option>`).join("")}</select>
+      <input id="apamt" type="number" placeholder="Amount" style="width:140px"><select id="apacc" style="width:auto">${accountOptions().map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select><button id="apgo">Add payment</button></div>` : ""}
+    <p class="muted">Set aside each month for the rest of the year: <strong>${inr(annual.reduce((x, a) => x + a.unpaid, 0) / Math.max(1, 13 - (+S.period.slice(5))))}</strong></p>`;
+  $("#upcoming").innerHTML = up.length ? up.map((u) => `<div class="row"><span class="muted" style="width:80px">${u.period}</span><span>${esc(u.label)}</span><span class="muted">${u.kind}</span><span class="spacer"></span><span class="num">${inr(u.amount)}</span></div>`).join("") : '<p class="muted">Nothing due.</p>';
   if ($("#apgo")) $("#apgo").onclick = async () => {
     const a = store.rows.get($("#ap").value).data, amt = +$("#apamt").value;
     if (!amt) return alert("Enter an amount.");
-    await store.save({ type: "transaction", data: { date: today(), period: E.periodOf(today(), settingsRec().data), description: a.label, account_id: $("#apacc").value, direction: "out", category: "Other", nature: "annual", amount: amt, annual_id: $("#ap").value } });
-    render();
+    const p = E.periodOf(today(), settingsRec().data);
+    await store.save({ type: "transaction", period: p, data: { date: today(), period: p, description: a.label, account_id: $("#apacc").value, direction: "out", category: "Other", nature: "annual", amount: amt, annual_id: $("#ap").value } });
+    saves++; render();
   };
 }
 
 // ================= Accounts =================
 function viewAccounts() {
-  const rows = store.ofType("account").map((r) => ({ id: r.id, ...r.data }));
   html(`<div class="card"><h2>Accounts</h2>
     <p class="muted">Spending accounts make up your monthly opening and closing balance. Cards collect spending until you pay the bill (a transfer from a spending account). Savings and investments count towards runway.</p>
-    ${sheet({ id: "ac", type: "account", rows, defaults: { role: "spending", kind: "bank", opening_period: S.period },
-      cols: [{ key: "name", label: "Name" },
-        { key: "role", label: "Role", type: "select", options: [["spending", "Spending"], ["card", "Credit card"], ["savings", "Savings"], ["investment", "Investment"], ["long_term", "Long-term (PPF, property)"], ["receivable", "Money lent"]] },
-        { key: "opening_balance", label: "Opening balance (spending)", type: "number", num: true },
-        { key: "opening_period", label: "From month (YYYY-MM)" },
-        { key: "balance", label: "Current balance (savings)", type: "number", num: true }] })}</div>`);
-  wireSheets();
+    <div id="g-ac"></div></div>`);
+  mountGrid($("#g-ac"), { label: "Accounts", blankRows: 3, rows: rowsOf("account"), save: saveRec("account"), period: () => S.period,
+    newRow: () => ({ role: "spending", kind: "bank", opening_period: S.period }), meaningful: (x) => !!String(x.name || "").trim(),
+    async remove(id) {
+      if (store.ofType("transaction").some((t) => t.data.account_id === id || t.data.to_account_id === id)) throw new Error("This account has transactions. Delete or move them first.");
+      await store.remove(id);
+    },
+    columns: [{ key: "name", label: "Name", type: "text", width: 200 },
+      { key: "role", label: "Role", type: "select", width: 170, options: () => [["spending", "Spending"], ["card", "Credit card"], ["savings", "Savings"], ["investment", "Investment"], ["long_term", "Long-term (PPF, property)"], ["receivable", "Money lent"]] },
+      { key: "opening_balance", label: "Opening balance", type: "number", width: 130 },
+      { key: "opening_period", label: "From (YYYY-MM)", type: "text", width: 120 },
+      { key: "balance", label: "Current balance (savings)", type: "number", width: 170 }] });
 }
 
 // ================= Savings =================
@@ -383,7 +439,8 @@ function viewSettings() {
   const s = settingsRec();
   const keys = store.vault.keys;
   html(`
-    <div class="card"><h2>Look</h2>${themePicker(s.data.theme || "paper")}</div>
+    <div class="card"><h2>Look</h2>${themePicker(s.data.theme || "paper", s.data.custom_theme)}
+      <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div></div>
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
       <label for="cd">Salary day</label><input id="cd" type="number" min="1" max="31" style="max-width:120px" value="${esc(s.data.cycle_day || "")}">
@@ -401,7 +458,8 @@ function viewSettings() {
       <p><button id="delacct" style="color:var(--bad)">Delete account and all data</button></p></div>
     <p class="error" id="err" role="alert"></p>`);
   $("#pm").value = s.data.period_mode || "calendar";
-  wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...s.data, theme: t } }); });
+  wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: t } }); }, s.data.custom_theme);
+  $("#customize").onclick = () => themeEditor();
   $("#savepm").onclick = async () => {
     const day = +$("#cd").value || null;
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));
@@ -445,6 +503,48 @@ function viewSettings() {
     await api("/api/account/delete", { method: "POST" });
     location.href = "/";
   };
+}
+
+// ================= custom theme editor =================
+function themeEditor() {
+  const s = settingsRec();
+  const start = s.data.custom_theme || { base: s.data.theme && s.data.theme !== "custom" ? s.data.theme : "excel", font: "office", radius: 4, vars: {} };
+  const draft = JSON.parse(JSON.stringify(start));
+  const current = (k) => draft.vars[k] || resolveColor(k);
+  $("#themeed").innerHTML = `
+    <h3>My theme</h3>
+    <div class="theme-editor">
+      <label>Start from <select id="te-base">${Object.entries(THEMES).map(([k, [n]]) => `<option value="${k}" ${k === draft.base ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label>Font <select id="te-font">${Object.entries(FONTS).map(([k, [n]]) => `<option value="${k}" ${k === draft.font ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label>Corner roundness <input id="te-radius" type="range" min="0" max="16" step="1" value="${draft.radius ?? 6}"></label>
+      ${THEME_VARS.map(([k, l]) => `<label>${l} <input type="color" data-var="${k}" value="${current(k)}"></label>`).join("")}
+    </div>
+    <p class="row"><button class="primary" id="te-save">Save my theme</button><button id="te-reset">Reset colours to "${esc(THEMES[draft.base][0])}"</button><button id="te-cancel">Cancel</button></p>`;
+  const preview = () => applyTheme("custom", draft);
+  preview();
+  $("#te-base").onchange = () => { draft.base = $("#te-base").value; draft.vars = {}; applyTheme("custom", draft); themeEditorRefresh(draft); };
+  $("#te-font").onchange = () => { draft.font = $("#te-font").value; preview(); };
+  $("#te-radius").oninput = () => { draft.radius = +$("#te-radius").value; preview(); };
+  $$("[data-var]").forEach((i) => (i.oninput = () => { draft.vars[i.dataset.var] = i.value; preview(); }));
+  $("#te-reset").onclick = () => { draft.vars = {}; applyTheme("custom", draft); themeEditorRefresh(draft); };
+  $("#te-cancel").onclick = () => { applyTheme(s.data.theme || "excel", s.data.custom_theme); render(); };
+  $("#te-save").onclick = async () => {
+    await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: "custom", custom_theme: draft } });
+    applyTheme("custom", draft); render();
+  };
+}
+/** The colour a token currently resolves to, as #rrggbb (handles var() and color-mix()). */
+function resolveColor(token) {
+  const el = document.createElement("span");
+  el.style.color = `var(${token})`; document.body.appendChild(el);
+  const rgb = getComputedStyle(el).color; el.remove();
+  const m = rgb.match(/[\d.]+/g) || [0, 0, 0];
+  if (/^color\(srgb/.test(rgb)) return "#" + m.slice(0, 3).map((x) => Math.round(+x * 255).toString(16).padStart(2, "0")).join("");
+  return "#" + m.slice(0, 3).map((x) => Math.round(+x).toString(16).padStart(2, "0")).join("");
+}
+function themeEditorRefresh(draft) {
+  $$("[data-var]").forEach((i) => { i.value = draft.vars[i.dataset.var] || resolveColor(i.dataset.var); });
+  $("#te-reset").textContent = `Reset colours to "${THEMES[draft.base][0]}"`;
 }
 
 // ================= Import =================
