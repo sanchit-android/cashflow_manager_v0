@@ -269,7 +269,7 @@ export async function importFinancesWorkbook(book, ctx) {
       const override = s.get(amtCol + r), totalCell = s.get(amtCol + (r + 1));
       const bill = isNum(override) ? override : isNum(totalCell) ? totalCell : sum;
       if (Math.round(bill) !== Math.round(sum)) warnings.push(`${name}: ${s.get(ref)} bill ${Math.round(bill)} vs line items ${Math.round(sum)}`);
-      if (Math.round(bill) !== Math.round(sum)) tx({ account_id: cardId, direction: "out", amount: bill - sum, description: "Difference between bill and itemised lines (from sheet)", category: "Other", nature: "variable" });
+      if (Math.round(bill) !== Math.round(sum)) tx({ account_id: cardId, direction: "out", amount: bill - sum, description: "Difference between bill and itemised lines (from sheet)", category: "Other", nature: "variable", unitemised: true });
       if (bill) tx({ account_id: main, to_account_id: cardId, direction: "transfer", amount: bill, description: `${s.get(ref)} bill`, category: "Other", nature: "variable" });
     }
 

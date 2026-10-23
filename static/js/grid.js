@@ -40,7 +40,7 @@ function mountSheet(host, cfg) {
     for (let n = all.filter(isBlank).length; n < blankN; n++) all.push(blank());
   }
   /** Add any new blank rows to the end of the view without reordering what's on screen. */
-  function syncBlanks() { for (const b of all.filter(isBlank)) if (!rows.includes(b)) rows.push(b); }
+  function syncBlanks() { const added = []; for (const b of all.filter(isBlank)) if (!rows.includes(b)) { rows.push(b); added.push(b); } return added; }
   function computeView() {
     const filled = all.filter((r) => !isBlank(r));
     let vis = filled.filter((r) => !r.id || passes(r));
@@ -161,7 +161,12 @@ function mountSheet(host, cfg) {
         } else if (!cfg.meaningful || cfg.meaningful(snapshot)) {
           row.id = await cfg.save(null, snapshot);
           if (record) undo.push({ t: "create", row });
-          ensureBlanks(); syncBlanks(); renderBody();
+          // Don't redraw the grid here: the user may already be typing in the next cell.
+          ensureBlanks();
+          const added = syncBlanks(), r = rows.indexOf(row);
+          if (r >= 0 && tbody.children[r]) tbody.children[r].classList.remove("xl-blank");
+          if (added.length) tbody.insertAdjacentHTML("beforeend", added.map((b) => rowHTML(b, rows.indexOf(b))).join(""));
+          paint();
         } else { say("Ready"); return; }
         say("Saved");
         scheduleChange();

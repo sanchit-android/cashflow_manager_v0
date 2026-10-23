@@ -6,6 +6,7 @@ import * as I from "./importer.js";
 import { mountGrid, isPhone } from "./grid.js";
 import { buildSuggest } from "./cells.js";
 import * as P from "./plan.js";
+import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
 import { catIcon } from "./icons.js";
 
@@ -218,16 +219,16 @@ function onboarding() {
 }
 
 // ================= tabs =================
-const TABS = [["month", "Month"], ["year", "Year"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+const TABS = [["month", "Month"], ["year", "Year"], ["insights", "Insights"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
 // Phones: a bottom tab bar with the four main screens and "More" for the rest.
 const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
-  ["plan", "Plan", '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
+  ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
   ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
 function renderBottomNav() {
   let nav = document.getElementById("bottomnav");
   if (!isPhone()) { if (nav) nav.remove(); return; }
   if (!nav) { nav = document.createElement("nav"); nav.id = "bottomnav"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
-  const inMore = !["month", "year", "plan", "savings"].includes(S.tab);
+  const inMore = !["month", "year", "insights", "savings"].includes(S.tab);
   nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}" class="${(k === S.tab || (k === "more" && inMore)) ? "on" : ""}" aria-current="${k === S.tab ? "page" : "false"}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
   nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
@@ -239,7 +240,7 @@ function moreSheet() {
   const back = document.createElement("div");
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
-    ${[["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"]].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"]].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
     <button type="button" class="more-item" data-go="signout">Sign out</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
@@ -260,7 +261,7 @@ function renderTabs() {
   tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
 }
 function render() {
-  try { ({ month: viewMonth, year: viewYear, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
+  try { ({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 
@@ -627,6 +628,140 @@ function logoList() {
     const a = store.rows.get(b.dataset.nologo); const { logo, ...rest } = a.data;
     await store.save({ id: a.id, type: "account", data: rest }); logoList();
   }));
+}
+
+// ================= Insights =================
+function viewInsights() {
+  const d = db();
+  const last = N.latestPeriod(d);
+  if (!last) { html('<div class="card"><h1>Insights</h1><p class="muted">Add or import a few months of transactions and insights will appear here.</p></div>'); return; }
+  const now = E.periodOf(today(), settingsRec().data);
+  const end = last < now ? last : now;
+  const win = S.insWin || 12;
+  const ps = N.windowPeriods(d, end, win);
+  const split = N.natureSplit(d, ps), trends = N.categoryTrends(d, end), merchants = N.topMerchants(d, ps, 8);
+  const year = +end.slice(0, 4), annual = N.annualCalendar(d, year, end), commits = N.commitmentsYearly(d, end);
+  const heads = N.headlines({ split, trends, merchants, annual });
+  const COLORS = { fixed: "var(--series-1)", flexible: "var(--series-3)", annual: "var(--series-2)", oneoff: "var(--series-4)" };
+  const fromLabel = P.periodLabel(ps[0]), toLabel = P.periodLabel(end);
+  const arrow = (t) => (t.change === null ? "–" : `${t.diff > 0 ? "▲" : t.diff < 0 ? "▼" : ""} ${money(Math.abs(t.diff))}${t.before >= 2000 ? ` (${t.change > 0 ? "+" : ""}${t.change}%)` : ""}`);
+  html(`
+    <div class="row"><h1 style="margin:0">Insights</h1><span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Period">${[3, 6, 12].map((n) => `<button type="button" data-win="${n}" class="${n === win ? "on" : ""}" aria-pressed="${n === win}">${n} months</button>`).join("")}</div></div>
+    <p class="muted">${fromLabel} to ${toLabel} · ${ps.length} month${ps.length > 1 ? "s" : ""}. Calculated on this device from your own data — nothing is sent anywhere.</p>
+    ${heads.length ? `<div class="ins-heads">${heads.map((h) => `<div class="ins-head ${h.tone}"><strong>${esc(h.title)}</strong><span>${esc(h.body)}</span></div>`).join("")}</div>` : ""}
+    <div id="ins-runway"></div><div id="ins-rate"></div>
+
+    <div class="card"><h2>Where your money goes</h2>
+      <p class="muted">${money(split.total)} spent over ${ps.length} months, about ${money(Math.round(split.total / Math.max(1, ps.length)))} a month. Investments and transfers aren't counted.</p>
+      <div class="segbar" role="img" aria-label="${split.groups.map((g) => `${g.label} ${g.pct}%`).join(", ")}">${split.groups.filter((g) => g.amount > 0).map((g) => `<span style="flex:${g.amount};background:${COLORS[g.key]}" title="${esc(g.label)} ${g.pct}%"></span>`).join("")}</div>
+      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Type</th><th>Per month</th><th>Share</th><th>Total</th></tr></thead><tbody>
+      ${split.groups.map((g) => `<tr><th class="rowh"><i class="swatch" style="--c:${COLORS[g.key]}"></i>${g.label}</th><td>${money(g.monthly)}</td><td>${g.pct}%</td><td>${money(g.amount)}</td></tr>`).join("")}
+      </tbody></table></div>
+      ${commits.length ? `<h3 style="margin-top:18px">Fixed commitments, per year</h3><p class="muted">The same payments seen as a yearly cost.</p>
+      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Commitment</th><th>Per month</th><th>Per year</th></tr></thead><tbody>
+      ${commits.map((c) => `<tr><th class="rowh">${catIcon(c.category)}${esc(c.label)}</th><td>${money(c.monthly)}</td><td><strong>${money(c.yearly)}</strong></td></tr>`).join("")}
+      <tr class="em"><th class="rowh">Total</th><td>${money(commits.reduce((x, c) => x + c.monthly, 0))}</td><td>${money(commits.reduce((x, c) => x + c.yearly, 0))}</td></tr></tbody></table></div>` : ""}</div>
+
+    <div class="card"><h2>Category trends</h2>
+      <p class="muted">Day-to-day and one-off spending: the last 3 months against the 6 months before. Highlighted rows moved by at least 20% and ₹1,000 a month.</p>
+      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Category</th><th>Last 3 months</th><th>6 months before</th><th>Change per month</th></tr></thead><tbody>
+      ${trends.map((t) => `<tr class="${t.flag ? "flag-" + t.flag : ""}"><th class="rowh">${catIcon(t.category)}${esc(t.category)}</th><td>${money(t.recent)}</td><td>${t.before === null ? "–" : money(t.before)}</td><td class="${t.flag === "up" ? "bad" : t.flag === "down" ? "good" : ""}">${arrow(t)}</td></tr>`).join("")}
+      </tbody></table></div></div>
+
+    <div class="card"><h2>Top day-to-day merchants</h2>
+      <p class="muted">Grouped by the first word of the description (so "Swiggy food" and "Swiggy instamart" count together). Hover a bar for the number of payments.</p>
+      <div id="merch"></div></div>
+
+    <div class="card"><h2>Annual items in ${year}</h2>
+      <p class="muted">${money(annual.total)} this year. Setting aside <strong>${money(annual.setAside)}</strong> a month would cover it evenly${annual.peak.amount ? ` — instead of ${money(annual.peak.amount)} landing in ${P.periodLabel(`${year}-${String(annual.peak.month).padStart(2, "0")}`).slice(0, 3)}` : ""}.
+      ${annual.due ? ` Still to pay: ${money(annual.due)}, or ${money(annual.setAsideRemaining)} a month for the rest of the year.` : " Nothing left to pay this year."}</p>
+      <div id="annchart"></div></div>`);
+  $$("[data-win]").forEach((b) => (b.onclick = () => { S.insWin = +b.dataset.win; render(); }));
+  runwaySection(d, now, ps);
+  savingsRateSection(d, ps);
+  if (merchants.length) hbars($("#merch"), { title: "Top day-to-day merchants", items: merchants.map((m) => ({ label: `${m.label}`, value: m.amount, count: m.count, icon: catIcon(m.category) })) });
+  else $("#merch").innerHTML = '<p class="muted">No day-to-day spending in this period.</p>';
+  stackedBars($("#annchart"), { title: `Annual items by month, ${year}`, height: 200,
+    labels: annual.months.map((m) => P.periodLabel(`${year}-${String(m.month).padStart(2, "0")}`).slice(0, 3)),
+    stacks: [{ name: "Paid", color: "var(--series-2)", values: annual.months.map((m) => m.paid) }, { name: "Still due", color: "var(--series-4)", values: annual.months.map((m) => m.due) }] });
+}
+
+const monthsText = (m) => (m === Infinity ? "doesn't run out" : `${m >= 10 ? Math.round(m) : Math.round(m * 10) / 10} months`);
+const untilText = (now, m) => (m === Infinity ? "income covers spending" : `until about ${P.periodLabel(E.shiftPeriod(now, Math.floor(m)))}`);
+/** A runway gain in plain words: "+2.4 months", or "+17 days" when under a month. */
+const gainText = (g) => (g >= 1 ? `+${Math.round(g * 10) / 10} months` : g > 0 ? `+${Math.max(1, Math.round(g * 30.4))} days` : "no change");
+
+/** Runway what-ifs, biggest levers, drawdown and actual-vs-plan. For people drawing on savings. */
+function runwaySection(d, now, ps) {
+  const host = $("#ins-runway"), settings = settingsRec().data;
+  const opts = { ...P.defaultProjection(d, now), ...(settings.projection || {}) };
+  if (settings.funding_mode === "salary" || !(opts.burn > 0)) { host.innerHTML = ""; return; }
+  const info = P.currentLiquid(d, now), start = opts.start_override != null ? opts.start_override : info.amount;
+  const flex = N.categoryMonthly(d, ps.slice(-6)).reduce((x, c) => x + c.monthly, 0);
+  const fixed = N.commitmentsYearly(d, now).reduce((x, c) => x + c.monthly, 0);
+  const base = N.runwayMonths(d, opts, now, start), dd = N.drawdown(opts, start);
+  const levers = N.biggestLevers(d, opts, now, start, ps.slice(-6), 20).slice(0, 10);
+  const plan = N.burnVsPlan(d, ps.slice(-6), opts.burn), avgActual = Math.round(plan.reduce((x, r) => x + r.actual, 0) / Math.max(1, plan.length));
+  host.innerHTML = `<div class="card"><h2>Runway: what if…</h2>
+    <p class="muted">From ${money(start)} of liquid savings (${esc(opts.start_override != null ? "as entered" : info.source)}), at your planned burn of ${money(opts.burn)} a month plus ${money(opts.annual_base)} of annual items a year. Change the plan on the Savings tab.</p>
+    <div class="kpis">
+      <div class="metric"><div class="label">Runway now</div><div class="value">${monthsText(base)}</div><div class="sub">${untilText(now, base)}</div></div>
+      <div class="metric"><div class="label">Yearly drawdown</div><div class="value">${money(dd.yearly)}</div><div class="sub">${dd.pct === null ? "" : `${dd.pct}% of liquid savings a year`}</div></div>
+      <div class="metric"><div class="label">Break-even</div><div class="value">${money(dd.breakEvenExtra)}</div><div class="sub">more income a month would stop the drawdown</div></div>
+    </div>
+    <div class="whatif">
+      <label for="wf-flex">Cut day-to-day spending by <strong id="wf-flex-o">0%</strong> <span class="muted">(you average ${money(flex)} a month)</span></label>
+      <input id="wf-flex" type="range" min="0" max="50" step="5" value="0">
+      <label for="wf-fixed">Cut fixed commitments by <strong id="wf-fixed-o">₹0</strong> a month <span class="muted">(currently ${money(fixed)})</span></label>
+      <input id="wf-fixed" type="range" min="0" max="${Math.max(1000, Math.ceil(fixed / 1000) * 1000)}" step="1000" value="0">
+      <label for="wf-inc">Add income of <strong id="wf-inc-o">₹0</strong> a month</label>
+      <input id="wf-inc" type="range" min="0" max="${Math.max(50000, Math.ceil((dd.breakEvenExtra * 1.2) / 5000) * 5000)}" step="5000" value="0">
+      <p class="whatif-out" id="wf-out" aria-live="polite"></p>
+    </div>
+    <h3 style="margin-top:18px">Biggest levers</h3>
+    <p class="muted">What a 20% cut in each would save, and the runway it buys on its own. Day-to-day amounts are your 6-month averages.</p>
+    <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Spending</th><th>Type</th><th>Per month</th><th>20% cut saves</th><th>Per year</th><th>Runway gained</th></tr></thead><tbody>
+    ${levers.map((l) => `<tr><th class="rowh">${catIcon(l.category)}${esc(l.label)}</th><td>${l.kind}</td><td>${money(l.monthly)}</td><td>${money(l.saving)}</td><td>${money(l.yearly)}</td><td>${l.gained === null ? "–" : `<strong class="${l.gained > 0 ? "good" : ""}">${gainText(l.gained)}</strong>`}</td></tr>`).join("")}
+    </tbody></table></div>
+    <h3 style="margin-top:18px">Actual burn against your plan</h3>
+    <p class="muted">Spending minus regular income each month (before annual items), against the ${money(opts.burn)} you planned. Last 6 months average: <strong>${money(avgActual)}</strong>.</p>
+    <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Month</th>${plan.map((r) => `<th>${P.periodLabel(r.period)}</th>`).join("")}</tr></thead><tbody>
+      <tr><th class="rowh">Actual</th>${plan.map((r) => `<td>${money(r.actual)}</td>`).join("")}</tr>
+      <tr><th class="rowh">Against plan</th>${plan.map((r) => `<td class="${r.diff > 0 ? "bad" : "good"}">${r.diff > 0 ? "+" : r.diff < 0 ? "−" : ""}${money(Math.abs(r.diff))}</td>`).join("")}</tr>
+    </tbody></table></div></div>`;
+  const upd = () => {
+    const pct = +$("#wf-flex").value, cut = +$("#wf-fixed").value, inc = +$("#wf-inc").value;
+    $("#wf-flex-o").textContent = pct + "%"; $("#wf-fixed-o").textContent = money(cut); $("#wf-inc-o").textContent = money(inc);
+    if (!pct && !cut && !inc) { $("#wf-out").innerHTML = `Move a slider to see the effect. Right now savings last <strong>${monthsText(base)}</strong>, ${untilText(now, base)}.`; return; }
+    const w = N.whatIf(d, opts, now, start, { flexCutPct: pct, flexMonthly: flex, fixedCut: cut, extraIncome: inc });
+    $("#wf-out").innerHTML = `Saves <strong>${money(w.saving)}</strong> a month (${money(w.saving * 12)} a year). ` + (w.after === Infinity
+      ? `<strong class="good">Savings would stop going down</strong> — income would cover spending.`
+      : `Runway goes from ${monthsText(w.base)} to <strong>${monthsText(w.after)}</strong>${w.gained > 0 ? ` — <strong class="good">${gainText(w.gained)}</strong>, ${untilText(now, w.after)}` : ""}.`);
+  };
+  ["#wf-flex", "#wf-fixed", "#wf-inc"].forEach((id) => ($(id).oninput = upd));
+  upd();
+}
+
+/** Savings rate for people with a regular income. */
+function savingsRateSection(d, ps) {
+  const host = $("#ins-rate"), settings = settingsRec().data;
+  const sr = N.savingsRate(d, ps);
+  if (settings.funding_mode === "savings" || !sr.income) { host.innerHTML = ""; return; }
+  host.innerHTML = `<div class="card"><h2>Savings rate</h2>
+    <p class="muted">Regular income minus spending (annual items included), as a share of regular income. One-off inflows and investments aren't counted.</p>
+    <div class="kpis">
+      <div class="metric"><div class="label">Savings rate</div><div class="value ${sr.rate < 0 ? "bad" : "good"}">${sr.rate}%</div><div class="sub">over ${ps.length} months</div></div>
+      <div class="metric"><div class="label">Saved</div><div class="value">${money(sr.saved)}</div><div class="sub">of ${money(sr.income)} income</div></div>
+      <div class="metric"><div class="label">Best month</div><div class="value">${sr.best ? sr.best.rate + "%" : "–"}</div><div class="sub">${sr.best ? P.periodLabel(sr.best.period) : ""}</div></div>
+      <div class="metric"><div class="label">Months spending more than income</div><div class="value ${sr.overspent ? "bad" : ""}">${sr.overspent}</div><div class="sub">of ${ps.length}</div></div>
+    </div>
+    <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Month</th>${sr.rows.map((r) => `<th>${P.periodLabel(r.period)}</th>`).join("")}</tr></thead><tbody>
+      <tr><th class="rowh">Income</th>${sr.rows.map((r) => `<td>${money(r.income)}</td>`).join("")}</tr>
+      <tr><th class="rowh">Spending</th>${sr.rows.map((r) => `<td>${money(r.spend)}</td>`).join("")}</tr>
+      <tr class="em"><th class="rowh">Saved</th>${sr.rows.map((r) => `<td class="${r.saved < 0 ? "bad" : "good"}">${money(r.saved)}</td>`).join("")}</tr>
+      <tr><th class="rowh">Rate</th>${sr.rows.map((r) => `<td>${r.rate === null ? "–" : r.rate + "%"}</td>`).join("")}</tr>
+    </tbody></table></div></div>`;
 }
 
 // ================= Savings, projections and checkpoints =================

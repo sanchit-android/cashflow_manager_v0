@@ -320,3 +320,27 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
 .more-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; padding: 14px 4px; font-size: 16px; min-height: 52px; }
 body.ml-open { overflow: hidden; }
 .chart-h { font-size: 14px; color: var(--muted); font-weight: 600; margin: 14px 0 4px; }
+
+/* insights */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 6px 12px; background: var(--surface); font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button.on { background: var(--accent); color: var(--accent-text); }
+.ins-heads { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 0 0 16px; }
+.ins-head { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--muted); border-radius: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.ins-head strong { font-size: 15px; }
+.ins-head span { color: var(--muted); }
+.ins-head.good { border-left-color: var(--good); } .ins-head.bad { border-left-color: var(--bad); } .ins-head.neutral { border-left-color: var(--accent); }
+.segbar { display: flex; gap: 2px; height: 18px; margin: 4px 0 12px; }
+.segbar span { display: block; min-width: 3px; }
+.segbar span:first-child { border-radius: 4px 0 0 4px; } .segbar span:last-child { border-radius: 0 4px 4px 0; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--c); margin-right: 8px; }
+table.ins-t { min-width: 0; width: 100%; }
+table.ins-t th.rowh { font-weight: 400; } table.ins-t th.rowh .cat-ico { color: var(--text); }
+table.ins-t tr.flag-up th, table.ins-t tr.flag-up td { background: color-mix(in srgb, var(--bad) 7%, var(--surface)); }
+table.ins-t tr.flag-down th, table.ins-t tr.flag-down td { background: color-mix(in srgb, var(--good) 7%, var(--surface)); }
+@media (max-width: 640px) { .seg button { padding: 6px 8px; } }
+.whatif { display: grid; gap: 4px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); }
+.whatif label { margin: 8px 0 0; color: var(--text); font-size: 14px; }
+.whatif input[type=range] { width: 100%; padding: 0; border: 0; background: transparent; accent-color: var(--accent); height: 28px; }
+.whatif-out { margin: 10px 0 0; font-size: 15px; }
