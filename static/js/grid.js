@@ -19,7 +19,11 @@ const letter = (i) => String.fromCharCode(65 + i);
  *   suggest: { complete(prefix), infer(desc) } (optional), autofillKeys: [...], onChange: () => void
  * }
  */
-export function mountGrid(host, cfg) {
+/** Phones get a touch list with an edit sheet; wider screens get the spreadsheet. */
+export const isPhone = () => window.matchMedia("(max-width: 640px)").matches;
+export function mountGrid(host, cfg) { return isPhone() ? mountList(host, cfg) : mountSheet(host, cfg); }
+
+function mountSheet(host, cfg) {
   const cols = [...cfg.columns, { key: "__del", label: "", type: "delete", width: 34 }];
   const blankN = cfg.blankRows ?? 10;
   // `all` holds every row (records, half-typed rows, blanks); `rows` is what's on screen after filters and sort.
@@ -633,4 +637,141 @@ export function mountGrid(host, cfg) {
     clearFilters() { filters = {}; sort = null; renderBody(true); say("Ready"); },
     idle: () => queue,
   };
+}
+
+// ======================= phone: list + edit sheet =======================
+function mountList(host, cfg) {
+  const cols = cfg.columns;
+  const items = cfg.rows.map(({ id, ...data }) => ({ id, data }));
+  const ro = (cfg.readonlyRows || []).map((data) => ({ id: null, data, ro: true }));
+  const textCol = cols.find((c) => c.autocomplete) || cols.find((c) => c.type === "text");
+  const numCol = cols.find((c) => c.type === "number" && /amount|total|balance/i.test(c.key)) || cols.find((c) => c.type === "number");
+  const dateCol = cols.find((c) => c.type === "date");
+  let query = "", sortKey = "", lastDeleted = null;
+  const optionLabel = (col, v) => { const o = col.options().find(([x]) => String(x) === String(v ?? "")); return o ? o[1] : ""; };
+  const shown = (col, data) => {
+    if (col.display) { const d = col.display(data); if (d !== null && d !== undefined) return d; }
+    const v = data[col.key];
+    if (col.type === "select") return optionLabel(col, v);
+    if (col.type === "date") return v ? formatDate(v) : "";
+    if (col.type === "number") return v === null || v === undefined || v === "" ? "" : formatAmount(v);
+    return v ?? "";
+  };
+
+  host.innerHTML = `<div class="ml">
+    <div class="ml-bar"><input type="search" class="ml-q" placeholder="Search" aria-label="Search ${esc(cfg.label || "rows")}">
+      <select class="ml-sort" aria-label="Sort"><option value="">Default order</option>${cols.filter((c) => c.type !== "readonly").flatMap((c) => [`<option value="${c.key}:1">${esc(c.label)} ↑</option>`, `<option value="${c.key}:-1">${esc(c.label)} ↓</option>`]).join("")}</select></div>
+    <ul class="ml-list" role="list"></ul>
+    <div class="ml-foot"><span class="ml-sum"></span><button type="button" class="primary ml-add">+ Add</button></div>
+    <div class="ml-toast" hidden></div></div>`;
+  const list = host.querySelector(".ml-list"), toast = host.querySelector(".ml-toast");
+
+  function view() {
+    let v = items.filter((it) => !query || cols.some((c) => String(shown(c, it.data)).toLowerCase().includes(query)));
+    if (sortKey) {
+      const [k, dir] = sortKey.split(":"), col = cols.find((c) => c.key === k);
+      const key = (it) => (col.type === "number" ? +(it.data[k] ?? -Infinity) : String(shown(col, it.data)).toLowerCase());
+      v = [...v].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0) * +dir);
+    }
+    return [...ro, ...v];
+  }
+  function render() {
+    const rows = view();
+    list.innerHTML = rows.map((it, i) => {
+      const d = it.data, title = textCol ? shown(textCol, d) : "";
+      const sub = cols.filter((c) => c !== textCol && c !== numCol && c.type !== "readonly" && shown(c, d)).map((c) => `${c.icon && d[c.key] ? c.icon(d[c.key]) : ""}${esc(shown(c, d))}`).join(" · ");
+      const extra = cols.filter((c) => c.type === "readonly").map((c) => (it.id ? c.render({ id: it.id, data: d }) : "")).join(" ");
+      const n = numCol ? d[numCol.key] : null;
+      return `<li><button type="button" class="ml-row${it.ro ? " ml-ro" : ""}" data-i="${i}" ${it.ro ? 'aria-disabled="true"' : ""}>
+        <span class="ml-main"><span class="ml-title">${esc(title) || '<span class="muted">(no description)</span>'}</span><span class="ml-sub">${sub}${extra ? " · " + extra : ""}</span></span>
+        <span class="ml-amt ${n < 0 ? "xl-neg" : ""}">${numCol && n !== null && n !== undefined && n !== "" ? esc(formatAmount(n)) : ""}</span></button></li>`;
+    }).join("") || `<li class="ml-empty muted">${query ? "Nothing matches your search." : "Nothing here yet. Tap + Add."}</li>`;
+    const nums = items.filter((it) => !query || view().includes(it)).map((it) => +it.data[numCol?.key] || 0);
+    host.querySelector(".ml-sum").textContent = `${items.length} row${items.length === 1 ? "" : "s"}${numCol ? " · total " + formatAmount(Math.round(nums.reduce((a, b) => a + b, 0))) : ""}`;
+    list.querySelectorAll(".ml-row").forEach((b) => (b.onclick = () => { const it = view()[+b.dataset.i]; if (!it.ro) openSheet(it); }));
+  }
+
+  function openSheet(item) {
+    const isNew = !item, base = isNew ? { ...(cfg.newRow ? cfg.newRow() : {}) } : { ...item.data };
+    const touched = new Set();
+    const back = document.createElement("div");
+    back.className = "ml-back";
+    back.innerHTML = `<form class="ml-sheet" role="dialog" aria-modal="true" aria-label="${isNew ? "Add" : "Edit"} ${esc(cfg.label || "row")}">
+      <div class="ml-grab" aria-hidden="true"></div><h3>${isNew ? "Add" : "Edit"}</h3>
+      ${cols.map((c) => {
+        const id = "mf-" + c.key, v = base[c.key];
+        if (c.type === "readonly") return item ? `<div class="ml-field"><span class="ml-lbl">${esc(c.label)}</span><div>${c.render({ id: item.id, data: base })}</div></div>` : "";
+        const roF = c.readonlyIf && c.readonlyIf(base);
+        if (roF) return `<div class="ml-field"><span class="ml-lbl">${esc(c.label)}</span><div>${esc(shown(c, base))}</div></div>`;
+        let input;
+        if (c.type === "select") input = `<select id="${id}" data-k="${c.key}">${c.options().map(([o, l]) => `<option value="${esc(o)}" ${String(o) === String(v ?? "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+        else if (c.type === "date") input = `<input id="${id}" data-k="${c.key}" type="date" value="${esc(v || "")}">`;
+        else if (c.type === "number") input = `<input id="${id}" data-k="${c.key}" inputmode="decimal" value="${esc(base[c.key + "_formula"] || (v ?? ""))}" placeholder="0 or =120+340">`;
+        else input = `<input id="${id}" data-k="${c.key}" value="${esc(v ?? "")}" autocomplete="off" ${c.autocomplete && cfg.suggest && cfg.suggest.list ? `list="${id}-dl"` : ""}>${c.autocomplete ? `<datalist id="${id}-dl"></datalist>` : ""}`;
+        return `<div class="ml-field"><label for="${id}" class="ml-lbl">${esc(c.label)}</label>${input}</div>`;
+      }).join("")}
+      <p class="error ml-err" role="alert"></p>
+      <div class="ml-actions">${isNew ? "" : '<button type="button" class="ml-del">Delete</button>'}<span class="spacer"></span><button type="button" class="ml-cancel">Cancel</button><button type="submit" class="primary">Save</button></div></form>`;
+    document.body.appendChild(back);
+    document.body.classList.add("ml-open");
+    const form = back.querySelector("form"), $f = (sel) => form.querySelector(sel);
+    const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
+    back.addEventListener("click", (e) => { if (e.target === back) close(); });
+    form.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+    $f(".ml-cancel").onclick = close;
+    form.querySelectorAll("[data-k]").forEach((el) => el.addEventListener("change", () => touched.add(el.dataset.k)));
+    // suggestions + filling the other fields from earlier entries with the same description
+    if (textCol && textCol.autocomplete && cfg.suggest) {
+      const inp = $f(`[data-k="${textCol.key}"]`), dl = form.querySelector("datalist");
+      if (inp && dl && cfg.suggest.list) inp.addEventListener("input", () => { dl.innerHTML = cfg.suggest.list(inp.value, 6).map((x) => `<option value="${esc(x)}">`).join(""); });
+      if (inp) inp.addEventListener("change", () => {
+        const inf = cfg.suggest.infer(inp.value); if (!inf) return;
+        for (const [k, v] of Object.entries(inf)) { const el = $f(`[data-k="${k}"]`); if (el && !touched.has(k) && (isNew || !base[k] || base[k] === (cfg.newRow ? cfg.newRow()[k] : ""))) el.value = v; }
+      });
+    }
+    if (!isNew) $f(".ml-del").onclick = async () => {
+      close();
+      const idx = items.indexOf(item);
+      items.splice(idx, 1); render();
+      try { await cfg.remove(item.id); lastDeleted = { data: item.data, idx }; showToast("Deleted", "Undo", undoDelete); cfg.onChange && cfg.onChange(); }
+      catch (e) { items.splice(idx, 0, item); render(); showToast("Couldn't delete: " + e.message); }
+    };
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = { ...base };
+      try {
+        form.querySelectorAll("[data-k]").forEach((el) => {
+          const c = cols.find((x) => x.key === el.dataset.k);
+          if (c.type === "number") { const p = parseAmountInput(el.value); data[c.key] = p ? p.value : null; data[c.key + "_formula"] = p ? p.formula : null; }
+          else if (c.type === "date") { if (!el.value) throw new Error("Pick a date"); data[c.key] = el.value; }
+          else data[c.key] = c.type === "text" ? el.value.trim() : el.value;
+        });
+      } catch (x) { $f(".ml-err").textContent = x.message; return; }
+      if (cfg.meaningful && !cfg.meaningful(data)) { $f(".ml-err").textContent = `Fill in ${textCol ? textCol.label.toLowerCase() : "a value"}${numCol ? " or " + numCol.label.toLowerCase() : ""}.`; return; }
+      try {
+        const id = await cfg.save(isNew ? null : item.id, data);
+        if (isNew) items.push({ id, data }); else item.data = data;
+        close(); render(); showToast("Saved"); cfg.onChange && cfg.onChange();
+      } catch (x) { $f(".ml-err").textContent = "Couldn't save: " + x.message; }
+    });
+    setTimeout(() => (form.querySelector(isNew && textCol ? `[data-k="${textCol.key}"]` : "select,input") || form).focus(), 50);
+  }
+  async function undoDelete() {
+    if (!lastDeleted) return;
+    const { data, idx } = lastDeleted; lastDeleted = null;
+    const id = await cfg.save(null, data);
+    items.splice(idx, 0, { id, data }); render(); showToast("Restored"); cfg.onChange && cfg.onChange();
+  }
+  let toastTimer;
+  function showToast(msg, action, fn) {
+    toast.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button" class="link">${esc(action)}</button>` : ""}`;
+    toast.hidden = false;
+    if (action) toast.querySelector("button").onclick = () => { toast.hidden = true; fn(); };
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, action ? 6000 : 1800);
+  }
+  host.querySelector(".ml-q").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); render(); });
+  host.querySelector(".ml-sort").addEventListener("change", (e) => { sortKey = e.target.value; render(); });
+  host.querySelector(".ml-add").onclick = () => openSheet(null);
+  render();
+  return { focus() {}, refreshRow(id, data) { const it = items.find((x) => x.id === id); if (it) { it.data = { ...data }; render(); } }, clearFilters() { query = ""; sortKey = ""; render(); }, idle: () => Promise.resolve() };
 }

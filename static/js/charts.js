@@ -99,7 +99,7 @@ export function lines(host, { labels, series, title, everyNth }) {
   const Y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - y0) / (y1 - y0));
   const step = (width - pad.l - pad.r) / Math.max(1, labels.length - 1);
   const X = (i) => pad.l + step * i;
-  const nth = everyNth || Math.ceil(labels.length / 10);
+  const nth = everyNth || Math.ceil(labels.length / Math.max(3, Math.floor((width - pad.l) / 72))); // ~72px per label
   let g = `<title>${esc(title || "")}</title>`;
   for (const t of tk) g += `<line x1="${pad.l}" x2="${width - pad.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? "c-base" : "c-grid"}"/><text x="${pad.l - 6}" y="${Y(t) + 4}" class="c-axis" text-anchor="end">${lakh(t)}</text>`;
   labels.forEach((l, i) => { if (i % nth === 0) g += `<text x="${X(i)}" y="${H - 8}" class="c-axis" text-anchor="middle">${esc(l)}</text>`; });

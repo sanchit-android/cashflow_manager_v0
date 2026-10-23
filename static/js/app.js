@@ -3,7 +3,7 @@ import * as E from "./engine.js";
 import { api, device, store } from "./store.js";
 import { readXlsx } from "./xlsx.js";
 import * as I from "./importer.js";
-import { mountGrid } from "./grid.js";
+import { mountGrid, isPhone } from "./grid.js";
 import { buildSuggest } from "./cells.js";
 import * as P from "./plan.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
@@ -219,7 +219,42 @@ function onboarding() {
 
 // ================= tabs =================
 const TABS = [["month", "Month"], ["year", "Year"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+// Phones: a bottom tab bar with the four main screens and "More" for the rest.
+const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
+  ["plan", "Plan", '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
+  ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
+function renderBottomNav() {
+  let nav = document.getElementById("bottomnav");
+  if (!isPhone()) { if (nav) nav.remove(); return; }
+  if (!nav) { nav = document.createElement("nav"); nav.id = "bottomnav"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
+  const inMore = !["month", "year", "plan", "savings"].includes(S.tab);
+  nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}" class="${(k === S.tab || (k === "more" && inMore)) ? "on" : ""}" aria-current="${k === S.tab ? "page" : "false"}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
+  nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
+    if (b.dataset.ptab === "more") return moreSheet();
+    S.tab = b.dataset.ptab; renderTabs(); render(); window.scrollTo({ top: 0 });
+  }));
+}
+function moreSheet() {
+  const back = document.createElement("div");
+  back.className = "ml-back";
+  back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
+    ${[["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"]].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    <button type="button" class="more-item" data-go="signout">Sign out</button></div>`;
+  document.body.appendChild(back); document.body.classList.add("ml-open");
+  const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
+    close();
+    if (b.dataset.go === "signout") return document.querySelector("header form").requestSubmit();
+    S.tab = b.dataset.go; renderTabs(); render(); window.scrollTo({ top: 0 });
+  }));
+}
+// Re-lay out when crossing the phone breakpoint (e.g. rotating a tablet).
+window.matchMedia("(max-width: 640px)").addEventListener("change", () => { if (store.key && settingsRec()) { renderTabs(); render(); } });
+
 function renderTabs() {
+  renderBottomNav();
   tabsEl.hidden = false;
   tabsEl.innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
   tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
@@ -245,6 +280,7 @@ const suggest = {
     return suggestCache;
   },
   complete: (p) => suggest.get().complete(p),
+  list: (p, n) => suggest.get().list(p, n),
   infer: (d) => suggest.get().infer(d),
 };
 let saves = 0;
