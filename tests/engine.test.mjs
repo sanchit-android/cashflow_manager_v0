@@ -103,3 +103,39 @@ test("vault: passphrase, every recovery key, wrong secrets, re-wrap", async () =
   assert.deepEqual(await C.decryptRecord(k2, "u1", row), { amount: 42 });
   await C.unlockWithRecoveryKey(v2, recoveryKeys[0]); // old recovery keys still work
 });
+
+test("card roll-up counts card spending against main unless the bill was paid that month", () => {
+  const base = [
+    rec("account", "main", { name: "Main", role: "spending", is_default_spending: true, opening_balance: 100000, opening_period: "2026-09" }),
+    rec("account", "c1", { name: "HDFC", role: "card" }),
+    rec("account", "c2", { name: "ICICI", role: "card" }),
+    rec("transaction", "a", { date: "2026-09-03", account_id: "c1", amount: 5000, direction: "out", nature: "variable" }),
+    rec("transaction", "b", { date: "2026-09-04", account_id: "c2", amount: 3000, direction: "out", nature: "variable" }),
+    rec("transaction", "c", { date: "2026-09-20", account_id: "main", to_account_id: "c2", amount: 3000, direction: "transfer" }),
+    rec("transaction", "d", { date: "2026-10-03", account_id: "c1", amount: 2000, direction: "out", nature: "variable" }),
+  ];
+  const off = E.index([rec("settings", "s", {}), ...base]);
+  assert.deepEqual(E.cardRollups(off, "2026-09"), [], "off unless the user turns it on");
+  assert.equal(E.summarize(off, "2026-09").closing, 97000);
+  const on = E.index([rec("settings", "s", { card_rollup: true }), ...base]);
+  assert.deepEqual(E.cardRollups(on, "2026-09"), [{ card_id: "c1", name: "HDFC", amount: 5000 }], "ICICI was paid by transfer");
+  const sep = E.summarize(on, "2026-09");
+  assert.equal(sep.closing, 100000 - 3000 - 5000);
+  assert.equal(sep.monthly_expense, 8000, "spending counted once");
+  assert.equal(E.summarize(on, "2026-10").opening, sep.closing, "roll-ups carry into next month's opening");
+  assert.equal(E.summarize(on, "2026-10").closing, sep.closing - 2000);
+  const mainOct = E.accountMonth(on, "main", "2026-10");
+  assert.deepEqual([mainOct.opening, mainOct.rolled, mainOct.closing], [92000, 2000, 90000]);
+  assert.equal(E.accountMonth(on, "c1", "2026-10").outstanding, 0, "rolled up, so nothing outstanding");
+  assert.equal(E.accountMonth(off, "c1", "2026-10").outstanding, 7000);
+  assert.equal(E.accountMonth(off, "c2", "2026-09").outstanding, 0);
+});
+
+test("closed accounts only show in months with activity", () => {
+  const db = E.index([rec("account", "old", { name: "Old card", role: "card", closed_from: "2026-08" }),
+    rec("transaction", "t", { date: "2026-08-05", account_id: "old", amount: 10, direction: "out" })]);
+  const acc = db.accountsById.old;
+  assert.equal(E.accountVisible(db, acc, "2026-07"), true);
+  assert.equal(E.accountVisible(db, acc, "2026-08"), true, "has a transaction");
+  assert.equal(E.accountVisible(db, acc, "2026-09"), false);
+});

@@ -22,17 +22,32 @@ const letter = (i) => String.fromCharCode(65 + i);
 export function mountGrid(host, cfg) {
   const cols = [...cfg.columns, { key: "__del", label: "", type: "delete", width: 34 }];
   const blankN = cfg.blankRows ?? 10;
-  const rows = cfg.rows.map(({ id, ...data }) => ({ id, data, touched: new Set() }));
+  // `all` holds every row (records, half-typed rows, blanks); `rows` is what's on screen after filters and sort.
+  const all = cfg.rows.map(({ id, ...data }) => ({ id, data, touched: new Set() }));
+  const roRows = (cfg.readonlyRows || []).map((data) => ({ id: null, data, touched: new Set(), ro: true }));
+  let rows = [], filters = {}, sort = null;
   const undo = [];
   let active = { r: 0, c: 0 }, anchor = { r: 0, c: 0 }, editing = null, dragging = false;
   let queue = Promise.resolve(), changeTimer = null;
 
   const blank = () => ({ id: null, data: {}, touched: new Set() });
-  const isBlank = (row) => !row.id && !Object.keys(row.data).length;
+  const isBlank = (row) => !row.id && !row.ro && !Object.keys(row.data).length;
   function ensureBlanks() {
-    let trailing = 0;
-    for (let i = rows.length - 1; i >= 0 && isBlank(rows[i]); i--) trailing++;
-    for (; trailing < blankN; trailing++) rows.push(blank());
+    for (let n = all.filter(isBlank).length; n < blankN; n++) all.push(blank());
+  }
+  /** Add any new blank rows to the end of the view without reordering what's on screen. */
+  function syncBlanks() { for (const b of all.filter(isBlank)) if (!rows.includes(b)) rows.push(b); }
+  function computeView() {
+    const filled = all.filter((r) => !isBlank(r));
+    let vis = filled.filter((r) => !r.id || passes(r));
+    if (sort) {
+      const col = cols.find((c) => c.key === sort.key);
+      const keyOf = (r) => { const v = r.data[sort.key]; return col.type === "number" ? (v === null || v === undefined || v === "" ? -Infinity : +v) : col.type === "select" ? optionLabel(col, v).toLowerCase() : String(v ?? "").toLowerCase(); };
+      const saved = vis.filter((r) => r.id), pending = vis.filter((r) => !r.id);
+      saved.sort((a, b) => { const x = keyOf(a), y = keyOf(b); return (x < y ? -1 : x > y ? 1 : 0) * sort.dir; });
+      vis = [...saved, ...pending];
+    }
+    rows = [...roRows, ...vis, ...all.filter(isBlank)];
   }
   ensureBlanks();
 
@@ -41,7 +56,7 @@ export function mountGrid(host, cfg) {
       <input class="xl-formula" aria-label="Cell contents" spellcheck="false"></div>
     <div class="xl-scroll"><table class="xl-table"><colgroup><col style="width:44px">${cols.map((c) => `<col style="width:${c.width || 120}px">`).join("")}</colgroup>
       <thead><tr class="xl-letters"><th class="xl-corner"></th>${cols.map((c, i) => `<th>${c.type === "delete" ? "" : letter(i)}</th>`).join("")}</tr>
-      <tr class="xl-labels"><th class="xl-corner"></th>${cols.map((c) => `<th>${esc(c.label)}</th>`).join("")}</tr></thead><tbody></tbody></table></div>
+      <tr class="xl-labels"><th class="xl-corner"></th>${cols.map((c, i) => c.type === "delete" ? "<th></th>" : `<th><span class="xl-lbl">${esc(c.label)}</span>${c.type !== "readonly" ? `<button type="button" class="xl-fbtn" data-fc="${i}" aria-label="Filter and sort ${esc(c.label)}" title="Filter and sort">▾</button>` : ""}<span class="xl-rs" data-rc="${i}" title="Drag to resize"></span></th>`).join("")}</tr></thead><tbody></tbody></table></div>
     <div class="xl-status"><span class="xl-msg">Ready</span><span class="xl-agg"></span></div></div>`;
   const root = host.querySelector(".xl"), tbody = host.querySelector("tbody"), fbar = host.querySelector(".xl-formula");
   const nameBox = host.querySelector(".xl-name"), msgEl = host.querySelector(".xl-msg"), aggEl = host.querySelector(".xl-agg");
@@ -49,9 +64,9 @@ export function mountGrid(host, cfg) {
   // ---------- display ----------
   const optionLabel = (col, v) => { const o = col.options().find(([x]) => String(x) === String(v ?? "")); return o ? o[1] : ""; };
   const valueFor = (row, col) => row.data[col.key];
-  const readOnly = (row, col) => col.type === "readonly" || (col.readonlyIf && col.readonlyIf(row.data));
+  const readOnly = (row, col) => row.ro || col.type === "readonly" || (col.readonlyIf && col.readonlyIf(row.data));
   function cellHTML(row, col, r) {
-    if (col.type === "delete") return `<span class="xl-x" title="Delete row (Enter)">✕</span>`;
+    if (col.type === "delete") return row.ro ? "" : `<span class="xl-x" title="Delete row (Enter)">✕</span>`;
     if (col.type === "readonly") return row.id ? col.render(row) : "";
     if (col.display) { const d = col.display(row.data); if (d !== null && d !== undefined) return esc(d); }
     const v = valueFor(row, col);
@@ -67,10 +82,10 @@ export function mountGrid(host, cfg) {
     return esc(v);
   }
   function rowHTML(row, r) {
-    return `<tr data-r="${r}" class="${row.id ? "" : "xl-blank"}"><th class="xl-rn">${r + 1}</th>${cols.map((col, c) =>
+    return `<tr data-r="${r}" class="${row.ro ? "xl-rorow" : row.id ? "" : "xl-blank"}" ${row.ro ? 'title="Calculated — read only"' : ""}><th class="xl-rn">${r + 1}</th>${cols.map((col, c) =>
       `<td data-c="${c}" class="xl-${col.type}${readOnly(row, col) ? " xl-ro" : ""}">${cellHTML(row, col, r)}</td>`).join("")}</tr>`;
   }
-  function renderBody() { tbody.innerHTML = rows.map(rowHTML).join(""); paint(); }
+  function renderBody(recompute = false) { if (recompute) computeView(); tbody.innerHTML = rows.map(rowHTML).join(""); paint(); filterStatus(); }
   function renderRow(r) { const tr = tbody.children[r]; if (tr) tr.outerHTML = rowHTML(rows[r], r); paint(); }
   const td = (r, c) => tbody.children[r]?.children[c + 1];
 
@@ -138,8 +153,7 @@ export function mountGrid(host, cfg) {
         } else if (!cfg.meaningful || cfg.meaningful(snapshot)) {
           row.id = await cfg.save(null, snapshot);
           if (record) undo.push({ t: "create", row });
-          const r = rows.indexOf(row);
-          ensureBlanks(); renderBody(); if (r >= 0) paint();
+          ensureBlanks(); syncBlanks(); renderBody();
         } else { say("Ready"); return; }
         say("Saved");
         scheduleChange();
@@ -191,13 +205,14 @@ export function mountGrid(host, cfg) {
 
   async function deleteRow(r) {
     const row = rows[r];
-    if (!row || isBlank(row)) return;
+    if (!row || isBlank(row) || row.ro) return;
     if (!row.id) { row.data = {}; row.touched.clear(); renderRow(r); return; }
     const data = { ...row.data }, id = row.id;
-    rows.splice(r, 1); ensureBlanks(); renderBody(); moveTo(r, 0);
+    const ai = all.indexOf(row);
+    rows.splice(r, 1); all.splice(ai, 1); ensureBlanks(); syncBlanks(); renderBody(); moveTo(r, 0);
     queue = queue.then(async () => {
       try { await cfg.remove(id); undo.push({ t: "delete", data, index: r }); say("Row deleted. Ctrl+Z brings it back."); scheduleChange(); }
-      catch (e) { rows.splice(r, 0, { id, data, touched: new Set() }); renderBody(); moveTo(r, active.c); say("Couldn't delete: " + e.message, true); }
+      catch (e) { const back = { id, data, touched: new Set() }; rows.splice(r, 0, back); all.splice(Math.max(0, ai), 0, back); renderBody(); moveTo(r, active.c); say("Couldn't delete: " + e.message, true); }
     });
   }
 
@@ -207,8 +222,8 @@ export function mountGrid(host, cfg) {
     const items = u.t === "batch" ? [...u.items].reverse() : [u];
     for (const it of items) {
       if (it.t === "edit") { const r = rows.indexOf(it.row); if (r >= 0) { it.row.data = { ...it.before }; renderRow(r); await persist(it.row, null, false); } }
-      if (it.t === "create") { const r = rows.indexOf(it.row); await cfg.remove(it.row.id); if (r >= 0) rows.splice(r, 1); ensureBlanks(); renderBody(); }
-      if (it.t === "delete") { const row = { id: null, data: { ...it.data }, touched: new Set() }; rows.splice(Math.min(it.index, rows.length), 0, row); renderBody(); await persist(row, null, false); }
+      if (it.t === "create") { await cfg.remove(it.row.id); all.splice(all.indexOf(it.row), 1); ensureBlanks(); renderBody(true); }
+      if (it.t === "delete") { const row = { id: null, data: { ...it.data }, touched: new Set() }; all.splice(Math.min(it.index, all.length), 0, row); renderBody(true); await persist(row, null, false); }
     }
     scheduleChange(); say("Undone");
   }
@@ -327,7 +342,7 @@ export function mountGrid(host, cfg) {
   function clearRange() {
     const { r1, r2, c1, c2 } = range(), cells = [];
     for (let r = r1; r <= r2; r++) {
-      if (isBlank(rows[r])) continue;
+      if (isBlank(rows[r]) || rows[r].ro) continue;
       for (let c = c1; c <= c2; c++) {
         const col = cols[c];
         if (readOnly(rows[r], col) || col.type === "delete" || col.type === "date") continue;
@@ -420,13 +435,14 @@ export function mountGrid(host, cfg) {
   root.addEventListener("paste", async (e) => {
     if (editing || e.target === fbar) return;
     e.preventDefault();
+    if (rows[active.r] && rows[active.r].ro) return say("This row is calculated and can't be changed", true);
     const text = e.clipboardData.getData("text/plain").replace(/\r/g, "").replace(/\n$/, "");
     if (!text) return;
     const grid = text.split("\n").map((l) => l.split("\t"));
     const cells = [], errors = [];
     grid.forEach((vals, i) => {
       const r = active.r + i;
-      while (rows.length <= r + 1) rows.push(blank());
+      while (rows.length <= r + 1) { const b = blank(); all.push(b); rows.push(b); }
       vals.forEach((v, j) => {
         const c = active.c + j, col = cols[c];
         if (!col || col.type === "delete" || readOnly(rows[r], col)) return;
@@ -449,11 +465,147 @@ export function mountGrid(host, cfg) {
     } else if (e.key === "Escape") { e.preventDefault(); root.focus(); paint(); }
   });
 
+  // ---------- filters (Excel-style, per column type) ----------
+  function distinct(col) {
+    const seen = new Map();
+    for (const r of all) {
+      if (!r.id) continue;
+      const v = r.data[col.key];
+      const key = col.type === "select" ? String(v ?? "") : String(v ?? "").trim();
+      const label = col.type === "select" ? optionLabel(col, v) || "(blank)" : key || "(blank)";
+      if (!seen.has(key)) seen.set(key, label);
+    }
+    return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }
+  function passes(row) {
+    for (const [key, f] of Object.entries(filters)) {
+      const col = cols.find((c) => c.key === key), v = row.data[key];
+      if (f.values && !f.values.has(col.type === "select" ? String(v ?? "") : String(v ?? "").trim())) return false;
+      if (f.contains && !String(col.type === "select" ? optionLabel(col, v) : v ?? "").toLowerCase().includes(f.contains.toLowerCase())) return false;
+      if (f.op) {
+        const n = v === null || v === undefined || v === "" ? null : +v;
+        if (n === null) return false;
+        const a = +f.a, b = +f.b;
+        if ((f.op === "eq" && n !== a) || (f.op === "ne" && n === a) || (f.op === "gt" && !(n > a)) || (f.op === "ge" && !(n >= a)) ||
+            (f.op === "lt" && !(n < a)) || (f.op === "le" && !(n <= a)) || (f.op === "between" && !(n >= Math.min(a, b) && n <= Math.max(a, b)))) return false;
+      }
+      if (f.from && !(v && v >= f.from)) return false;
+      if (f.to && !(v && v <= f.to)) return false;
+    }
+    return true;
+  }
+  function filterStatus() {
+    host.querySelectorAll(".xl-fbtn").forEach((b) => {
+      const key = cols[+b.dataset.fc].key;
+      b.classList.toggle("on", !!filters[key] || (sort && sort.key === key));
+      b.textContent = filters[key] ? "⏷" : sort && sort.key === key ? (sort.dir > 0 ? "↑" : "↓") : "▾";
+    });
+    const total = all.filter((r) => r.id).length, shown = rows.filter((r) => r.id).length;
+    if (Object.keys(filters).length) say(`Filter on: showing ${shown} of ${total} rows`);
+  }
+  function closePanel() { host.querySelector(".xl-fpanel")?.remove(); }
+  function openFilter(c, btn) {
+    closePanel();
+    const col = cols[c], f = filters[col.key] || {};
+    const panel = document.createElement("div");
+    panel.className = "xl-fpanel"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", `Filter ${col.label}`);
+    const sortLabels = col.type === "number" ? ["Smallest to largest", "Largest to smallest"] : col.type === "date" ? ["Oldest to newest", "Newest to oldest"] : ["Sort A to Z", "Sort Z to A"];
+    let body = "";
+    if (col.type === "number") {
+      body = `<label>Show rows where the amount is</label><select class="fp-op">${[["", "any value"], ["eq", "equal to"], ["ne", "not equal to"], ["gt", "greater than"], ["ge", "at least"], ["lt", "less than"], ["le", "at most"], ["between", "between"]].map(([v, l]) => `<option value="${v}" ${f.op === v ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <div class="row"><input class="fp-a" type="number" step="any" value="${esc(f.a ?? "")}" placeholder="Value"><input class="fp-b" type="number" step="any" value="${esc(f.b ?? "")}" placeholder="and" ${f.op === "between" ? "" : "hidden"}></div>`;
+    } else if (col.type === "date") {
+      body = `<label>From</label><input class="fp-from" type="date" value="${esc(f.from || "")}"><label>To</label><input class="fp-to" type="date" value="${esc(f.to || "")}">`;
+    } else {
+      const vals = distinct(col);
+      body = `${col.type === "text" ? `<input class="fp-contains" placeholder="Contains…" value="${esc(f.contains || "")}">` : ""}
+        <input class="fp-search" placeholder="Search values">
+        <div class="fp-list"><label><input type="checkbox" class="fp-all" ${!f.values ? "checked" : ""}> (Select all)</label>
+        ${vals.map(([k, l]) => `<label><input type="checkbox" class="fp-v" value="${esc(k)}" ${!f.values || f.values.has(k) ? "checked" : ""}> ${esc(l)}</label>`).join("")}</div>`;
+    }
+    panel.innerHTML = `<button type="button" class="fp-sort" data-dir="1">${sortLabels[0]}</button><button type="button" class="fp-sort" data-dir="-1">${sortLabels[1]}</button><hr>
+      ${body}<div class="row fp-actions"><button type="button" class="fp-clear">Clear filter</button><span class="spacer"></span><button type="button" class="primary fp-ok">OK</button></div>`;
+    root.appendChild(panel);
+    const th = btn.closest("th"), rb = root.getBoundingClientRect(), tb = th.getBoundingClientRect();
+    panel.style.left = Math.max(0, Math.min(tb.left - rb.left, rb.width - panel.offsetWidth - 4)) + "px";
+    panel.style.top = tb.bottom - rb.top + "px";
+    const $p = (sel) => panel.querySelector(sel);
+    const op = $p(".fp-op"); if (op) op.onchange = () => { $p(".fp-b").hidden = op.value !== "between"; };
+    const all_ = $p(".fp-all"); if (all_) all_.onchange = () => panel.querySelectorAll(".fp-v").forEach((x) => { if (!x.closest("label").hidden) x.checked = all_.checked; });
+    const search = $p(".fp-search"); if (search) search.oninput = () => panel.querySelectorAll(".fp-v").forEach((x) => { x.closest("label").hidden = !x.closest("label").textContent.toLowerCase().includes(search.value.toLowerCase()); });
+    const apply = () => {
+      const nf = {};
+      if (op && op.value) Object.assign(nf, { op: op.value, a: $p(".fp-a").value, b: $p(".fp-b").value });
+      if ($p(".fp-from")?.value) nf.from = $p(".fp-from").value;
+      if ($p(".fp-to")?.value) nf.to = $p(".fp-to").value;
+      if ($p(".fp-contains")?.value.trim()) nf.contains = $p(".fp-contains").value.trim();
+      const boxes = [...panel.querySelectorAll(".fp-v")];
+      if (boxes.length && boxes.some((x) => !x.checked)) nf.values = new Set(boxes.filter((x) => x.checked).map((x) => x.value));
+      if (Object.keys(nf).length) filters[col.key] = nf; else delete filters[col.key];
+      closePanel(); renderBody(true); moveTo(Math.min(active.r, rows.length - 1), c); root.focus({ preventScroll: true });
+      if (!Object.keys(filters).length) say("Ready");
+    };
+    panel.querySelectorAll(".fp-sort").forEach((b) => (b.onclick = () => { sort = { key: col.key, dir: +b.dataset.dir }; apply(); }));
+    $p(".fp-ok").onclick = apply;
+    $p(".fp-clear").onclick = () => { delete filters[col.key]; if (sort && sort.key === col.key) sort = null; closePanel(); renderBody(true); say("Ready"); root.focus({ preventScroll: true }); };
+    panel.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { closePanel(); root.focus({ preventScroll: true }); } if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") apply(); });
+    (panel.querySelector(".fp-contains,.fp-search,.fp-op,.fp-from") || $p(".fp-ok")).focus();
+  }
+  host.querySelector("thead").addEventListener("click", (e) => { const b = e.target.closest(".xl-fbtn"); if (b) { e.stopPropagation(); openFilter(+b.dataset.fc, b); } });
+  document.addEventListener("mousedown", (e) => { const p = host.querySelector(".xl-fpanel"); if (p && !p.contains(e.target) && !e.target.closest(".xl-fbtn")) closePanel(); });
+
+  // ---------- column widths: always fit the grid's width (no sideways scroll); drag edges to resize ----------
+  const scroller = host.querySelector(".xl-scroll"), table = host.querySelector(".xl-table");
+  const colEls = [...host.querySelectorAll("colgroup col")].slice(1);
+  const wKey = cfg.id ? "xlw:" + cfg.id : null;
+  let widths = cols.map((c) => c.width || 120);
+  try { const saved = wKey && JSON.parse(localStorage.getItem(wKey) || "null"); if (saved && saved.length === widths.length) widths = saved; } catch (e) { /* ignore */ }
+  const DEL = cols.length - 1, MIN = 44;
+  function fit() {
+    const avail = scroller.clientWidth - 44 - 2;
+    if (avail <= 0) return;
+    const data = widths.slice(0, DEL), target = avail - 34;
+    const scale = target / data.reduce((a, b) => a + b, 0);
+    const fitted = data.map((w) => Math.max(MIN, Math.floor(w * scale)));
+    fitted[fitted.length - 1] += target - fitted.reduce((a, b) => a + b, 0);
+    widths = [...fitted, 34];
+    widths.forEach((w, i) => { colEls[i].style.width = w + "px"; });
+    table.style.width = avail + 44 + "px";
+  }
+  new ResizeObserver(() => fit()).observe(scroller);
+  host.querySelector("thead").addEventListener("mousedown", (e) => {
+    const h = e.target.closest(".xl-rs"); if (!h) return;
+    e.preventDefault(); e.stopPropagation();
+    const i = +h.dataset.rc, j = i + 1 < DEL ? i + 1 : i - 1; // the neighbour gives or takes the space
+    if (j < 0) return;
+    const x0 = e.clientX, wi = widths[i], wj = widths[j];
+    document.body.classList.add("xl-resizing");
+    const move = (ev) => {
+      const d = Math.max(MIN - wi, Math.min(wj - MIN, ev.clientX - x0)); // total width never changes
+      widths[i] = wi + d; widths[j] = wj - d;
+      colEls[i].style.width = widths[i] + "px"; colEls[j].style.width = widths[j] + "px";
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+      document.body.classList.remove("xl-resizing");
+      try { if (wKey) localStorage.setItem(wKey, JSON.stringify(widths)); } catch (e2) { /* ignore */ }
+    };
+    document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+  });
+  host.querySelector("thead").addEventListener("dblclick", (e) => {
+    if (!e.target.closest(".xl-rs")) return;
+    widths = cols.map((c) => c.width || 120); fit();
+    try { if (wKey) localStorage.removeItem(wKey); } catch (e2) { /* ignore */ }
+  });
+
+  computeView();
   renderBody();
+  fit();
   return {
     focus: () => root.focus({ preventScroll: true }),
     /** Re-read rows from outside (e.g. after another tab changed data). Keeps the active cell. */
     refreshRow(id, data) { const r = rows.findIndex((x) => x.id === id); if (r >= 0) { rows[r].data = { ...data }; renderRow(r); } },
+    clearFilters() { filters = {}; sort = null; renderBody(true); say("Ready"); },
     idle: () => queue,
   };
 }

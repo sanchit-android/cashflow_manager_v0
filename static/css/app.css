@@ -202,3 +202,39 @@ table.yt td.note textarea { border: 0; border-radius: 0; background: transparent
 .kpis .metric .sub { font-size: 12px; color: var(--muted); }
 .proj-form { display: grid; gap: 8px 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .proj-form label { margin: 0 0 2px; }
+
+/* grid: fitted columns, filters, resize, read-only rows */
+.xl { position: relative; }
+.xl-scroll { overflow-x: hidden !important; }
+.xl-table { width: auto; min-width: 0; }
+.xl-labels th { padding-right: 22px !important; }
+.xl-lbl { overflow: hidden; text-overflow: ellipsis; display: block; }
+.xl-fbtn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; padding: 0; border: 1px solid var(--grid-line); border-radius: 2px; background: var(--surface); color: var(--muted); font-size: 10px; line-height: 14px; cursor: pointer; }
+.xl-fbtn.on { background: var(--grid-active); color: var(--accent-text); border-color: var(--grid-active); }
+.xl-rs { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }
+.xl-rs:hover, .xl-resizing .xl-rs:hover { background: var(--grid-active); opacity: .5; }
+body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-select: none !important; }
+.xl-fpanel { position: absolute; z-index: 20; width: 250px; background: var(--surface); border: 1px solid var(--grid-line); box-shadow: 0 6px 18px rgba(0,0,0,.18); padding: 8px; font-size: 13px; }
+.xl-fpanel > button.fp-sort { display: block; width: 100%; text-align: left; border: 0; padding: 5px 6px; background: transparent; }
+.xl-fpanel > button.fp-sort:hover { background: var(--grid-sel); }
+.xl-fpanel hr { border: 0; border-top: 1px solid var(--grid-line); margin: 6px 0; }
+.xl-fpanel input:not([type=checkbox]), .xl-fpanel select { height: 30px; padding: 4px 8px; margin-bottom: 6px; font-size: 13px; }
+.xl-fpanel label { margin: 4px 0 2px; font-size: 12px; }
+.fp-list { max-height: 180px; overflow: auto; border: 1px solid var(--grid-line); padding: 4px 6px; }
+.fp-list label { display: flex; gap: 6px; align-items: center; margin: 2px 0; color: var(--text); font-size: 13px; }
+.fp-list input { width: auto; }
+.fp-actions { margin-top: 8px; }
+.xl-rorow td { background: color-mix(in srgb, var(--grid-sel) 55%, var(--surface)); font-style: italic; color: var(--muted); }
+.xl-rorow td.xl-active { background: var(--surface); }
+
+/* account bar: icons, badges, totals */
+.acct-bar button { display: inline-flex; align-items: center; gap: 6px; }
+.acct-ico { display: inline-flex; width: 18px; height: 18px; flex: none; }
+.acct-ico svg { width: 18px; height: 18px; }
+.acct-ico img { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; background: #fff; }
+.bank-badge { font: 600 9px/1 var(--font); letter-spacing: .02em; padding: 3px 4px; border-radius: 3px; background: color-mix(in srgb, currentColor 14%, transparent); border: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+.acct-sum { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; padding: 8px 12px; margin: 0 0 10px; background: var(--surface-2); border-radius: var(--radius); font-size: 13px; }
+.acct-sum strong { font-family: var(--num); font-size: 14px; }
+.acct-sum .k { color: var(--muted); margin-right: 4px; }
+.rollup-ask { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.logo-list .row { padding: 6px 0; border-bottom: 1px solid var(--border); }

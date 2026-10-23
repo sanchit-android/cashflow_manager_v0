@@ -64,8 +64,32 @@ function effectOn(t, accountId) {
   return t.direction === "in" ? a : -a;
 }
 
+/**
+ * Card roll-up (setting `card_rollup`): a card's spending in a month is counted against the default spending
+ * account as if its bill were paid that month — unless a payment to that card was recorded in the month.
+ */
+export function cardRollups(db, period) {
+  if (!db.settings || db.settings.card_rollup !== true) return [];
+  const out = [];
+  for (const card of db.account.filter((a) => a.role === "card")) {
+    let spent = 0, paid = false;
+    for (const t of db.transaction) {
+      if (t.period !== period) continue;
+      if (t.direction === "transfer" && t.to_account_id === card.id) paid = true;
+      else if (t.account_id === card.id && t.direction === "out") spent += num(t.amount);
+      else if (t.account_id === card.id && t.direction === "in") spent -= num(t.amount);
+    }
+    if (!paid && Math.round(spent) !== 0) out.push({ card_id: card.id, name: card.name, amount: round(spent) });
+  }
+  return out;
+}
+const rollupTotal = (db, period) => cardRollups(db, period).reduce((x, r) => x + r.amount, 0);
+const periodsBetween = (db, from, to) => [...new Set(db.transaction.map((t) => t.period))].filter((p) => p >= from && p < to);
+
 function spendingBalanceAtStart(db, period) {
   let total = 0;
+  const firstStart = db.account.filter(isSpending).map((a) => a.opening_period || "0000-00").sort()[0];
+  if (firstStart && firstStart <= period) for (const p of periodsBetween(db, firstStart, period)) total -= rollupTotal(db, p);
   for (const acc of db.account.filter(isSpending)) {
     const start = acc.opening_period || "0000-00";
     if (start > period) continue;
@@ -112,6 +136,8 @@ export function summarize(db, period) {
     if ((a.opening_period || "0000-00") > period) continue;
     for (const t of txns) closing += effectOn(t, a.id);
   }
+  s.card_rollups = cardRollups(db, period);
+  for (const r of s.card_rollups) { closing -= r.amount; s.card_payments += r.amount; }
   s.closing = round(closing);
 
   s.net_position = round(s.regular_inflow - s.monthly_expense);
@@ -183,4 +209,46 @@ export function upcoming(db, period, months = 2) {
     for (const a of annualStatus(db, y)) if (+a.due_month === m && a.unpaid > 0) out.push({ period: p, label: a.label, amount: a.unpaid, kind: "Annual" });
   }
   return out;
+}
+
+/** Is the account shown for this period? Closed accounts show only in months where they have transactions. */
+export function accountVisible(db, acc, period) {
+  if (!acc.closed_from || period < acc.closed_from) return true;
+  return db.transaction.some((t) => t.period === period && (t.account_id === acc.id || t.to_account_id === acc.id));
+}
+
+/** One account's month: money in/out, transfers, and a running balance where the app can work one out. */
+export function accountMonth(db, accId, period) {
+  const acc = db.accountsById[accId] || {};
+  const m = { spent: 0, received: 0, transfer_in: 0, transfer_out: 0, rolled: 0 };
+  const isMain = isSpending(acc) && (acc.is_default_spending || db.account.filter(isSpending)[0] === acc);
+  const flows = (p) => {
+    const f = { spent: 0, received: 0, transfer_in: 0, transfer_out: 0, rolled: 0 };
+    for (const t of db.transaction) {
+      if (t.period !== p) continue;
+      const a = num(t.amount);
+      if (t.direction === "transfer") { if (t.account_id === accId) f.transfer_out += a; if (t.to_account_id === accId) f.transfer_in += a; }
+      else if (t.account_id === accId) { if (t.direction === "in") f.received += a; else f.spent += a; }
+    }
+    if (isMain) f.rolled = rollupTotal(db, p);
+    return f;
+  };
+  Object.assign(m, flows(period));
+  for (const k of Object.keys(m)) m[k] = round(m[k]);
+  m.net = round(m.received + m.transfer_in - m.spent - m.transfer_out - m.rolled);
+  if (isSpending(acc)) {
+    const start = acc.opening_period || "0000-00";
+    let bal = start <= period ? num(acc.opening_balance) : 0;
+    for (const p of periodsBetween(db, start, period)) { const f = flows(p); bal += f.received + f.transfer_in - f.spent - f.transfer_out - f.rolled; }
+    m.opening = round(bal); m.closing = round(bal + m.net);
+  } else if (acc.role === "card") {
+    // Outstanding = everything spent on the card so far minus payments (and roll-ups) so far.
+    let owed = 0;
+    for (const p of [...new Set(db.transaction.map((t) => t.period))].filter((p) => p <= period)) {
+      const f = flows(p); owed += f.spent - f.received - f.transfer_in;
+      const r = cardRollups(db, p).find((x) => x.card_id === accId); if (r) owed -= r.amount;
+    }
+    m.outstanding = round(owed);
+  } else if (acc.balance !== undefined && acc.balance !== null && acc.balance !== "") m.balance = round(num(acc.balance));
+  return m;
 }

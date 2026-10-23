@@ -252,6 +252,33 @@ const SHORTCUTS = `<p class="xl-help">Type to replace a cell · <kbd>F2</kbd> ed
   <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy &amp; paste (from Excel too) · <kbd>Ctrl</kbd>+<kbd>D</kbd> fill down ·
   <kbd>Ctrl</kbd>+<kbd>;</kbd> today · <kbd>Del</kbd> clear · <kbd>Alt</kbd>+<kbd>↓</kbd> open list · amounts accept <kbd>=120+340</kbd></p>`;
 
+// ================= account icons =================
+// Generic line icons per account type (drawn here, no external images).
+const ICONS = {
+  bank: '<path d="M3 10h18L12 4 3 10Zm2 0v7m4-7v7m6-7v7m4-7v7M3 20h18"/>',
+  card: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/>',
+  cash: '<rect x="3" y="7" width="18" height="10" rx="1.5"/><circle cx="12" cy="12" r="2.5"/><path d="M6 10v4m12-4v4"/>',
+  savings: '<path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1-1 3h-3v-2H9v2H6l-1-3a5 5 0 0 1 0-3Z"/><circle cx="15" cy="10.5" r=".6"/><path d="M10 6.5h3"/>',
+  investment: '<path d="M4 19h16M6 15l4-4 3 3 5-6m0 0h-4m4 0v4"/>',
+  long_term: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v2"/>',
+  receivable: '<path d="M4 12h12m0 0-4-4m4 4-4 4M20 5v14"/>',
+};
+// Banks recognised from the account name. Shown as a neutral text badge — we don't copy banks' logos or colours;
+// people can upload their own image for any account.
+const BANKS = [["HDFC", /hdfc/i], ["ICICI", /icici/i], ["AXIS", /axis/i], ["SBI", /\bsbi\b|state bank/i], ["KOTAK", /kotak/i],
+  ["AMEX", /amex|american express/i], ["IDFC", /idfc/i], ["YES", /\byes\b/i], ["INDUS", /indusind/i], ["RBL", /\brbl\b/i], ["AU", /\bau\b/i],
+  ["HSBC", /hsbc/i], ["CITI", /citi/i], ["SC", /standard chartered|\bsc\b/i], ["BOB", /baroda|\bbob\b/i], ["PNB", /\bpnb\b|punjab national/i],
+  ["FED", /federal/i], ["CANARA", /canara/i], ["UNION", /union bank/i], ["ONE", /onecard/i]];
+const bankCode = (name) => (BANKS.find(([, re]) => re.test(name || "")) || [null])[0];
+function acctIcon(a) {
+  const d = a.data || a;
+  if (d.logo) return `<span class="acct-ico"><img src="${esc(d.logo)}" alt=""></span>`;
+  const kind = d.role === "card" ? "card" : d.role === "spending" ? (d.kind === "cash" ? "cash" : "bank") : d.role || "bank";
+  const svg = `<span class="acct-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind] || ICONS.bank}</svg></span>`;
+  const code = (d.role === "card" || d.role === "spending" || d.role === "savings") && bankCode(d.name);
+  return svg + (code ? `<span class="bank-badge" aria-hidden="true">${code}</span>` : "");
+}
+
 // ================= Month =================
 function selectedAccount() {
   const accts = store.ofType("account");
@@ -270,7 +297,7 @@ function viewMonth() {
   html(`
     <div class="row"><button id="prev" aria-label="Previous month">←</button><h1 style="margin:0">${esc(label)}${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}</h1><button id="next" aria-label="Next month">→</button></div>
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="txgrid"></div>${SHORTCUTS}</div>
+    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
     <div id="cats"></div>`);
   $("#prev").onclick = () => { S.period = E.shiftPeriod(S.period, -1); render(); };
   $("#next").onclick = () => { S.period = E.shiftPeriod(S.period, 1); render(); };
@@ -278,18 +305,47 @@ function viewMonth() {
   mountTxGrid();
 }
 
+const barAccounts = (d) => store.ofType("account").filter((a) => a.data.role !== "long_term" && a.data.role !== "receivable" && E.accountVisible(d, { id: a.id, ...a.data }, S.period));
+
 function accountBar() {
-  const sel = selectedAccount(), d = db();
-  const txns = d.transaction.filter((t) => t.period === S.period);
-  const accts = store.ofType("account").filter((a) => a.data.role !== "long_term" && a.data.role !== "receivable");
+  const d = db();
+  const accts = barAccounts(d);
+  if (S.account && !accts.some((a) => a.id === S.account)) S.account = (accts.find((a) => a.data.is_default_spending) || accts[0] || {}).id || null;
+  const sel = selectedAccount();
   $("#acctbar").innerHTML = accts.map((a) => {
-    const n = txns.filter((t) => t.account_id === a.id || t.to_account_id === a.id).length;
-    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}" aria-pressed="${a.id === sel}">${esc(a.data.name)}<small>${n || ""}</small></button>`;
+    const m = E.accountMonth(d, a.id, S.period);
+    const n = m.spent + m.received + m.transfer_in + m.transfer_out;
+    const hint = a.data.role === "card" ? m.spent : a.data.role === "spending" ? m.closing : m.transfer_in;
+    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}" aria-pressed="${a.id === sel}">${acctIcon(a)}${esc(a.data.name)}${n ? `<small>${money(hint)}</small>` : ""}</button>`;
   }).join("") || '<span class="muted">Add an account on the Accounts tab first.</span>';
   $$("[data-acct]").forEach((b) => (b.onclick = () => {
     S.account = b.dataset.acct; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
-    accountBar(); mountTxGrid();
+    mountTxGrid();
   }));
+  accountSummary(d, sel);
+}
+
+/** Totals for the selected account, shown above its grid. */
+function accountSummary(d, sel) {
+  const a = store.rows.get(sel); if (!a || !$("#acctsum")) return;
+  const m = E.accountMonth(d, sel, S.period), role = a.data.role;
+  const item = (k, v, cls = "") => `<span><span class="k">${k}</span><strong class="${cls}">${money(v)}</strong></span>`;
+  let parts;
+  if (role === "spending") parts = [item("Opening", m.opening), item("Money in", m.received + m.transfer_in, "good"), item("Spent", m.spent),
+    item("Transfers out", m.transfer_out), ...(m.rolled ? [item("Card totals", m.rolled)] : []), item("Closing", m.closing, m.closing < 0 ? "bad" : "")];
+  else if (role === "card") parts = [item("Spent this month", m.spent), ...(m.received ? [item("Refunds", m.received, "good")] : []), item("Paid", m.transfer_in, "good"), item("Outstanding", m.outstanding, m.outstanding > 0 ? "bad" : "")];
+  else parts = [item("Added this month", m.transfer_in, "good"), item("Taken out", m.transfer_out + m.spent), ...(m.balance !== undefined ? [item("Balance", m.balance)] : [])];
+  $("#acctsum").innerHTML = `<strong>${esc(a.data.name)}</strong>${parts.join("")}`;
+
+  // Offer the card roll-up once, on the main account, when cards have unpaid spending this month.
+  const ask = $("#rollask"); if (!ask) return;
+  const settings = settingsRec().data, isMain = a.data.is_default_spending;
+  const unpaid = isMain && settings.card_rollup === undefined
+    ? E.cardRollups(E.index([...store.records().filter((r) => r.type !== "settings"), { id: "x", type: "settings", data: { ...settings, card_rollup: true } }]), S.period) : [];
+  ask.innerHTML = unpaid.length ? `<div class="notice rollup-ask" style="margin-bottom:10px"><span>Your cards spent <strong>${money(unpaid.reduce((x, r) => x + r.amount, 0))}</strong> this month with no bill payment recorded. Count each card's monthly total against ${esc(a.data.name)}? It shows as a read-only row and reduces this account's balance. Months where you record the bill payment aren't counted twice.</span>
+    <button class="primary" id="roll-yes">Yes, count card totals</button><button id="roll-no">No</button></div>` : "";
+  const setRoll = async (v) => { await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, card_rollup: v } }); saves++; monthSummary(); mountTxGrid(); };
+  if ($("#roll-yes")) { $("#roll-yes").onclick = () => setRoll(true); $("#roll-no").onclick = () => setRoll(false); }
 }
 
 function mountTxGrid() {
@@ -302,8 +358,11 @@ function mountTxGrid() {
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
     .map(({ period, ...t }) => t);
   const name = (id) => (store.rows.get(id)?.data?.name) || "";
+  const isMain = store.rows.get(sel)?.data?.is_default_spending;
+  const rolled = isMain ? E.cardRollups(d, S.period).map((r) => ({ date: today().slice(0, 7) === S.period ? today() : `${S.period}-${String(new Date(+S.period.slice(0, 4), +S.period.slice(5), 0).getDate()).padStart(2, "0")}`, description: `${r.name} — card total for the month`, _card: true, to_account_id: r.card_id, amount: r.amount })) : [];
+  const openAccts = () => accountOptions().filter(([v]) => { const a = store.rows.get(v)?.data || {}; return v !== sel && (!a.closed_from || S.period < a.closed_from); });
   const grid = mountGrid(host, {
-    label: `Transactions for ${name(sel)}`,
+    id: "tx", label: `Transactions for ${name(sel)}`, readonlyRows: rolled,
     rows, blankRows: 10, period: () => S.period, suggest,
     newRow: () => ({ date: today().slice(0, 7) === S.period ? today() : S.period + "-01", account_id: sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
     meaningful: (x) => !!(String(x.description || "").trim() || (x.amount !== null && x.amount !== undefined && x.amount !== "")),
@@ -311,11 +370,11 @@ function mountTxGrid() {
       { key: "date", label: "Date", type: "date", width: 96 },
       { key: "description", label: "Description", type: "text", width: 210, autocomplete: true },
       { key: "direction", label: "Type", type: "select", width: 96, options: () => [["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]],
-        readonlyIf: incoming, display: (x) => (incoming(x) ? "Transfer in" : null) },
-      { key: "to_account_id", label: "To / from", type: "select", width: 140, options: () => [["", ""], ...accountOptions().filter(([v]) => v !== sel)],
-        readonlyIf: incoming, display: (x) => (incoming(x) ? "from " + name(x.account_id) : x.direction === "transfer" ? null : "") },
-      { key: "category", label: "Category", type: "select", width: 116, options: () => opts(E.CATEGORIES) },
-      { key: "nature", label: "Kind", type: "select", width: 124, options: () => NATURE_LABELS },
+        readonlyIf: incoming, display: (x) => (x._card ? "Card total" : incoming(x) ? "Transfer in" : null) },
+      { key: "to_account_id", label: "To / from", type: "select", width: 140, options: () => [["", ""], ...openAccts()],
+        readonlyIf: incoming, display: (x) => (x._card ? name(x.to_account_id) : incoming(x) ? "from " + name(x.account_id) : x.direction === "transfer" ? (name(x.to_account_id) || "") : "") },
+      { key: "category", label: "Category", type: "select", width: 116, options: () => opts(E.CATEGORIES), display: (x) => (x._card ? "" : null) },
+      { key: "nature", label: "Kind", type: "select", width: 124, options: () => NATURE_LABELS, display: (x) => (x._card ? "" : null) },
       { key: "amount", label: "Amount", type: "number", width: 112 },
     ],
     async save(id, x) {
@@ -368,11 +427,11 @@ function viewPlan() {
     <div class="card"><h2>Regular income</h2><div id="g-in"></div></div>
     <div class="card"><h2>Coming up (next 3 months)</h2><div id="upcoming"></div></div>`);
   const common = { blankRows: 3, remove: removeRec, period: () => S.period, onChange: planSummary };
-  mountGrid($("#g-cm"), { ...common, label: "Monthly commitments", rows: rowsOf("commitment"), save: saveRec("commitment"),
+  mountGrid($("#g-cm"), { ...common, id: "cm", label: "Monthly commitments", rows: rowsOf("commitment"), save: saveRec("commitment"),
     newRow: () => ({ category: "Household" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "label", label: "What", type: "text", width: 240 }, { key: "category", label: "Category", type: "select", width: 130, options: () => opts(E.CATEGORIES) },
       { key: "day", label: "Day", type: "number", width: 60 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
-  mountGrid($("#g-an"), { ...common, label: "Annual items", rows: rowsOf("annual", (x) => +x.year === year), save: saveRec("annual"),
+  mountGrid($("#g-an"), { ...common, id: "an", label: "Annual items", rows: rowsOf("annual", (x) => +x.year === year), save: saveRec("annual"),
     newRow: () => ({ year, mode: "card" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "label", label: "What", type: "text", width: 220 }, { key: "due_month", label: "Due month", type: "number", width: 84 },
       { key: "mode", label: "Paid by", type: "select", width: 110, options: () => [["card", "Card"], ["cash", "Bank / cash"]] },
@@ -380,7 +439,7 @@ function viewPlan() {
       { key: "_status", label: "Paid / unpaid", type: "readonly", width: 170, render: (row) => {
         const a = E.annualStatus(db(), year).find((x) => x.id === row.id); if (!a) return "";
         return `${inr(a.paid)} / <span class="${a.unpaid ? "bad" : "good"}">${inr(a.unpaid)}</span>`; } }] });
-  mountGrid($("#g-in"), { ...common, label: "Regular income", rows: rowsOf("income"), save: saveRec("income"),
+  mountGrid($("#g-in"), { ...common, id: "in", label: "Regular income", rows: rowsOf("income"), save: saveRec("income"),
     newRow: () => ({ kind: "other" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "label", label: "Source", type: "text", width: 220 }, { key: "kind", label: "Kind", type: "select", width: 110, options: () => [["salary", "Salary"], ["rent", "Rent"], ["interest", "Interest"], ["other", "Other"]] },
       { key: "day", label: "Usual day", type: "number", width: 84 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
@@ -407,8 +466,11 @@ function planSummary() {
 function viewAccounts() {
   html(`<div class="card"><h2>Accounts</h2>
     <p class="muted">Spending accounts make up your monthly opening and closing balance. Cards collect spending until you pay the bill (a transfer from a spending account). Savings and investments count towards runway.</p>
-    <div id="g-ac"></div></div>`);
-  mountGrid($("#g-ac"), { label: "Accounts", blankRows: 3, rows: rowsOf("account"), save: saveRec("account"), period: () => S.period,
+    <p class="muted">To retire an account, enter the month it closed in "Closed from". It then only appears in months where it has transactions.</p>
+    <div id="g-ac"></div></div>
+    <div class="card"><h2>Account icons</h2><p class="muted">Each account gets an icon for its type, and a name badge when we recognise the bank. You can upload your own image instead, such as your card's logo. It's encrypted with the rest of your data.</p>
+    <div id="logos" class="logo-list"></div></div>`);
+  mountGrid($("#g-ac"), { id: "ac", label: "Accounts", onChange: logoList, blankRows: 3, rows: rowsOf("account"), save: saveRec("account"), period: () => S.period,
     newRow: () => ({ role: "spending", kind: "bank", opening_period: S.period }), meaningful: (x) => !!String(x.name || "").trim(),
     async remove(id) {
       if (store.ofType("transaction").some((t) => t.data.account_id === id || t.data.to_account_id === id)) throw new Error("This account has transactions. Delete or move them first.");
@@ -418,7 +480,9 @@ function viewAccounts() {
       { key: "role", label: "Role", type: "select", width: 170, options: () => [["spending", "Spending"], ["card", "Credit card"], ["savings", "Savings"], ["investment", "Investment"], ["long_term", "Long-term (PPF, property)"], ["receivable", "Money lent"]] },
       { key: "opening_balance", label: "Opening balance", type: "number", width: 130 },
       { key: "opening_period", label: "From (YYYY-MM)", type: "text", width: 120 },
-      { key: "balance", label: "Current balance (savings)", type: "number", width: 170 }] });
+      { key: "balance", label: "Current balance (savings)", type: "number", width: 170 },
+      { key: "closed_from", label: "Closed from (YYYY-MM)", type: "text", width: 150 }] });
+  logoList();
 }
 
 // ================= Year =================
@@ -471,6 +535,29 @@ function viewYear() {
              { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
     line: { name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
   });
+}
+
+function logoList() {
+  const host = $("#logos"); if (!host) return;
+  host.innerHTML = store.ofType("account").map((a) => `<div class="row"><span class="row" style="gap:6px;color:var(--text)">${acctIcon(a)} ${esc(a.data.name)}</span><span class="spacer"></span>
+    <label class="link" style="margin:0;cursor:pointer;color:var(--accent)">Upload image<input type="file" accept="image/*" data-logo="${a.id}" hidden></label>
+    ${a.data.logo ? `<button class="link" data-nologo="${a.id}">Remove</button>` : ""}</div>`).join("") || '<p class="muted">No accounts yet.</p>';
+  host.querySelectorAll("[data-logo]").forEach((inp) => (inp.onchange = async () => {
+    const file = inp.files[0]; if (!file) return;
+    try {
+      const img = await createImageBitmap(file);
+      const c = document.createElement("canvas"); c.width = c.height = 64;
+      const k = Math.min(64 / img.width, 64 / img.height), w = img.width * k, h = img.height * k;
+      c.getContext("2d").drawImage(img, (64 - w) / 2, (64 - h) / 2, w, h);
+      const a = store.rows.get(inp.dataset.logo);
+      await store.save({ id: a.id, type: "account", data: { ...a.data, logo: c.toDataURL("image/png") } });
+      logoList();
+    } catch (e) { alert("That image couldn't be read. Try a PNG or JPG."); }
+  }));
+  host.querySelectorAll("[data-nologo]").forEach((b) => (b.onclick = async () => {
+    const a = store.rows.get(b.dataset.nologo); const { logo, ...rest } = a.data;
+    await store.save({ id: a.id, type: "account", data: rest }); logoList();
+  }));
 }
 
 // ================= Savings, projections and checkpoints =================
@@ -568,7 +655,7 @@ function snapEditor(id) {
   const totals = () => { const t = P.snapshotTotals(snap); $("#sn-tot").innerHTML = `Liquid ${money(t.liquid)} − committed ${money(t.committed)} = <strong class="${t.gap < 0 ? "bad" : "good"}">gap ${money(t.gap)}</strong> · long-term ${money(t.illiquid)} (not counted)`; };
   $("#sn-date").onchange = () => { snap.date = $("#sn-date").value || snap.date; persist(); };
   $("#sn-note").onchange = () => { snap.note = $("#sn-note").value; persist(); };
-  mountGrid($("#sn-grid"), {
+  mountGrid($("#sn-grid"), { id: "sn",
     label: "Checkpoint items", blankRows: 4, rows: snap.items.map(({ _id, ...it }) => ({ id: _id, ...it })),
     newRow: () => ({ group: "liquid" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "group", label: "Group", type: "select", width: 150, options: () => [["liquid", "Liquid savings"], ["commitment", "Committed spending"], ["illiquid", "Long-term (not counted)"]] },
@@ -596,6 +683,8 @@ function viewSettings() {
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
       <label for="cd">Salary day</label><input id="cd" type="number" min="1" max="31" style="max-width:120px" value="${esc(s.data.cycle_day || "")}">
+      <label style="display:flex;gap:8px;align-items:flex-start;color:var(--text);font-size:14px;margin-top:14px"><input type="checkbox" id="rollup" style="width:auto;margin-top:3px" ${s.data.card_rollup ? "checked" : ""}>
+        <span>Count each card's monthly spending against my main account, as a read-only row. Months where I record the card bill payment aren't counted twice.</span></label>
       <p><button id="savepm">Save</button></p></div>
     <div class="card"><h2>Recovery keys</h2><p class="muted">Any one of these unlocks your data. Keep at least one.</p>
       ${keys.map((k) => `<div class="row" style="padding:4px 0"><span>${esc(k.label)}</span><span class="muted">created ${k.created_at.slice(0, 10)}</span><span class="spacer"></span>${keys.length > 1 ? `<button data-revoke="${k.id}">Revoke</button>` : ""}</div>`).join("")}
@@ -615,7 +704,7 @@ function viewSettings() {
   $("#savepm").onclick = async () => {
     const day = +$("#cd").value || null;
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));
-    const data = { ...settingsRec().data, period_mode: $("#pm").value, cycle_day: day };
+    const data = { ...settingsRec().data, period_mode: $("#pm").value, cycle_day: day, card_rollup: $("#rollup").checked };
     // Re-file transactions into periods under the new rule.
     const tx = store.ofType("transaction").map((r) => ({ id: r.id, type: "transaction", data: { ...r.data, period: E.periodOf(r.data.date, data) } }));
     await store.save([{ id: s.id, type: "settings", data }, ...tx]);
