@@ -146,7 +146,7 @@ table.sheet tfoot td { font-weight: 600; padding: 6px; }
 td.xl-number .xl-editor { text-align: right; }
 .xl-list { position: absolute; inset: 0; z-index: 5; }
 .xl-list .xl-editor { position: absolute; inset: 0; }
-.xl-opts { position: absolute; top: 100%; left: -2px; min-width: 100%; max-height: 220px; overflow: auto; background: var(--surface); border: 1px solid var(--grid-line); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.xl-opts { position: fixed; z-index: 1000; font: 13px var(--grid-font); color: var(--text); top: 0; left: 0; max-height: 220px; overflow: auto; background: var(--surface); border: 1px solid var(--grid-line); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 .xl-opt { padding: 4px 8px; white-space: nowrap; cursor: pointer; }
 .xl-opt.on, .xl-opt:hover { background: var(--grid-sel); }
 .xl-status { display: flex; justify-content: space-between; gap: 12px; padding: 3px 8px; border-top: 1px solid var(--grid-line); background: var(--grid-head); color: var(--grid-head-text); font-size: 12px; min-height: 22px; }

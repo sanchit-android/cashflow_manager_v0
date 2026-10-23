@@ -269,9 +269,23 @@ export function mountGrid(host, cfg) {
   function openList(cell, col, filter) {
     const box = document.createElement("div");
     box.className = "xl-list";
-    box.innerHTML = `<input class="xl-editor xl-listinput" spellcheck="false" aria-label="Filter ${esc(col.label)}"><div class="xl-opts" role="listbox"></div>`;
+    box.innerHTML = `<input class="xl-editor xl-listinput" spellcheck="false" aria-label="Filter ${esc(col.label)}">`;
     cell.appendChild(box);
-    const input = box.querySelector("input"), opts = box.querySelector(".xl-opts");
+    const input = box.querySelector("input");
+    // The list floats above the page (cells clip their content), below the cell or above it if there's no room.
+    const opts = document.createElement("div");
+    opts.className = "xl-opts"; opts.setAttribute("role", "listbox");
+    document.body.appendChild(opts);
+    const place = () => {
+      const r = cell.getBoundingClientRect(), h = Math.min(220, opts.scrollHeight || 220);
+      const below = window.innerHeight - r.bottom >= h + 8 || r.top < h + 8;
+      opts.style.left = Math.max(4, Math.min(r.left - 1, window.innerWidth - opts.offsetWidth - 4)) + "px";
+      opts.style.minWidth = r.width + 2 + "px";
+      opts.style.top = (below ? r.bottom : r.top - h) + "px";
+    };
+    const reposition = () => { if (opts.isConnected) place(); };
+    window.addEventListener("scroll", reposition, true); window.addEventListener("resize", reposition);
+    editing.cleanup = () => { opts.remove(); window.removeEventListener("scroll", reposition, true); window.removeEventListener("resize", reposition); };
     const current = String(rows[editing.r].data[col.key] ?? (cfg.newRow ? cfg.newRow()[col.key] ?? "" : ""));
     let hi = 0, shown = [];
     const draw = () => {
@@ -280,7 +294,8 @@ export function mountGrid(host, cfg) {
       shown.sort((a, b) => (String(b[1]).toLowerCase().startsWith(t) ? 1 : 0) - (String(a[1]).toLowerCase().startsWith(t) ? 1 : 0));
       hi = Math.max(0, Math.min(hi, shown.length - 1));
       opts.innerHTML = shown.map(([v, l], i) => `<div class="xl-opt${i === hi ? " on" : ""}" role="option" data-i="${i}">${esc(l) || "&nbsp;"}</div>`).join("") || '<div class="xl-opt xl-ghost">No match</div>';
-      opts.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+      place();
+      const on = opts.querySelector(".on"); if (on) { if (on.offsetTop < opts.scrollTop) opts.scrollTop = on.offsetTop; else if (on.offsetTop + on.offsetHeight > opts.scrollTop + opts.clientHeight) opts.scrollTop = on.offsetTop + on.offsetHeight - opts.clientHeight; }
     };
     input.value = filter;
     hi = filter ? 0 : Math.max(0, col.options().findIndex(([v]) => String(v) === current));
@@ -304,6 +319,7 @@ export function mountGrid(host, cfg) {
   function endEdit() {
     if (!editing) return;
     const cell = td(editing.r, editing.c);
+    if (editing.cleanup) editing.cleanup();
     editing = null;
     cell?.querySelectorAll(".xl-editor,.xl-list").forEach((e) => e.remove());
     root.focus({ preventScroll: true });
@@ -369,6 +385,12 @@ export function mountGrid(host, cfg) {
     if (editing || e.target === fbar) return;
     const k = e.key, ctrl = e.ctrlKey || e.metaKey, col = cols[active.c];
     const nav = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (e.altKey && k === "ArrowDown") { // Alt+↓ opens the list (checked before plain arrows)
+      e.preventDefault();
+      if (col.type === "select" && !readOnly(rows[active.r], col)) startEdit("edit");
+      else if (col.type !== "delete") { const b = host.querySelector(`.xl-fbtn[data-fc="${active.c}"]`); if (b) openFilter(active.c, b); }
+      return;
+    }
     if (nav[k]) {
       e.preventDefault();
       if (ctrl) {
@@ -393,7 +415,6 @@ export function mountGrid(host, cfg) {
     else if (ctrl && k.toLowerCase() === "a") { e.preventDefault(); anchor = { r: 0, c: 0 }; active = { r: lastDataRow(), c: lastC - 1 }; paint(); }
     else if (ctrl && k === ";") { e.preventDefault(); const dc = cols.findIndex((c) => c.type === "date"); if (dc >= 0) apply(active.r, { [cols[dc].key]: parseDateInput("t") }); }
     else if (ctrl && (k === "-" || k === "_")) { e.preventDefault(); deleteRow(active.r); }
-    else if (e.altKey && k === "ArrowDown" && col.type === "select") { e.preventDefault(); startEdit("edit"); }
     else if (!ctrl && !e.altKey && k.length === 1) {
       if (col.type === "delete" || readOnly(rows[active.r], col)) return;
       e.preventDefault(); startEdit("enter", k);
