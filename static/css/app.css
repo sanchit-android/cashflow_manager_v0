@@ -76,3 +76,7 @@ table.sheet tfoot td { font-weight: 600; padding: 6px; }
 .landing .hero { padding: 48px 0 24px; }
 .landing .hero h1 { font-size: 34px; line-height: 1.2; }
 .landing .points { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+.google-btn { display: block; text-align: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600; }
+.google-btn:hover { background: var(--surface-2); }
+.or { text-align: center; margin: 4px 0 0; }

@@ -63,7 +63,8 @@ def privacy(request):
 def login_page(request):
     if request.user.is_authenticated:
         return redirect("/app")
-    return render(request, "login.html")
+    from .google_auth import enabled
+    return render(request, "login.html", {"google": enabled(), "google_error": request.GET.get("error") == "google"})
 
 
 @require_GET

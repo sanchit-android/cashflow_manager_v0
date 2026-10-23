@@ -1,12 +1,14 @@
 from django.urls import path
 
-from . import views
+from . import google_auth, views
 
 urlpatterns = [
     path("", views.landing),
     path("privacy/", views.privacy),
     path("login/", views.login_page),
     path("logout/", views.logout_view),
+    path("auth/google/start", google_auth.start),
+    path("auth/google/callback", google_auth.callback),
     path("app", views.app_page),
     path("api/auth/request-code", views.request_code),
     path("api/auth/verify-code", views.verify_code),

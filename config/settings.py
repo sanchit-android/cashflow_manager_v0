@@ -98,6 +98,10 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@example.com")
 
+# Google sign-in (optional; button appears when both are set)
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+
 # Login-code limits
 LOGIN_CODE_TTL_MINUTES = 10
 LOGIN_CODE_MAX_ATTEMPTS = 5

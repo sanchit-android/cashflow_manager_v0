@@ -19,7 +19,7 @@ Open http://localhost:8000 → Sign in. In dev, the email login code prints in t
 
 > If `migrate` complains the models don't match the migration, run `python manage.py makemigrations core` and commit the result. (The initial migration was hand-written because the build machine couldn't install Django.)
 
-Tests for the calculation engine and encryption (Node 20+):
+Tests for the calculation engine, encryption and importers (Node 20+):
 
 ```bash
 npm test
@@ -40,6 +40,23 @@ npm test
 ### Encryption in one paragraph
 A random data key encrypts every record (AES-256-GCM, record id + type + user bound in as associated data). The vault passphrase (PBKDF2, 600k iterations) and each of three recovery keys wrap their own copy of that key. The server stores only wrapped keys and ciphertext. Changing the passphrase re-wraps the key; data is never re-encrypted. Lose the passphrase and every recovery key and the data is unrecoverable, by design.
 
+## Google sign-in
+
+1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Web application.
+2. Authorised redirect URIs: `https://<your-host>/auth/google/callback` (add `http://localhost:8000/auth/google/callback` for local dev).
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The "Continue with Google" button appears only when both are set.
+4. OAuth consent screen: user type External, scopes `openid` and `email` only. Google signs in the same account as email-code login for that address.
+
+No Google scripts are loaded in our pages; the flow is a server-side redirect, so the strict CSP stays intact.
+
+## Import
+
+Import tab → choose a `.csv` or `.xlsx`. Files are parsed in the browser and never uploaded.
+
+- **Any bank/card export:** map date, description, amount (or debit/credit) and category columns, preview, import.
+- **Monthly finances workbook** (sheets named like `Oct 26` with Inflows / Cash - Planned / Cash - Unplanned / card blocks / Annual Expenses Summary): detected automatically. Every month is reconciled against the sheet's closing balance before you import.
+- Every import can be undone from the same tab.
+
 ## Deploy (free tiers)
 
 1. **Database:** create a Neon project, copy the connection string.
@@ -48,8 +65,6 @@ A random data key encrypts every record (AES-256-GCM, record id + type + user bo
 
 ## Not built yet (from the spec)
 
-- Google sign-in (add `django-allauth`); email-code login is in place
-- Workbook / CSV import (browser-side, SheetJS)
 - Year view and charts, checkpoint snapshots and multi-year projections
 - Argon2id key derivation (vault stores KDF params, so it can be upgraded per user)
 - Opt-in data sharing features (spec §10.7) and passkey unlock

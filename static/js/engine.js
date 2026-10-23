@@ -141,7 +141,7 @@ export function commitmentStatus(db, period, txns) {
 
 export function annualStatus(db, year) {
   return db.annual.filter((a) => +a.year === +year).map((a) => {
-    const paid = db.transaction.filter((t) => t.annual_id === a.id).reduce((x, t) => x + num(t.amount), 0);
+    const paid = num(a.paid_external) + db.transaction.filter((t) => t.annual_id === a.id).reduce((x, t) => x + num(t.amount), 0);
     return { ...a, paid: round(paid), unpaid: round(Math.max(0, num(a.total) - paid)) };
   }).sort((a, b) => num(a.due_month) - num(b.due_month));
 }

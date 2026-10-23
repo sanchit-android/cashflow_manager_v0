@@ -5,6 +5,11 @@
 <main class="wrap narrow">
   <div class="card">
     <h1>Sign in</h1>
+    {% if google_error %}<p class="error" role="alert">Google sign-in didn't complete. Try again, or use your email.</p>{% endif %}
+    {% if google %}
+    <p><a class="google-btn" href="/auth/google/start">Continue with Google</a></p>
+    <p class="muted or">or use your email</p>
+    {% endif %}
     <form id="email-form">
       <label for="email">Email</label>
       <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>

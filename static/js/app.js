@@ -1,6 +1,8 @@
 import * as C from "./crypto.js";
 import * as E from "./engine.js";
 import { api, device, store } from "./store.js";
+import { readXlsx } from "./xlsx.js";
+import * as I from "./importer.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -185,14 +187,14 @@ function onboarding() {
 }
 
 // ================= tabs =================
-const TABS = [["month", "Month"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["settings", "Settings"]];
+const TABS = [["month", "Month"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
 function renderTabs() {
   tabsEl.hidden = false;
   tabsEl.innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
   tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
 }
 function render() {
-  try { ({ month: viewMonth, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, settings: viewSettings })[S.tab](); }
+  try { ({ month: viewMonth, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 
@@ -281,7 +283,7 @@ function viewMonth() {
   html(`
     <div class="row"><button id="prev" aria-label="Previous month">←</button><h1 style="margin:0">${esc(label)}${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}</h1><button id="next" aria-label="Next month">→</button></div>
     <div class="card verdict" style="margin-top:12px">${verdict}
-      ${r.months != null ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, liquid savings of ${inr(r.savings)} last about ${r.months} months.</p>` : ""}</div>
+      ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, liquid savings of ${inr(r.savings)} last about ${r.months} months.</p>` : ""}</div>
     <div class="grid">
       ${[["Opening", s.opening], ["Regular income", s.regular_inflow], ["Monthly spending", s.monthly_expense], ["Annual items", s.annual_expense],
         ["Investments", s.investments], ["One-off income", s.oneoff_inflow], ["Closing", s.closing]].map(([l, n]) => `<div class="card metric"><div class="label">${l}</div><div class="value">${inr(n)}</div></div>`).join("")}
@@ -444,5 +446,121 @@ function viewSettings() {
     location.href = "/";
   };
 }
+
+// ================= Import =================
+const IMP = { file: null, book: null, rows: null, result: null };
+const mainAccount = () => store.ofType("account").find((a) => a.data.is_default_spending) || store.ofType("account").find((a) => a.data.role === "spending");
+
+function importBatches() {
+  const by = {};
+  for (const r of store.records()) if (!r.deleted && r.data && r.data.import_batch) (by[r.data.import_batch] ||= []).push(r.id);
+  return Object.entries(by).map(([batch, ids]) => ({ batch, ids, label: batch.replace(/^\d+-/, ""), when: new Date(+batch.split("-")[0]).toLocaleString("en-IN") }));
+}
+
+function viewImport() {
+  const batches = importBatches();
+  html(`
+    <div class="card"><h2>Import</h2>
+      <p class="muted">Your file is read on this device and never uploaded. Only the encrypted results are saved.</p>
+      <input type="file" id="file" accept=".csv,.xlsx,text/csv">
+      <div id="imp"></div><p class="error" id="err" role="alert"></p></div>
+    ${batches.length ? `<div class="card"><h2>Past imports</h2>${batches.map((b) => `<div class="row" style="padding:4px 0"><span>${esc(b.label)}</span><span class="muted">${esc(b.when)} · ${b.ids.length} records</span><span class="spacer"></span><button data-undo="${esc(b.batch)}">Undo import</button></div>`).join("")}</div>` : ""}`);
+  $("#file").onchange = (e) => loadFile(e.target.files[0]).catch(showError);
+  $$("[data-undo]").forEach((b) => (b.onclick = async () => {
+    const batch = importBatches().find((x) => x.batch === b.dataset.undo);
+    if (!confirm(`Remove all ${batch.ids.length} records from this import?`)) return;
+    b.disabled = true; b.textContent = "Removing…";
+    try { await store.save(batch.ids.map((id) => ({ id, type: store.rows.get(id).type, deleted: true }))); render(); } catch (x) { showError(x); }
+  }));
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  IMP.file = file; IMP.book = null; IMP.rows = null;
+  const box = $("#imp");
+  box.innerHTML = '<p class="muted">Reading…</p>';
+  if (/\.xlsx$/i.test(file.name)) {
+    IMP.book = await readXlsx(await file.arrayBuffer());
+    if (await I.looksLikeFinancesWorkbook(IMP.book)) return financesForm();
+    return sheetPicker();
+  }
+  IMP.rows = I.parseCSV(await file.text());
+  mappingForm();
+}
+
+function sheetPicker() {
+  $("#imp").innerHTML = `<label for="sheet">Sheet</label><select id="sheet" style="max-width:320px">${IMP.book.sheetNames.map((n) => `<option>${esc(n)}</option>`).join("")}</select>
+    <p><button id="usesheet">Use this sheet</button></p>`;
+  $("#usesheet").onclick = async () => { IMP.rows = (await IMP.book.sheet($("#sheet").value)).rows().filter((r) => r.some((c) => c !== null)); mappingForm(); };
+}
+
+function mappingForm() {
+  const rows = IMP.rows;
+  if (!rows || rows.length < 2) return showError(new Error("That file has no rows to import."));
+  const headers = rows[0].map((h, i) => clean(h) || `Column ${i + 1}`);
+  const g = I.guessMapping(headers);
+  const sel = (key, label, optional) => `<label for="m-${key}">${label}</label><select id="m-${key}" style="max-width:320px">
+    ${optional ? '<option value="-1">— none —</option>' : ""}${headers.map((h, i) => `<option value="${i}" ${g[key] === i ? "selected" : ""}>${esc(h)}</option>`).join("")}</select>`;
+  $("#imp").innerHTML = `
+    <p class="muted">${rows.length - 1} rows. Match your columns:</p>
+    ${sel("date", "Date")}${sel("description", "Description", true)}${sel("amount", "Amount (one column)", true)}
+    ${sel("debit", "…or Debit / withdrawal column", true)}${sel("credit", "…and Credit / deposit column", true)}${sel("category", "Category", true)}
+    <label for="sign">In the amount column</label><select id="sign" style="max-width:320px"><option value="spent_positive">Positive = money spent</option><option value="received_positive">Positive = money received</option></select>
+    <label for="dord">Dates look like</label><select id="dord" style="max-width:320px"><option value="dmy">Day/Month/Year</option><option value="mdy">Month/Day/Year</option></select>
+    <label for="acct">Add to account</label><select id="acct" style="max-width:320px">${accountOptions().map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select>
+    <p><button id="prev">Preview</button></p><div id="preview"></div>`;
+  if (g.debit >= 0 || g.credit >= 0) $("#m-amount").value = "-1";
+  $("#prev").onclick = () => {
+    const mapping = Object.fromEntries(["date", "description", "amount", "debit", "credit", "category"].map((k) => [k, +$("#m-" + k).value]));
+    const res = I.importTable(rows, mapping, { account_id: $("#acct").value, sign: $("#sign").value, dateOrder: $("#dord").value,
+      settings: settingsRec().data, batch: `${Date.now()}-${IMP.file.name}` });
+    IMP.result = res;
+    $("#preview").innerHTML = `<p>${res.items.length} transactions ready${res.report.skippedRows.length ? `, ${res.report.skippedRows.length} rows skipped (no date or amount: rows ${res.report.skippedRows.slice(0, 10).join(", ")}${res.report.skippedRows.length > 10 ? "…" : ""})` : ""}.</p>
+      <div class="sheet-wrap"><table class="sheet"><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Category</th><th>Amount</th></tr></thead><tbody>
+      ${res.items.slice(0, 8).map((i) => `<tr><td class="static">${i.data.date}</td><td class="static">${esc(i.data.description)}</td><td class="static">${i.data.direction === "in" ? "Received" : "Spent"}</td><td class="static">${i.data.category}</td><td class="static num">${inr(i.data.amount)}</td></tr>`).join("")}
+      </tbody></table></div>${res.items.length ? '<p><button class="primary" id="doimp">Import</button></p>' : ""}`;
+    if ($("#doimp")) $("#doimp").onclick = () => commitImport(res.items);
+  };
+}
+
+async function financesForm() {
+  const months = IMP.book.sheetNames.filter(I.monthSheetPeriod);
+  $("#imp").innerHTML = `<p>This looks like a monthly finances workbook with <strong>${months.length} month sheets</strong>. Choose the months to import:</p>
+    <div class="row">${months.map((m) => `<label style="margin:0"><input type="checkbox" class="mchk" value="${esc(m)}" checked style="width:auto"> ${esc(m)}</label>`).join("")}</div>
+    <p><button id="prev">Check the import</button></p><div id="preview"></div>`;
+  $("#prev").onclick = async () => {
+    const chosen = $$(".mchk").filter((c) => c.checked).map((c) => c.value);
+    if (!chosen.length) return showError(new Error("Choose at least one month."));
+    const main = mainAccount();
+    $("#preview").innerHTML = '<p class="muted">Checking…</p>';
+    const r = await I.importFinancesWorkbook(IMP.book, { mainAccount: main, accounts: store.ofType("account"), months: chosen, batch: `${Date.now()}-${IMP.file.name}` });
+    IMP.result = r;
+    const ok = r.report.months.every((m) => m.diff === 0);
+    $("#preview").innerHTML = `
+      <p>${r.report.counts.transaction || 0} transactions, ${r.report.counts.account || 0} new accounts, ${r.report.counts.commitment || 0} monthly commitments, ${r.report.annualCount} annual items.</p>
+      <p class="${ok ? "good" : "bad"}"><strong>${ok ? "Every month's closing balance matches your sheet." : "Some months don't match your sheet — check below before importing."}</strong></p>
+      <div class="sheet-wrap"><table class="sheet" style="min-width:0"><thead><tr><th>Month</th><th>Sheet closing</th><th>After import</th><th>Difference</th></tr></thead><tbody>
+      ${r.report.months.map((m) => `<tr><td class="static">${esc(m.sheet)}</td><td class="static num">${inr(m.sheetClosing)}</td><td class="static num">${inr(m.closing)}</td><td class="static num ${m.diff ? "bad" : "good"}">${m.diff ? inr(m.diff) : "✓"}</td></tr>`).join("")}
+      </tbody></table></div>
+      ${r.report.warnings.length ? `<div class="notice" style="margin-top:12px"><strong>In your sheet, these card bills differ from their line items.</strong> The difference is imported as an "unitemised" line so totals still match:<ul>${r.report.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+      <label><input type="checkbox" id="setopen" style="width:auto" checked> Set ${esc(main.data.name)}'s opening balance to ${inr(r.opening.opening_balance)} from ${r.opening.opening_period}</label>
+      <p><button class="primary" id="doimp">Import</button></p>`;
+    $("#doimp").onclick = () => commitImport(r.items, $("#setopen").checked ? { id: main.id, data: { ...main.data, ...r.opening } } : null);
+  };
+}
+
+async function commitImport(items, mainUpdate) {
+  const btn = $("#doimp"); btn.disabled = true; btn.textContent = `Encrypting and saving ${items.length} records…`;
+  try {
+    const all = items.map((i) => ({ id: i.id, type: i.type, period: i.data.period || "", data: i.data }));
+    if (mainUpdate) all.push({ id: mainUpdate.id, type: "account", data: mainUpdate.data });
+    await store.save(all);
+    IMP.result = null;
+    const latest = items.filter((i) => i.data.period).map((i) => i.data.period).sort().pop();
+    if (latest) S.period = latest;
+    S.tab = "month"; renderTabs(); render();
+  } catch (e) { showError(e); btn.disabled = false; btn.textContent = "Import"; }
+}
+const clean = (s) => String(s ?? "").trim();
 
 start();
