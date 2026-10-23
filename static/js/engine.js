@@ -38,7 +38,7 @@ export function shiftPeriod(p, n) {
 }
 
 export function index(records) {
-  const by = { settings: {}, account: [], transaction: [], commitment: [], annual: [], income: [] };
+  const by = { settings: {}, account: [], transaction: [], commitment: [], annual: [], income: [], note: [], snapshot: [] };
   for (const r of records) {
     if (r.deleted || !r.data) continue;
     const row = { id: r.id, ...r.data };

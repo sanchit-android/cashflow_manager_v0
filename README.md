@@ -34,7 +34,8 @@ npm test
 | Data | `core/models.py` | `LoginCode`, `Vault`, `VaultKey`, `Record` (ciphertext + type + period only) |
 | Encryption | `static/js/crypto.js` | WebCrypto: AES-256-GCM records, PBKDF2-SHA256 passphrase, HKDF recovery keys |
 | Sync | `static/js/store.js` | Pull/push, version conflicts, remembered key in IndexedDB (non-extractable) |
-| Maths | `static/js/engine.js` | Periods (calendar or pay cycle), month verdict, commitments, annual items, runway |
+| Maths | `static/js/engine.js`, `static/js/plan.js` | Periods, month verdict, commitments, annual items; year view, projections, checkpoints |
+| Grid and charts | `static/js/grid.js`, `static/js/cells.js`, `static/js/charts.js` | Excel-like grid (formulas, paste, undo, autofill); SVG charts with hover |
 | UI | `static/js/app.js`, `static/css/app.css` | Vault setup, unlock, onboarding, Month / Plan / Accounts / Savings / Settings, 5 themes |
 
 ### Encryption in one paragraph
@@ -59,6 +60,13 @@ Import tab → choose a `.csv` or `.xlsx`. Files are parsed in the browser and n
 - **Monthly finances workbook** (sheets named like `Oct 26` with Inflows / Cash - Planned / Cash - Unplanned / card blocks / Annual Expenses Summary): detected automatically. Every month is reconciled against the sheet's closing balance before you import.
 - Every import can be undone from the same tab.
 
+## Year, savings and checkpoints
+
+- **Year tab:** months across, metrics down (your old Cashflow sheet): regular income, additional inflow, monthly spending, annual items, net monthly burn, total out, invested, balances, editable notes. Chart of spending and annual items against regular income.
+- **Savings tab:** projection of liquid savings month by month to a horizon year from editable assumptions (monthly burn and its yearly growth, annual items and their growth, holiday budget). Shows committed spending by year, the gap, and the month money runs out.
+- **Checkpoints:** dated snapshots of liquid savings, committed spending and long-term holdings, edited in the grid. A new checkpoint carries holdings forward from the previous one and recalculates commitments. The latest checkpoint is the projection's starting balance.
+- The workbook importer also brings in the Checkpoint sheet, the Cashflow sheet's notes, money lent to people listed as "Credit - …", and treats inflow lines after the first (rent) as one-off.
+
 ## Deploy (free tiers)
 
 1. **Database:** create a Neon project, copy the connection string.
@@ -67,7 +75,6 @@ Import tab → choose a `.csv` or `.xlsx`. Files are parsed in the browser and n
 
 ## Not built yet (from the spec)
 
-- Year view and charts, checkpoint snapshots and multi-year projections
 - Argon2id key derivation (vault stores KDF params, so it can be upgraded per user)
 - Opt-in data sharing features (spec §10.7) and passkey unlock
 - Rate limiting on login-code requests by IP (currently per email)

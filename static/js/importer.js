@@ -183,6 +183,14 @@ export async function importFinancesWorkbook(book, ctx) {
   const main = ctx.mainAccount.id;
   const investments = () => account("Investments", { kind: "mutual_fund", role: "investment", balance: 0, liquid: true });
 
+  // People listed as "Credit - X" in the Checkpoint sheet: cash paid to them is money lent, not spending.
+  const lent = [];
+  for (const snap of await checkpointSnapshots(book)) for (const it of snap.items) {
+    const m = it.label.match(/^credit\s*-?\s*(.+)$/i);
+    if (m && !lent.some((x) => x.key === m[1].trim().toLowerCase())) lent.push({ key: m[1].trim().toLowerCase(), label: it.label });
+  }
+  const lentTo = (label) => lent.find((x) => label.toLowerCase().split(/\s+/).includes(x.key) || label.toLowerCase() === x.key);
+
   const perMonth = [];
   const commitmentIds = {};
   let latest = null;
@@ -199,9 +207,14 @@ export async function importFinancesWorkbook(book, ctx) {
     // Inflows: label in A, amount in B, under "Inflows" until "Outflows"
     const [ic, ir] = splitRef(first("inflows"));
     const amountCol = numToCol(colToNum(ic) + 1);
+    // The sheet treats the first line (rent) as planned income and the rest as "additional inflow".
+    let firstInflow = true;
     for (const r of blockRows(s, ic, ir + 1, new Set(["outflows"]))) {
       const label = clean(s.get(ic + r)), v = s.get(amountCol + r);
-      if (label && isNum(v) && v) tx({ account_id: main, direction: "in", amount: v, description: label, category: /rent/i.test(label) ? "Rent" : "Other", nature: "income" });
+      if (!label || !isNum(v) || !v) continue;
+      const regular = firstInflow || /\b(rent|salary|interest|pension|dividend)\b/i.test(label);
+      firstInflow = false;
+      tx({ account_id: main, direction: "in", amount: v, description: label, category: /rent/i.test(label) ? "Rent" : "Other", nature: regular ? "income" : "income_oneoff" });
     }
 
     // Cash planned / unplanned: label in C, amount in D
@@ -213,7 +226,10 @@ export async function importFinancesWorkbook(book, ctx) {
       for (const r of blockRows(s, cc, cr + 1, new Set(["cash - unplanned", "key datapoints"]), 4)) {
         const l = clean(s.get(cc + r)), v = s.get(vc + r);
         if (!l || !isNum(v) || !v) continue;
-        if (kind === "unplanned" && /invest/i.test(l)) {
+        if (kind === "unplanned" && lentTo(l)) {
+          const who = lentTo(l);
+          tx({ account_id: main, to_account_id: account(who.label, { kind: "other", role: "receivable", balance: 0, liquid: true }), direction: "transfer", amount: v, description: l, category: "Other", nature: "oneoff" });
+        } else if (kind === "unplanned" && /invest/i.test(l)) {
           tx({ account_id: main, to_account_id: investments(), direction: "transfer", amount: v, description: l, category: "Other", nature: "investment" });
         } else if (kind === "planned" && /annual/i.test(l)) {
           tx({ account_id: main, direction: "out", amount: v, description: l + " (cash)", category: "Other", nature: "annual" });
@@ -279,6 +295,12 @@ export async function importFinancesWorkbook(book, ctx) {
     }
   }
 
+  // Month notes from the "Cashflow" sheet and dated snapshots from the "Checkpoint" sheet, when present.
+  const chosen = new Set(perMonth.map((m) => m.period));
+  let noteCount = 0, checkpointCount = 0;
+  for (const n of await cashflowNotes(book)) if (chosen.has(n.period)) { add("note", n); noteCount++; }
+  if (ctx.checkpoints !== false) for (const snap of await checkpointSnapshots(book)) { add("snapshot", snap); checkpointCount++; }
+
   // Opening balance of the main account = first month's sheet opening.
   const opening = { opening_balance: perMonth[0].sheetOpening || 0, opening_period: perMonth[0].period };
 
@@ -290,5 +312,53 @@ export async function importFinancesWorkbook(book, ctx) {
     m.diff = isNum(m.sheetClosing) ? Math.round(s.closing - m.sheetClosing) : null;
   }
   const counts = items.reduce((o, it) => ((o[it.type] = (o[it.type] || 0) + 1), o), {});
-  return { items, opening, report: { months: perMonth, counts, annualCount, warnings } };
+  return { items, opening, report: { months: perMonth, counts, annualCount, warnings, noteCount, checkpointCount } };
+}
+
+/** Notes row of a "Cashflow" year sheet: a row of text under the month header row (e.g. "Gujarat Trip bookings"). */
+export async function cashflowNotes(book) {
+  if (!book.sheetNames.includes("Cashflow")) return [];
+  const s = await book.sheet("Cashflow");
+  let headerRow = 0, cols = [];
+  for (let r = 1; r <= Math.min(10, s.maxRow) && !headerRow; r++) {
+    const found = [];
+    for (let c = 1; c <= s.maxCol; c++) { const p = monthSheetPeriod(s.get(numToCol(c) + r)); if (p) found.push([numToCol(c), p]); }
+    if (found.length >= 2) { headerRow = r; cols = found; }
+  }
+  if (!headerRow) return [];
+  const out = [];
+  for (let r = headerRow + 1; r <= s.maxRow; r++) {
+    if (typeof s.get("A" + r) === "string" && s.get("A" + r).trim()) continue; // labelled metric rows
+    for (const [c, period] of cols) {
+      const v = s.get(c + r);
+      if (typeof v === "string" && v.trim()) out.push({ period, text: v.trim().slice(0, 500) });
+    }
+  }
+  return out;
+}
+
+/**
+ * "Checkpoint" sheet: blocks that start with a date in column A, then a header row with
+ * Savings (A/C), Expenses (E/G) and an unlabelled long-term block (Q/S), items listed below.
+ */
+export async function checkpointSnapshots(book) {
+  if (!book.sheetNames.includes("Checkpoint")) return [];
+  const s = await book.sheet("Checkpoint");
+  const starts = [];
+  for (let r = 1; r <= s.maxRow; r++) { const v = s.get("A" + r); if (isNum(v) && v > 30000 && v < 80000) starts.push(r); }
+  return starts.map((r0, i) => {
+    const r1 = (starts[i + 1] || s.maxRow + 1) - 1;
+    const items = [];
+    const take = (labelCol, valueCol, group, skipHeader) => {
+      for (let r = r0 + 1; r <= r1; r++) {
+        const label = clean(s.get(labelCol + r)), v = s.get(valueCol + r);
+        if (!label || !isNum(v) || skipHeader.test(label)) continue;
+        items.push({ group, label, amount: Math.round(v) });
+      }
+    };
+    take("A", "C", "liquid", /^savings$/i);
+    take("E", "G", "commitment", /^expenses$/i);
+    take("Q", "S", "illiquid", /^$/);
+    return { date: excelDate(s.get("A" + r0)), note: "Imported from Checkpoint sheet", items };
+  }).filter((x) => x.items.length);
 }

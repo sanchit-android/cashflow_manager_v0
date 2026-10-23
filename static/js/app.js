@@ -5,6 +5,8 @@ import { readXlsx } from "./xlsx.js";
 import * as I from "./importer.js";
 import { mountGrid } from "./grid.js";
 import { buildSuggest } from "./cells.js";
+import * as P from "./plan.js";
+import { stackedBars, lines, money } from "./charts.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -215,14 +217,14 @@ function onboarding() {
 }
 
 // ================= tabs =================
-const TABS = [["month", "Month"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+const TABS = [["month", "Month"], ["year", "Year"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
 function renderTabs() {
   tabsEl.hidden = false;
   tabsEl.innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
   tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
 }
 function render() {
-  try { ({ month: viewMonth, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
+  try { ({ month: viewMonth, year: viewYear, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 
@@ -419,19 +421,169 @@ function viewAccounts() {
       { key: "balance", label: "Current balance (savings)", type: "number", width: 170 }] });
 }
 
-// ================= Savings =================
-function viewSavings() {
-  const d = db(), r = E.runway(d, S.period);
-  const byRole = (role) => d.account.filter((a) => a.role === role).reduce((x, a) => x + (+a.balance || 0), 0);
-  html(`<div class="card"><h2>Savings and runway</h2>
-    <div class="grid">
-      <div class="metric"><div class="label">Liquid savings</div><div class="value">${inr(r.savings)}</div></div>
-      <div class="metric"><div class="label">Long-term (not counted)</div><div class="value">${inr(byRole("long_term"))}</div></div>
-      <div class="metric"><div class="label">Money lent</div><div class="value">${inr(byRole("receivable"))}</div></div>
-      <div class="metric"><div class="label">Average monthly burn</div><div class="value">${r.burn == null ? "—" : inr(r.burn)}</div></div>
+// ================= Year =================
+function viewYear() {
+  const year = S.year || +S.period.slice(0, 4);
+  const d = db(), yv = P.yearView(d, year), ms = yv.months, t = yv.totals;
+  const v = (m, k) => (m.hasData ? m[k] : null);
+  const ROWS = [
+    ["Opening balance", "opening"], ["Regular income", "regular_inflow"], ["Additional inflow", "oneoff_inflow"],
+    ["Monthly spending", "monthly_expense"], ["Annual items", "annual_expense"],
+    ["Net monthly burn", "net_burn", "em", "Monthly spending − regular income"],
+    ["Total out (burn + annual)", "total_out", "em", "What the month took from savings before investments and extra inflows"],
+    ["Invested", "investments"], ["Closing balance", "closing"],
+  ];
+  const totalCol = (k) => (["opening", "closing"].includes(k) ? "" : money(t[k]));
+  html(`
+    <div class="row"><button id="py" aria-label="Previous year">←</button><h1 style="margin:0">${year}</h1><button id="ny" aria-label="Next year">→</button>
+      <span class="muted">${yv.months_with_data} month${yv.months_with_data === 1 ? "" : "s"} with data</span></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="metric"><div class="label">Average net burn</div><div class="value">${money(yv.avg_net_burn)}</div><div class="sub">per month, before annual items</div></div>
+      <div class="metric"><div class="label">Annual items</div><div class="value">${money(t.annual_expense)}</div><div class="sub">paid this year</div></div>
+      <div class="metric"><div class="label">Total out</div><div class="value">${money(t.total_out)}</div><div class="sub">burn + annual items</div></div>
+      <div class="metric"><div class="label">Additional inflow</div><div class="value">${money(t.oneoff_inflow)}</div><div class="sub">one-off money in</div></div>
+      <div class="metric"><div class="label">Invested</div><div class="value">${money(t.investments)}</div><div class="sub">not counted as spending</div></div>
     </div>
-    <p class="verdict">${r.months == null ? (r.burn == null ? "Add a few months of transactions to see runway." : "Your income covers your spending, so savings aren't being drawn down.") : `At this rate, savings last about <strong>${r.months} months</strong>, until around <strong>${r.runs_out}</strong>.`}</p>
-    <p class="muted">Update balances on the Accounts tab. Snapshots and multi-year projections come next.</p></div>`);
+    <div class="card"><h2>Spending against income, by month</h2><div id="ychart"></div></div>
+    <div class="card"><h2>Year at a glance</h2><p class="muted">Click a month to open it. Notes save as you type.</p>
+      <div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh"></th>${ms.map((m) => `<th><a href="#" data-goto="${m.period}">${m.label}</a></th>`).join("")}<th>${year}</th></tr></thead><tbody>
+      ${ROWS.map(([label, k, cls, hint]) => `<tr class="${cls || ""}"><th class="rowh" ${hint ? `title="${esc(hint)}"` : ""}>${label}</th>${ms.map((m) => {
+        const x = v(m, k); return `<td class="${x == null ? "nodata" : x < 0 && (k === "net_burn" || k === "total_out") ? "neg" : ""}">${x == null ? "–" : money(x)}</td>`; }).join("")}<td>${totalCol(k)}</td></tr>`).join("")}
+      <tr><th class="rowh">Notes</th>${ms.map((m) => `<td class="note"><textarea data-note="${m.period}" aria-label="Note for ${m.label}">${esc(m.note)}</textarea></td>`).join("")}<td></td></tr>
+      </tbody></table></div></div>`);
+  $("#py").onclick = () => { S.year = year - 1; render(); };
+  $("#ny").onclick = () => { S.year = year + 1; render(); };
+  $$("[data-goto]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.period = a.dataset.goto; S.tab = "month"; renderTabs(); render(); }));
+  const timers = {};
+  $$("[data-note]").forEach((ta) => (ta.oninput = () => {
+    clearTimeout(timers[ta.dataset.note]);
+    timers[ta.dataset.note] = setTimeout(async () => {
+      const period = ta.dataset.note, existing = store.ofType("note").find((n) => n.data.period === period);
+      const text = ta.value.trim();
+      if (!text && existing) await store.remove(existing.id);
+      else if (text) await store.save({ id: existing ? existing.id : undefined, type: "note", period, data: { period, text } });
+    }, 600);
+  }));
+  stackedBars($("#ychart"), {
+    title: `Monthly spending and annual items against regular income, ${year}`,
+    labels: ms.map((m) => m.label.slice(0, 3)),
+    stacks: [{ name: "Monthly spending", color: "var(--series-1)", values: ms.map((m) => v(m, "monthly_expense")) },
+             { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
+    line: { name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
+  });
+}
+
+// ================= Savings, projections and checkpoints =================
+const PROJ_FIELDS = [["burn", "Monthly burn (spending − regular income)", "₹"], ["burn_growth_pct", "Burn grows each year", "%"],
+  ["annual_base", "Annual items per year", "₹"], ["annual_growth_pct", "Annual items grow each year", "%"],
+  ["holiday_per_year", "Holiday budget per year", "₹"], ["horizon_year", "Plan until (year)", ""], ["start_override", "Starting savings (blank = latest checkpoint)", "₹"]];
+
+function viewSavings() {
+  const s = settingsRec(), period = E.periodOf(today(), s.data), d = db();
+  const defaults = P.defaultProjection(d, period);
+  const opts = { ...defaults, ...(s.data.projection || {}) };
+  html(`
+    <h1>Savings and runway</h1>
+    <div class="kpis" id="pk"></div>
+    <div class="card"><h2>Where your savings are heading</h2><div id="pchart"></div>
+      <p class="muted" id="pnote"></p></div>
+    <div class="card"><h2>Assumptions</h2>
+      <div class="proj-form">${PROJ_FIELDS.map(([k, l, u]) => `<div><label for="pf-${k}">${l}${u === "%" ? " (%)" : ""}</label><input id="pf-${k}" type="number" step="any" value="${opts[k] ?? ""}" placeholder="${k === "start_override" ? "" : defaults[k] ?? ""}"></div>`).join("")}</div>
+      <p class="row" style="margin-top:12px"><button class="primary" id="psave">Save assumptions</button><button id="pdef">Use my recent averages</button><span class="muted" id="pmsg"></span></p>
+      <p class="muted">Recent averages: burn ${money(defaults.burn)} a month (last 6 months with data), annual items ${money(defaults.annual_base)} a year.</p></div>
+    <div class="card"><h2>Committed spending by year</h2><div id="pyears"></div></div>
+    <div class="card"><h2>Checkpoints</h2><p class="muted">A checkpoint records what you hold and what you've committed on a date. Compare them to see whether the gap is closing.</p>
+      <div id="snaps"></div><p><button class="primary" id="newsnap">New checkpoint</button></p><div id="snaped"></div></div>`);
+  const read = () => Object.fromEntries(PROJ_FIELDS.map(([k]) => [k, $("#pf-" + k).value === "" ? (k === "start_override" ? null : defaults[k]) : +$("#pf-" + k).value]));
+  const draw = () => drawProjection(db(), period, read());
+  $$(".proj-form input").forEach((i) => (i.oninput = draw));
+  $("#psave").onclick = async () => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, projection: read() } }); $("#pmsg").textContent = "Saved"; };
+  $("#pdef").onclick = () => { PROJ_FIELDS.forEach(([k]) => { $("#pf-" + k).value = k === "start_override" ? "" : defaults[k]; }); draw(); };
+  $("#newsnap").onclick = async () => {
+    const snap = P.prefillSnapshot(db(), period, read(), today());
+    const [id] = await store.save({ type: "snapshot", data: snap });
+    snapList(); snapEditor(id); draw();
+  };
+  draw(); snapList();
+}
+
+function drawProjection(d, period, opts) {
+  const startInfo = P.currentLiquid(d, period);
+  const start = opts.start_override != null ? opts.start_override : startInfo.amount;
+  const pr = P.project(d, opts, period, start);
+  const snaps = [...d.snapshot].sort((a, b) => a.date.localeCompare(b.date));
+  const gapAtHorizon = start - pr.committed;
+  const runsOut = pr.runs_out ? P.periodLabel(pr.runs_out) : null;
+  $("#pk").innerHTML = `
+    <div class="metric"><div class="label">Liquid savings now</div><div class="value">${money(start)}</div><div class="sub">${opts.start_override != null ? "as entered" : "from " + esc(startInfo.source)}</div></div>
+    <div class="metric"><div class="label">Monthly burn assumed</div><div class="value">${money(opts.burn)}</div><div class="sub">grows ${opts.burn_growth_pct}% a year</div></div>
+    <div class="metric"><div class="label">Committed to Dec ${opts.horizon_year}</div><div class="value">${money(pr.committed)}</div><div class="sub">burn + annual items + holidays</div></div>
+    <div class="metric"><div class="label">Gap at Dec ${opts.horizon_year}</div><div class="value ${gapAtHorizon < 0 ? "bad" : "good"}">${money(gapAtHorizon)}</div><div class="sub">${gapAtHorizon < 0 ? "short" : "spare"}</div></div>
+    <div class="metric"><div class="label">Money lasts until</div><div class="value ${runsOut ? "bad" : "good"}">${runsOut || "Beyond " + opts.horizon_year}</div><div class="sub">at these assumptions</div></div>`;
+  // x axis: from the earliest checkpoint (or now) to the horizon
+  const first = snaps.length ? E.periodOf(snaps[0].date) : period;
+  const from = first < period ? first : period;
+  const labels = [], periods = [];
+  for (let p = from; p <= `${opts.horizon_year}-12`; p = E.shiftPeriod(p, 1)) { periods.push(p); labels.push(P.periodLabel(p)); }
+  const proj = periods.map((p) => (p === E.shiftPeriod(period, -1) ? start : (pr.series.find((x) => x.period === p) || {}).balance ?? null));
+  const snapVals = periods.map((p) => { const sn = snaps.filter((x) => E.periodOf(x.date) === p).pop(); return sn ? P.snapshotTotals(sn).liquid : null; });
+  lines($("#pchart"), {
+    title: "Projected liquid savings by month, with checkpoints",
+    labels, series: [
+      { name: "Projected savings", color: "var(--series-1)", values: proj },
+      ...(snaps.length ? [{ name: "Checkpoint (actual)", color: "var(--series-2)", values: snapVals, dotsOnly: true }] : []),
+    ],
+  });
+  $("#pnote").textContent = runsOut
+    ? `At ${money(opts.burn)} a month plus annual items, liquid savings run out in ${runsOut}. Long-term savings (PPF, property and similar) aren't counted.`
+    : `At these assumptions, liquid savings last beyond December ${opts.horizon_year}, ending around ${money(pr.end)}.`;
+  $("#pyears").innerHTML = `<div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh">Year</th><th>Monthly spending</th><th>Annual items</th><th>Holidays</th><th>Total</th><th>Savings at year end</th></tr></thead><tbody>
+    ${pr.years.map((y) => { const end = pr.series.filter((x) => x.period.startsWith(y.year)).pop(); return `<tr><th class="rowh">${y.year}${y.year === +period.slice(0, 4) ? " (rest of year)" : ""}</th><td>${money(y.monthly)}</td><td>${money(y.annual)}</td><td>${money(y.holiday)}</td><td><strong>${money(y.total)}</strong></td><td class="${end && end.balance < 0 ? "bad" : ""}">${end ? money(end.balance) : "–"}</td></tr>`; }).join("")}
+    </tbody></table></div>`;
+}
+
+function snapList() {
+  const snaps = store.ofType("snapshot").map((r) => ({ id: r.id, ...r.data })).sort((a, b) => b.date.localeCompare(a.date));
+  if (!snaps.length) { $("#snaps").innerHTML = '<p class="muted">No checkpoints yet. Create one to record where you stand today.</p>'; return; }
+  const tot = snaps.map((s) => P.snapshotTotals(s));
+  $("#snaps").innerHTML = `<div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh">Date</th><th>Liquid savings</th><th>Committed</th><th>Gap</th><th>Change in gap</th><th>Long-term</th><th></th></tr></thead><tbody>
+    ${snaps.map((s, i) => { const t = tot[i], prev = tot[i + 1]; const ch = prev ? t.gap - prev.gap : null;
+      return `<tr><th class="rowh">${esc(s.date)}</th><td>${money(t.liquid)}</td><td>${money(t.committed)}</td><td class="${t.gap < 0 ? "bad" : "good"}">${money(t.gap)}</td>
+      <td class="${ch == null ? "nodata" : ch < 0 ? "bad" : "good"}">${ch == null ? "–" : (ch > 0 ? "+" : "") + money(ch)}</td><td>${money(t.illiquid)}</td>
+      <td style="text-align:left"><button class="link" data-open="${s.id}">Open</button> · <button class="link" data-delsnap="${s.id}">Delete</button></td></tr>`; }).join("")}
+    </tbody></table></div>`;
+  $$("[data-open]").forEach((b) => (b.onclick = () => snapEditor(b.dataset.open)));
+  $$("[data-delsnap]").forEach((b) => (b.onclick = async () => { if (!confirm("Delete this checkpoint?")) return; await store.remove(b.dataset.delsnap); $("#snaped").innerHTML = ""; snapList(); drawProjection(db(), E.periodOf(today(), settingsRec().data), { ...P.defaultProjection(db(), E.periodOf(today(), settingsRec().data)), ...(settingsRec().data.projection || {}) }); }));
+}
+
+function snapEditor(id) {
+  const rec = store.rows.get(id); if (!rec) return;
+  const snap = JSON.parse(JSON.stringify(rec.data));
+  snap.items = (snap.items || []).map((it, i) => ({ _id: it._id || `i${i}-${Math.random().toString(36).slice(2, 8)}`, ...it }));
+  const persist = async () => { await store.save({ id, type: "snapshot", data: snap }); snapList(); totals(); };
+  $("#snaped").innerHTML = `<h3 style="margin-top:16px">Checkpoint</h3>
+    <div class="row"><label for="sn-date" style="margin:0">Date</label><input id="sn-date" type="date" value="${esc(snap.date)}" style="width:auto">
+      <input id="sn-note" placeholder="Note (optional)" value="${esc(snap.note || "")}" style="max-width:360px"></div>
+    <div id="sn-grid" style="margin-top:8px"></div><p id="sn-tot" class="muted"></p>`;
+  const totals = () => { const t = P.snapshotTotals(snap); $("#sn-tot").innerHTML = `Liquid ${money(t.liquid)} − committed ${money(t.committed)} = <strong class="${t.gap < 0 ? "bad" : "good"}">gap ${money(t.gap)}</strong> · long-term ${money(t.illiquid)} (not counted)`; };
+  $("#sn-date").onchange = () => { snap.date = $("#sn-date").value || snap.date; persist(); };
+  $("#sn-note").onchange = () => { snap.note = $("#sn-note").value; persist(); };
+  mountGrid($("#sn-grid"), {
+    label: "Checkpoint items", blankRows: 4, rows: snap.items.map(({ _id, ...it }) => ({ id: _id, ...it })),
+    newRow: () => ({ group: "liquid" }), meaningful: (x) => !!String(x.label || "").trim(),
+    columns: [{ key: "group", label: "Group", type: "select", width: 150, options: () => [["liquid", "Liquid savings"], ["commitment", "Committed spending"], ["illiquid", "Long-term (not counted)"]] },
+      { key: "label", label: "Item", type: "text", width: 260 }, { key: "amount", label: "Amount", type: "number", width: 140 }],
+    async save(itemId, data) {
+      const { group, label, amount } = data;
+      if (itemId) Object.assign(snap.items.find((x) => x._id === itemId), { group, label, amount });
+      else { itemId = `i${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; snap.items.push({ _id: itemId, group, label, amount }); }
+      await persist(); return itemId;
+    },
+    async remove(itemId) { snap.items = snap.items.filter((x) => x._id !== itemId); await persist(); },
+    onChange: () => drawProjection(db(), E.periodOf(today(), settingsRec().data), { ...P.defaultProjection(db(), E.periodOf(today(), settingsRec().data)), ...(settingsRec().data.projection || {}) }),
+  });
+  totals();
+  $("#snaped").scrollIntoView({ block: "nearest" });
 }
 
 // ================= Settings =================
@@ -637,7 +789,7 @@ async function financesForm() {
     IMP.result = r;
     const ok = r.report.months.every((m) => m.diff === 0);
     $("#preview").innerHTML = `
-      <p>${r.report.counts.transaction || 0} transactions, ${r.report.counts.account || 0} new accounts, ${r.report.counts.commitment || 0} monthly commitments, ${r.report.annualCount} annual items.</p>
+      <p>${r.report.counts.transaction || 0} transactions, ${r.report.counts.account || 0} new accounts, ${r.report.counts.commitment || 0} monthly commitments, ${r.report.annualCount} annual items${r.report.checkpointCount ? `, ${r.report.checkpointCount} checkpoints` : ""}${r.report.noteCount ? `, ${r.report.noteCount} month notes` : ""}.</p>
       <p class="${ok ? "good" : "bad"}"><strong>${ok ? "Every month's closing balance matches your sheet." : "Some months don't match your sheet — check below before importing."}</strong></p>
       <div class="sheet-wrap"><table class="sheet" style="min-width:0"><thead><tr><th>Month</th><th>Sheet closing</th><th>After import</th><th>Difference</th></tr></thead><tbody>
       ${r.report.months.map((m) => `<tr><td class="static">${esc(m.sheet)}</td><td class="static num">${inr(m.sheetClosing)}</td><td class="static num">${inr(m.closing)}</td><td class="static num ${m.diff ? "bad" : "good"}">${m.diff ? inr(m.diff) : "✓"}</td></tr>`).join("")}
