@@ -14,7 +14,9 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         response.setdefault("Content-Security-Policy", self.CSP)
-        response.setdefault("Referrer-Policy", "no-referrer")
+        # same-origin, not no-referrer: with no-referrer browsers send "Origin: null" on form posts,
+        # which fails Django's CSRF check. Other sites still never receive a referrer.
+        response.setdefault("Referrer-Policy", "same-origin")
         response.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         if request.path.startswith(("/api/", "/app")):
             response["Cache-Control"] = "no-store"
