@@ -696,7 +696,7 @@ const gainText = (g) => (g >= 1 ? `+${Math.round(g * 10) / 10} months` : g > 0 ?
 function runwaySection(d, now, ps) {
   const host = $("#ins-runway"), settings = settingsRec().data;
   const opts = { ...P.defaultProjection(d, now), ...(settings.projection || {}) };
-  if (settings.funding_mode === "salary" || !(opts.burn > 0)) { host.innerHTML = ""; return; }
+  if (!(opts.burn > 0)) { host.innerHTML = ""; return; }
   const info = P.currentLiquid(d, now), start = opts.start_override != null ? opts.start_override : info.amount;
   const flex = N.categoryMonthly(d, ps.slice(-6)).reduce((x, c) => x + c.monthly, 0);
   const fixed = N.commitmentsYearly(d, now).reduce((x, c) => x + c.monthly, 0);
@@ -760,7 +760,7 @@ function savingsRateSection(d, ps) {
       <tr><th class="rowh">Income</th>${sr.rows.map((r) => `<td>${money(r.income)}</td>`).join("")}</tr>
       <tr><th class="rowh">Spending</th>${sr.rows.map((r) => `<td>${money(r.spend)}</td>`).join("")}</tr>
       <tr class="em"><th class="rowh">Saved</th>${sr.rows.map((r) => `<td class="${r.saved < 0 ? "bad" : "good"}">${money(r.saved)}</td>`).join("")}</tr>
-      <tr><th class="rowh">Rate</th>${sr.rows.map((r) => `<td>${r.rate === null ? "–" : r.rate + "%"}</td>`).join("")}</tr>
+      <tr><th class="rowh">Rate</th>${sr.rows.map((r) => `<td>${r.rate === null ? "–" : r.rate < -100 ? "< −100%" : r.rate + "%"}</td>`).join("")}</tr>
     </tbody></table></div></div>`;
 }
 
@@ -886,6 +886,7 @@ function viewSettings() {
       <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div></div>
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
+      <label for="fm2">Household is funded by</label><select id="fm2" style="max-width:320px"><option value="salary">Salary / regular income</option><option value="savings">Savings (no regular income)</option><option value="both">Both</option></select>
       <label for="cd">Salary day</label><input id="cd" type="number" min="1" max="31" style="max-width:120px" value="${esc(s.data.cycle_day || "")}">
       <label style="display:flex;gap:8px;align-items:flex-start;color:var(--text);font-size:14px;margin-top:14px"><input type="checkbox" id="rollup" style="width:auto;margin-top:3px" ${s.data.card_rollup ? "checked" : ""}>
         <span>Count each card's monthly spending against my main account, as a read-only row. Months where I record the card bill payment aren't counted twice.</span></label>
@@ -903,12 +904,13 @@ function viewSettings() {
       <p><button id="delacct" style="color:var(--bad)">Delete account and all data</button></p></div>
     <p class="error" id="err" role="alert"></p>`);
   $("#pm").value = s.data.period_mode || "calendar";
+  $("#fm2").value = s.data.funding_mode || "both";
   wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: t } }); }, s.data.custom_theme);
   $("#customize").onclick = () => themeEditor();
   $("#savepm").onclick = async () => {
     const day = +$("#cd").value || null;
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));
-    const data = { ...settingsRec().data, period_mode: $("#pm").value, cycle_day: day, card_rollup: $("#rollup").checked };
+    const data = { ...settingsRec().data, period_mode: $("#pm").value, funding_mode: $("#fm2").value, cycle_day: day, card_rollup: $("#rollup").checked };
     // Re-file transactions into periods under the new rule.
     const tx = store.ofType("transaction").map((r) => ({ id: r.id, type: "transaction", data: { ...r.data, period: E.periodOf(r.data.date, data) } }));
     await store.save([{ id: s.id, type: "settings", data }, ...tx]);
