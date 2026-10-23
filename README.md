@@ -45,7 +45,9 @@ A random data key encrypts every record (AES-256-GCM, record id + type + user bo
 1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Web application.
 2. Authorised redirect URIs: `https://<your-host>/auth/google/callback` (add `http://localhost:8000/auth/google/callback` for local dev).
 3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The "Continue with Google" button appears only when both are set.
-4. OAuth consent screen: user type External, scopes `openid` and `email` only. Google signs in the same account as email-code login for that address.
+4. OAuth consent screen: user type External, scopes `openid` and `email` only.
+
+Accounts are one per email. If someone first signed up with an email code and later uses Google with the same verified address, they are asked to link Google to that account (keeping all their data); after that, Google signs them straight in. Links are stored by Google's stable account id in `GoogleIdentity`.
 
 No Google scripts are loaded in our pages; the flow is a server-side redirect, so the strict CSP stays intact.
 

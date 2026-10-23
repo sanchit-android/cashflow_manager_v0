@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Link Google sign-in — Cashflow{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/">Cashflow</a></header>
+<main class="wrap narrow">
+  <div class="card">
+    <h1>You already have an account</h1>
+    <p>An account for <strong>{{ email }}</strong> already exists. You created it by signing in with an email code.</p>
+    <p>Link Google sign-in to it? You'll then be able to sign in with either Google or an email code, and you'll keep all your existing data.</p>
+    <p class="muted">Your data stays locked by your vault passphrase either way.</p>
+    <form method="post" class="row">{% csrf_token %}
+      <button class="primary" type="submit" name="choice" value="link">Link and sign in</button>
+      <button type="submit" name="choice" value="cancel">Cancel</button>
+    </form>
+  </div>
+</main>
+{% endblock %}

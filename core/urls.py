@@ -9,6 +9,7 @@ urlpatterns = [
     path("logout/", views.logout_view),
     path("auth/google/start", google_auth.start),
     path("auth/google/callback", google_auth.callback),
+    path("auth/google/link", google_auth.link),
     path("app", views.app_page),
     path("api/auth/request-code", views.request_code),
     path("api/auth/verify-code", views.verify_code),

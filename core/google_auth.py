@@ -16,8 +16,11 @@ import urllib.request
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, login
-from django.shortcuts import redirect
-from django.views.decorators.http import require_GET
+from django.db import IntegrityError
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET, require_http_methods
+
+from .models import GoogleIdentity
 
 log = logging.getLogger(__name__)
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -65,7 +68,7 @@ def _get_json(url):
 
 
 def check_claims(claims, nonce):
-    """Validate an ID token's claims. Returns the verified email, or None."""
+    """Validate an ID token's claims. Returns (sub, verified email), or None."""
     if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
         return None
     if claims.get("iss") not in ISSUERS:
@@ -75,7 +78,8 @@ def check_claims(claims, nonce):
     if str(claims.get("email_verified")).lower() != "true":
         return None
     email = (claims.get("email") or "").strip().lower()
-    return email or None
+    sub = str(claims.get("sub") or "")
+    return (sub, email) if email and sub else None
 
 
 @require_GET
@@ -95,10 +99,49 @@ def callback(request):
         claims = _get_json(TOKENINFO_URL + "?" + urllib.parse.urlencode({"id_token": tokens["id_token"]}))
     except (urllib.error.URLError, KeyError, ValueError) as e:
         return _fail(f"token exchange: {e}")
-    email = check_claims(claims, saved["nonce"])
-    if not email:
+    checked = check_claims(claims, saved["nonce"])
+    if not checked:
         return _fail("claims")
-    # Same account as email-code sign-in for this address.
-    user, _ = get_user_model().objects.get_or_create(username=email, defaults={"email": email})
+    sub, email = checked
+
+    # 1. This Google account is already linked: sign straight in.
+    ident = GoogleIdentity.objects.select_related("user").filter(sub=sub).first()
+    if ident:
+        return _sign_in(request, ident.user)
+
+    User = get_user_model()
+    existing = User.objects.filter(username=email).first()
+    # 2. An account already exists for this email (made with an email code): ask before linking.
+    if existing:
+        request.session["google_link"] = {"user_id": existing.id, "sub": sub, "email": email}
+        return redirect("/auth/google/link")
+    # 3. New person: create the account and link Google to it.
+    user = User.objects.create(username=email, email=email)
+    GoogleIdentity.objects.create(user=user, sub=sub, email=email)
+    return _sign_in(request, user)
+
+
+def _sign_in(request, user):
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     return redirect("/app")
+
+
+@require_http_methods(["GET", "POST"])
+def link(request):
+    """Confirm linking a Google account to an existing account with the same verified email."""
+    pending = request.session.get("google_link")
+    if not pending:
+        return redirect("/login/")
+    if request.method == "GET":
+        return render(request, "google_link.html", {"email": pending["email"]})
+    request.session.pop("google_link", None)
+    if request.POST.get("choice") != "link":
+        return redirect("/login/")
+    user = get_user_model().objects.filter(id=pending["user_id"], username=pending["email"]).first()
+    if not user:
+        return _fail("account vanished before linking")
+    try:
+        GoogleIdentity.objects.get_or_create(sub=pending["sub"], defaults={"user": user, "email": pending["email"]})
+    except IntegrityError:
+        return _fail("link race")
+    return _sign_in(request, user)

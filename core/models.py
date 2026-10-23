@@ -53,3 +53,11 @@ class Record(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["user", "updated_at"], name="core_record_user_id_upd_idx")]
+
+
+class GoogleIdentity(models.Model):
+    """A Google account (by its stable `sub` id) linked to one of our users."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="google_identities")
+    sub = models.CharField(max_length=255, unique=True)
+    email = models.EmailField()
+    linked_at = models.DateTimeField(auto_now_add=True)
