@@ -6,7 +6,8 @@ import * as I from "./importer.js";
 import { mountGrid } from "./grid.js";
 import { buildSuggest } from "./cells.js";
 import * as P from "./plan.js";
-import { stackedBars, lines, money } from "./charts.js";
+import { stackedBars, lines, hbars, money } from "./charts.js";
+import { catIcon } from "./icons.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -373,7 +374,7 @@ function mountTxGrid() {
         readonlyIf: incoming, display: (x) => (x._card ? "Card total" : incoming(x) ? "Transfer in" : null) },
       { key: "to_account_id", label: "To / from", type: "select", width: 140, options: () => [["", ""], ...openAccts()],
         readonlyIf: incoming, display: (x) => (x._card ? name(x.to_account_id) : incoming(x) ? "from " + name(x.account_id) : x.direction === "transfer" ? (name(x.to_account_id) || "") : "") },
-      { key: "category", label: "Category", type: "select", width: 116, options: () => opts(E.CATEGORIES), display: (x) => (x._card ? "" : null) },
+      { key: "category", label: "Category", type: "select", width: 130, options: () => opts(E.CATEGORIES), icon: catIcon, display: (x) => (x._card ? "" : null) },
       { key: "nature", label: "Kind", type: "select", width: 124, options: () => NATURE_LABELS, display: (x) => (x._card ? "" : null) },
       { key: "amount", label: "Amount", type: "number", width: 112 },
     ],
@@ -409,13 +410,37 @@ function monthSummary() {
         ["Investments", s.investments], ["One-off income", s.oneoff_inflow], ["Closing", s.closing]].map(([l, n]) => `<div class="card metric"><div class="label">${l}</div><div class="value">${inr(n)}</div></div>`).join("")}
     </div>
     ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
-  $("#cats").innerHTML = Object.keys(s.by_category).length ? `<div class="card"><h2>Spending by category</h2>${Object.entries(s.by_category).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="row"><span>${esc(k)}</span><span class="spacer"></span><span class="num">${inr(n)}</span></div>`).join("")}</div>` : "";
+  cardCategoryChart(d);
   $$("[data-pay]").forEach((b) => (b.onclick = async () => {
     const c = store.rows.get(b.dataset.pay).data;
     const acct = c.account_id || (mainAccount() || {}).id;
     await store.save({ type: "transaction", period: S.period, data: { date: S.period + "-" + String(Math.min(c.day || 1, 28)).padStart(2, "0"), period: S.period, description: c.label, account_id: acct, direction: "out", category: c.category || "Other", nature: "recurring", amount: +c.amount, recurring_id: b.dataset.pay } });
     saves++; monthSummary(); mountTxGrid();
   }));
+}
+
+/** Card spending this month by category — only transactions on credit-card accounts. */
+function cardCategoryChart(d) {
+  const host = $("#cats"); if (!host) return;
+  const cards = new Set(d.account.filter((a) => a.role === "card").map((a) => a.id));
+  const by = {}, count = {};
+  for (const t of d.transaction) {
+    if (t.period !== S.period || !cards.has(t.account_id) || t.direction === "transfer") continue;
+    const c = t.nature === "annual" ? "Annual" : t.category || "Other";
+    by[c] = (by[c] || 0) + (t.direction === "in" ? -1 : 1) * (+t.amount || 0); // refunds reduce their category
+    count[c] = (count[c] || 0) + 1;
+  }
+  const items = Object.entries(by).filter(([, v]) => Math.round(v) !== 0).sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label: label === "Annual" ? "Annual items" : label, value: Math.round(value), icon: catIcon(label), count: count[label] }));
+  const total = items.reduce((x, i) => x + i.value, 0);
+  const [y, m] = S.period.split("-").map(Number);
+  const month = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long" });
+  if (!cards.size) { host.innerHTML = ""; return; }
+  host.innerHTML = `<div class="card"><h2>Card spending by category · ${month}</h2>
+    <p class="muted">Breakdown of <strong>credit card spending only</strong> (${cards.size} card${cards.size > 1 ? "s" : ""}): ${money(total)} this month. Cash and bank payments such as rent, family transfers and household help aren't included. Refunds reduce their category.</p>
+    <div id="catchart"></div></div>`;
+  if (items.length) hbars($("#catchart"), { items, title: `Card spending by category, ${month}` });
+  else $("#catchart").innerHTML = '<p class="muted">No card spending recorded this month.</p>';
 }
 
 // ================= Plan =================
@@ -429,7 +454,7 @@ function viewPlan() {
   const common = { blankRows: 3, remove: removeRec, period: () => S.period, onChange: planSummary };
   mountGrid($("#g-cm"), { ...common, id: "cm", label: "Monthly commitments", rows: rowsOf("commitment"), save: saveRec("commitment"),
     newRow: () => ({ category: "Household" }), meaningful: (x) => !!String(x.label || "").trim(),
-    columns: [{ key: "label", label: "What", type: "text", width: 240 }, { key: "category", label: "Category", type: "select", width: 130, options: () => opts(E.CATEGORIES) },
+    columns: [{ key: "label", label: "What", type: "text", width: 240 }, { key: "category", label: "Category", type: "select", width: 140, options: () => opts(E.CATEGORIES), icon: catIcon },
       { key: "day", label: "Day", type: "number", width: 60 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
   mountGrid($("#g-an"), { ...common, id: "an", label: "Annual items", rows: rowsOf("annual", (x) => +x.year === year), save: saveRec("annual"),
     newRow: () => ({ year, mode: "card" }), meaningful: (x) => !!String(x.label || "").trim(),

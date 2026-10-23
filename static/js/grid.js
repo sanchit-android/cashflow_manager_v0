@@ -78,7 +78,11 @@ export function mountGrid(host, cfg) {
       if (v === null || v === undefined || v === "") return "";
       return `<span class="${v < 0 ? "xl-neg" : ""}">${esc(formatAmount(v))}</span>${row.data[col.key + "_formula"] ? '<span class="xl-fmark" title="Formula"></span>' : ""}`;
     }
-    if (col.type === "select") return esc(optionLabel(col, v ?? (row.id || Object.keys(row.data).length ? (cfg.newRow ? cfg.newRow()[col.key] : "") : "")));
+    if (col.type === "select") {
+      const val = v ?? (row.id || Object.keys(row.data).length ? (cfg.newRow ? cfg.newRow()[col.key] : "") : "");
+      const lbl = optionLabel(col, val);
+      return (col.icon && lbl ? col.icon(val) : "") + esc(lbl);
+    }
     return esc(v);
   }
   function rowHTML(row, r) {
@@ -293,7 +297,7 @@ export function mountGrid(host, cfg) {
       shown = col.options().filter(([, l]) => !t || String(l).toLowerCase().includes(t));
       shown.sort((a, b) => (String(b[1]).toLowerCase().startsWith(t) ? 1 : 0) - (String(a[1]).toLowerCase().startsWith(t) ? 1 : 0));
       hi = Math.max(0, Math.min(hi, shown.length - 1));
-      opts.innerHTML = shown.map(([v, l], i) => `<div class="xl-opt${i === hi ? " on" : ""}" role="option" data-i="${i}">${esc(l) || "&nbsp;"}</div>`).join("") || '<div class="xl-opt xl-ghost">No match</div>';
+      opts.innerHTML = shown.map(([v, l], i) => `<div class="xl-opt${i === hi ? " on" : ""}" role="option" data-i="${i}">${col.icon && l ? col.icon(v) : ""}${esc(l) || "&nbsp;"}</div>`).join("") || '<div class="xl-opt xl-ghost">No match</div>';
       place();
       const on = opts.querySelector(".on"); if (on) { if (on.offsetTop < opts.scrollTop) opts.scrollTop = on.offsetTop; else if (on.offsetTop + on.offsetHeight > opts.scrollTop + opts.clientHeight) opts.scrollTop = on.offsetTop + on.offsetHeight - opts.clientHeight; }
     };

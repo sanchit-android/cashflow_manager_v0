@@ -124,3 +124,27 @@ export function lines(host, { labels, series, title, everyNth }) {
   });
   svg.addEventListener("mouseleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
 }
+
+/**
+ * Horizontal bars, largest first, each labelled with its value (one series, so no legend).
+ * { items: [{ label, value, icon }], color, total }
+ */
+export function hbars(host, { items, color = "var(--series-1)", title }) {
+  host.classList.add("chart", "hbars");
+  const max = Math.max(1, ...items.map((i) => Math.abs(i.value)));
+  const total = items.reduce((x, i) => x + i.value, 0);
+  host.innerHTML = `<div role="list" aria-label="${esc(title || "")}">${items.map((it, i) => {
+    const pct = Math.max(0, (it.value / max) * 100);
+    return `<div class="hb-row" role="listitem" data-i="${i}"><span class="hb-label">${it.icon || ""}${esc(it.label)}</span>
+      <span class="hb-track"><span class="hb-bar" style="width:${pct}%;background:${color}"></span></span>
+      <span class="hb-val">${money(it.value)}</span></div>`;
+  }).join("")}</div><div class="chart-tip" hidden></div>`;
+  const tip = host.querySelector(".chart-tip");
+  host.addEventListener("mousemove", (e) => {
+    const row = e.target.closest(".hb-row"); if (!row) { tip.hidden = true; return; }
+    const it = items[+row.dataset.i], r = host.getBoundingClientRect();
+    host.querySelectorAll(".hb-row.on").forEach((x) => x.classList.remove("on")); row.classList.add("on");
+    showTip(tip, host, e.clientX - r.left, e.clientY - r.top, `<strong>${esc(it.label)}</strong><div>Amount <b>${money(it.value)}</b></div><div>Share of total <b>${total ? Math.round((it.value / total) * 1000) / 10 : 0}%</b></div>${it.count ? `<div>Transactions <b>${it.count}</b></div>` : ""}`);
+  });
+  host.addEventListener("mouseleave", () => { tip.hidden = true; host.querySelectorAll(".hb-row.on").forEach((x) => x.classList.remove("on")); });
+}
