@@ -12,6 +12,9 @@ if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
     ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
 CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
 
+# Public address used for canonical links, sitemap and social previews.
+SITE_URL = os.environ.get("SITE_URL", "https://plannedout.in").rstrip("/")
+
 if not DEBUG and SECRET_KEY == "dev-only-insecure-key":
     raise RuntimeError("Set DJANGO_SECRET_KEY in production")
 
@@ -45,6 +48,7 @@ TEMPLATES = [{
         "django.template.context_processors.request",
         "django.contrib.auth.context_processors.auth",
         "core.context_processors.js_dir",
+        "core.context_processors.site",
     ]},
 }]
 

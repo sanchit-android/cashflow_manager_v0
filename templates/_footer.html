@@ -1,0 +1,6 @@
+<footer class="site-foot wrap">
+  <nav aria-label="Guides">
+    <a href="/">Home</a>{% for slug, item in guides_nav %} · <a href="/{{ slug }}/">{{ item.nav }}</a>{% endfor %} · <a href="/privacy/">Privacy</a>
+  </nav>
+  <p class="muted small">PlannedOut — a private cash-flow planner, made in India.</p>
+</footer>

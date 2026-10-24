@@ -1,10 +1,13 @@
 from django.urls import path
 
-from . import google_auth, views
+from . import google_auth, seo, views
 
 urlpatterns = [
     path("", views.landing),
     path("privacy/", views.privacy),
+    path("robots.txt", views.robots_txt),
+    path("sitemap.xml", views.sitemap_xml),
+    path("llms.txt", views.llms_txt),
     path("login/", views.login_page),
     path("logout/", views.logout_view),
     path("auth/google/start", google_auth.start),
@@ -19,4 +22,4 @@ urlpatterns = [
     path("api/records", views.records_pull),
     path("api/records/push", views.records_push),
     path("api/account/delete", views.delete_account),
-]
+] + [path(f"{slug}/", views.guide, {"slug": slug}) for slug in seo.GUIDES]

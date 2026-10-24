@@ -9,13 +9,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model, login, logout
 from django.core.mail import send_mail
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
+from . import seo
 from .models import LoginCode, Record, Vault, VaultKey
 
 User = get_user_model()
@@ -50,7 +51,53 @@ def api_login_required(view):
 
 @require_GET
 def landing(request):
-    return render(request, "landing.html")
+    return render(request, "landing.html", {
+        "benefits": seo.BENEFITS, "faq": seo.HOME_FAQ, "guides": seo.GUIDES,
+        "jsonld": seo.home_jsonld(settings.SITE_URL)})
+
+
+@require_GET
+def guide(request, slug):
+    g = seo.GUIDES.get(slug)
+    if not g:
+        raise Http404
+    others = {k: v for k, v in seo.GUIDES.items() if k != slug}
+    return render(request, "guide.html", {"g": g, "slug": slug, "others": others,
+                                          "jsonld": seo.guide_jsonld(settings.SITE_URL, slug, g)})
+
+
+@require_GET
+def robots_txt(request):
+    site = settings.SITE_URL
+    body = ("User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /api/\nDisallow: /auth/\nDisallow: /logout/\n\n"
+            f"Sitemap: {site}/sitemap.xml\n")
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
+@require_GET
+def sitemap_xml(request):
+    site = settings.SITE_URL
+    paths = ["/", "/privacy/"] + [f"/{slug}/" for slug in seo.GUIDES]
+    urls = "".join(f"<url><loc>{site}{p}</loc></url>" for p in paths)
+    body = ('<?xml version="1.0" encoding="UTF-8"?>'
+            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
+    return HttpResponse(body, content_type="application/xml; charset=utf-8")
+
+
+@require_GET
+def llms_txt(request):
+    """Plain-text summary for AI assistants and answer engines (llmstxt.org format)."""
+    site = settings.SITE_URL
+    lines = [f"# {seo.NAME}", "", f"> {seo.TAGLINE}. Free, works in the browser, built in India for Indian and global users.", "",
+             "## Key benefits", ""]
+    lines += [f"- **{t}**: {d}" for t, d in seo.BENEFITS]
+    lines += ["", "## Guides", ""]
+    lines += [f"- [{g['nav']}]({site}/{slug}/): {g['description']}" for slug, g in seo.GUIDES.items()]
+    lines += ["", "## FAQ", ""]
+    lines += [f"### {q}\n{a}\n" for q, a in seo.HOME_FAQ]
+    lines += ["## Links", "", f"- [Home]({site}/)", f"- [Privacy: what we can and can't see]({site}/privacy/)",
+              f"- [Sign up free]({site}/login/)", ""]
+    return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
 
 
 @require_GET

@@ -397,3 +397,21 @@ table.ins-t tr.flag-down th, table.ins-t tr.flag-down td { background: color-mix
 .month-menu button { padding: 6px 8px; }
 .month-menu button.on { font-weight: 700; outline: 2px solid currentColor; }
 .link-btn { background: none; border: 0; text-decoration: underline; cursor: pointer; color: inherit; padding: 4px 6px; }
+
+/* ---------- public pages (landing, guides) ---------- */
+.landing h2 { font-size: 24px; margin: 40px 0 12px; }
+.landing .card h2 { margin-top: 0; font-size: 20px; }
+.landing .lead { font-size: 18px; line-height: 1.5; max-width: 720px; }
+.landing .small, .site-foot .small { font-size: 13px; }
+.landing .steps, .landing ul { padding-left: 20px; line-height: 1.7; }
+.landing .cta { text-align: center; }
+.landing .crumbs { margin-top: 16px; }
+.landing .faq summary { cursor: pointer; }
+.landing .faq summary h3 { display: inline; font-size: 16px; }
+.landing .faq details p { margin-bottom: 0; }
+.table-scroll { overflow-x: auto; }
+table.compare { width: 100%; border-collapse: collapse; min-width: 560px; background: var(--surface); }
+table.compare th, table.compare td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+table.compare td:last-child { font-weight: 600; color: var(--good); }
+.site-foot { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 16px; line-height: 1.8; }
+@media (max-width: 600px) { .landing .hero h1 { font-size: 26px; } }

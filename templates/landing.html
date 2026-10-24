@@ -1,18 +1,70 @@
 {% extends "base.html" %}{% load static %}
-{% block title %}PlannedOut — know if this month adds to your savings or eats into them{% endblock %}
+{% block title %}PlannedOut — Free Private Budget &amp; Cash-Flow Planner (Spreadsheet-Style, Encrypted){% endblock %}
+{% block description %}Know if this month adds to your savings or eats into them. Excel-like entry, monthly analytics, savings projections and runway, with data encrypted in your browser. Free. No bank linking, no SMS reading.{% endblock %}
 {% block body %}
-<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></span><a href="/login/">Sign in</a></header>
+<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></span><a href="/login/">Sign in</a></header>
 <main class="wrap landing">
   <section class="hero">
     <h1>Know whether this month adds to your savings or eats into them.</h1>
-    <p class="muted">Track spending, monthly commitments and big yearly bills in one sheet-like view. If you earn a salary, see how much more you can spend. If you live off savings, see how long they last.</p>
+    <p class="lead">PlannedOut is a free, private cash-flow planner. Enter money like you would in Excel, get analytics and future projections automatically, and keep your data encrypted so only you can read it.</p>
+    <p class="muted">Earning a salary? See how much more you can safely spend. Living off savings? See exactly how long they last.</p>
+    <p><a href="/login/"><button class="primary">Start free</button></a> <span class="muted small">No bank login · No SMS access · No ads</span></p>
+  </section>
+
+  <section aria-labelledby="why">
+    <h2 id="why">Why people switch to PlannedOut</h2>
+    <div class="points">
+      {% for title, text in benefits %}<div class="card"><h3>{{ title }}</h3><p>{{ text }}</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section aria-labelledby="compare">
+    <h2 id="compare">Spreadsheet, expense app, or PlannedOut?</h2>
+    <div class="table-scroll">
+    <table class="compare">
+      <thead><tr><th scope="col"></th><th scope="col">Excel / Google Sheets</th><th scope="col">Typical expense apps</th><th scope="col">PlannedOut</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Fast, grid-style entry</th><td>Yes</td><td>One form per expense</td><td>Yes, with formulas and paste</td></tr>
+        <tr><th scope="row">Automatic monthly analytics</th><td>Build it yourself</td><td>Mostly</td><td>Yes</td></tr>
+        <tr><th scope="row">Future projections and runway</th><td>Build it yourself</td><td>Rarely</td><td>Yes, with what-ifs</td></tr>
+        <tr><th scope="row">Yearly bills kept separate</th><td>Build it yourself</td><td>Rarely</td><td>Yes</td></tr>
+        <tr><th scope="row">Provider can't read your data</th><td>No</td><td>Usually no</td><td>Yes, encrypted in your browser</td></tr>
+        <tr><th scope="row">Needs bank or SMS access</th><td>No</td><td>Often</td><td>Never</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="who">
+    <h2 id="who">Made for the way you actually manage money</h2>
+    <div class="points">
+      <div class="card"><h3>Salaried families in India</h3><p>Salary, EMIs, rent, SIPs, school fees and insurance premiums, all in ₹. <a href="/budget-planner-india/">Budget planner for India →</a></p></div>
+      <div class="card"><h3>Spreadsheet lovers</h3><p>Keep the grid, drop the upkeep. Import your existing .xlsx. <a href="/excel-budget-alternative/">Excel budget alternative →</a></p></div>
+      <div class="card"><h3>Career breaks, FIRE and retirement</h3><p>See how many months your savings last and test what-ifs. <a href="/savings-runway-calculator/">Savings runway planner →</a></p></div>
+      <div class="card"><h3>Privacy first</h3><p>No bank linking, no SMS reading, nothing we can read. <a href="/private-expense-tracker/">Private expense tracker →</a></p></div>
+      <div class="card"><h3>Big yearly bills</h3><p>Fees, premiums, taxes and festivals planned ahead. <a href="/annual-expenses-planner/">Annual expenses planner →</a></p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="how">
+    <h2 id="how">How it works</h2>
+    <ol class="steps">
+      <li><strong>Sign in</strong> with Google or an email code, and set a vault passphrase only you know.</li>
+      <li><strong>Add your month</strong>: type, paste from Excel, or import a CSV / .xlsx / bank statement.</li>
+      <li><strong>Read the verdict</strong>: surplus or shortfall, where it went, and what's trending up.</li>
+      <li><strong>Plan ahead</strong>: project savings year by year and try what-ifs.</li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="faq-h" class="faq">
+    <h2 id="faq-h">Frequently asked questions</h2>
+    {% for q, a in faq %}<details class="card"><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
+  </section>
+
+  <section class="hero cta">
+    <h2>Start planning your money privately, for free.</h2>
     <p><a href="/login/"><button class="primary">Start free</button></a></p>
   </section>
-  <section class="points">
-    <div class="card"><h3>Encrypted in your browser</h3><p>Your numbers are encrypted before they leave your device. We store scrambled data and never have your key, so we can't see your transactions or balances.</p></div>
-    <div class="card"><h3>Annual bills, planned</h3><p>School fees, insurance and taxes sit apart from day-to-day spending, so one big month doesn't hide the real trend.</p></div>
-    <div class="card"><h3>Works like a spreadsheet</h3><p>Edit rows inline. Enter each transaction, or one line per merchant for the month.</p></div>
-  </section>
-  <p class="muted"><a href="/privacy/">What we can and can't see</a></p>
 </main>
+{% include "_footer.html" %}
 {% endblock %}

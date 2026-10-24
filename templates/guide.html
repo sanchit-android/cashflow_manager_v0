@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{{ g.title }} | PlannedOut{% endblock %}
+{% block description %}{{ g.description }}{% endblock %}
+{% block og_title %}{{ g.title }}{% endblock %}
+{% block og_description %}{{ g.description }}{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></a><a href="/login/">Sign in</a></header>
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › {{ g.nav }}</nav>
+  <section class="hero">
+    <h1>{{ g.h1 }}</h1>
+    <p class="lead">{{ g.intro }}</p>
+    <p><a href="/login/"><button class="primary">Start free</button></a> <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
+  </section>
+  {% for heading, items in g.sections %}
+  <section class="card"><h2>{{ heading }}</h2><ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></section>
+  {% endfor %}
+  <section class="faq">
+    <h2>Questions</h2>
+    {% for q, a in g.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
+  </section>
+  <section>
+    <h2>More guides</h2>
+    <ul>{% for slug, o in others.items %}<li><a href="/{{ slug }}/">{{ o.nav }}</a>: {{ o.description }}</li>{% endfor %}</ul>
+  </section>
+  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p><a href="/login/"><button class="primary">Start free</button></a></p></section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}
