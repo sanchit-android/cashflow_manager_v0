@@ -65,8 +65,9 @@ nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weig
 .mx-newrow { display: none; min-height: 50px; align-items: center; justify-content: center; border: 1px dashed var(--accent); border-radius: var(--radius); color: var(--accent); font-size: 13px; }
 .mx-sorting .mx-newrow { display: flex; }
 .mx-tile { cursor: grab; touch-action: pan-y; user-select: none; }
-.mx-tile.dragging { cursor: grabbing; opacity: .6; outline: 2px dashed var(--accent); outline-offset: 2px; }
-.mx-sorting .mx-tile { transition: none; }
+.mx-tile.dragging { cursor: grabbing; box-shadow: 0 12px 28px rgba(0,0,0,.18); outline: 2px solid var(--accent); will-change: transform; }
+.mx-sorting { user-select: none; }
+.mx-ph { border: 2px dashed var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .mx-grid .card { margin: 0; }
 .mx-tile { position: relative; padding: 14px 14px 10px; }
 .mx-tile .label { position: absolute; top: -9px; left: 10px; max-width: calc(100% - 40px); padding: 0 6px; background: var(--surface); font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -900,59 +900,118 @@ function extraMetrics(s, r) {
   return `<h2 class="mx-head">Other numbers</h2><div class="mx-grid">${rows.map((r) => `<div class="mx-row">${r.map((k) => (k ? byKey[k] : add)).join("")}</div>`).join("")}<div class="mx-row mx-newrow">Drop here for a new row</div></div>`;
 }
 
-/** Drag tiles to reorder them or move them between rows (mouse and touch). "Add a number" stays last. */
+/** Drag tiles to reorder them or move them between rows (mouse and touch). "Add a number" stays last.
+ *  The tile floats under the pointer (kept inside the grid), a placeholder marks where it will land,
+ *  and the other tiles slide and resize into place (FLIP animation). */
 function mxDrag(grid, onSave) {
   if (!grid) return;
   const newRow = grid.querySelector(".mx-newrow"), addBox = grid.querySelector(".mx-add-wrap");
-  const place = (tile, x, y) => {
-    const el = document.elementFromPoint(x, y);
-    if (!el || !grid.contains(el)) return;
-    let row = el.closest(".mx-row");
-    if (!row) return;
-    if (row === newRow) {
-      row = document.createElement("div"); row.className = "mx-row";
-      grid.insertBefore(row, newRow);
-    }
-    const others = [...row.querySelectorAll(".mx-tile")].filter((t) => t !== tile);
-    if (tile.parentNode !== row && others.length >= MX_PER_ROW) return; // row is full
-    const over = el.closest(".mx-tile");
-    if (over === tile) return;
-    let before = null;
-    if (over) { const b = over.getBoundingClientRect(); before = x < b.left + b.width / 2 ? over : over.nextSibling; }
-    else before = others.find((t) => x < t.getBoundingClientRect().left + t.offsetWidth / 2) || null;
-    if (before === addBox || (!before && addBox.parentNode === row)) before = addBox;
-    if (tile.nextSibling === before && tile.parentNode === row) return;
-    row.insertBefore(tile, before);
-    tidy();
-  };
+  const ANIM = "transform 180ms cubic-bezier(.2,.8,.2,1)";
+  const realRows = () => [...grid.querySelectorAll(".mx-row:not(.mx-newrow)")];
+  const items = () => [...grid.querySelectorAll(".mx-row > *")];
   // Drop empty rows and keep "Add a number" at the end of the last row (or alone on a new row if that one is full).
   const tidy = () => {
-    [...grid.querySelectorAll(".mx-row:not(.mx-newrow)")].forEach((r) => { if (!r.querySelector(".mx-tile, .mx-add-wrap") || (r.children.length === 1 && r.contains(addBox))) r.remove(); });
-    const rows = [...grid.querySelectorAll(".mx-row:not(.mx-newrow)")], last = rows[rows.length - 1];
-    if (last && last.querySelectorAll(".mx-tile").length < MX_PER_ROW) last.appendChild(addBox);
+    realRows().forEach((r) => { if (!r.querySelector(".mx-tile, .mx-add-wrap, .mx-ph") || (r.children.length === 1 && r.contains(addBox))) r.remove(); });
+    const rows = realRows(), last = rows[rows.length - 1];
+    if (last && last.querySelectorAll(".mx-tile, .mx-ph").length < MX_PER_ROW) last.appendChild(addBox);
     else { const r = document.createElement("div"); r.className = "mx-row"; r.appendChild(addBox); grid.insertBefore(r, newRow); }
+  };
+  // Run a DOM change and animate every tile from where it was to where it ends up.
+  const flip = (change) => {
+    const first = new Map(items().map((el) => [el, el.getBoundingClientRect()]));
+    change();
+    const moved = [];
+    for (const el of items()) {
+      const a = first.get(el); if (!a) continue;
+      el.style.transition = "none"; el.style.transform = "";
+      const b = el.getBoundingClientRect();
+      if (!b.width || !b.height) continue;
+      const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) continue;
+      el.style.transformOrigin = "0 0";
+      el.style.transform = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
+      moved.push(el);
+    }
+    if (!moved.length) return;
+    void grid.offsetWidth; // commit the starting positions before animating to the new ones
+    for (const el of moved) { el.style.transition = ANIM; el.style.transform = ""; }
   };
   grid.querySelectorAll(".mx-tile").forEach((tile) => tile.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || e.target.closest("button")) return;
     const x0 = e.clientX, y0 = e.clientY;
-    let dragging = false;
-    const move = (ev) => {
-      if (!dragging) {
-        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
-        dragging = true; tile.classList.add("dragging"); grid.classList.add("mx-sorting");
-        try { tile.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    let dragging = false, ph = null, offX = 0, offY = 0, px = x0, py = y0, raf = 0, w = 0, h = 0;
+    const start = () => {
+      dragging = true;
+      const r = tile.getBoundingClientRect();
+      offX = x0 - r.left; offY = y0 - r.top; w = r.width; h = r.height;
+      ph = document.createElement("div"); ph.className = "mx-ph"; ph.style.minHeight = h + "px";
+      flip(() => { tile.replaceWith(ph); grid.classList.add("mx-sorting"); });
+      tile.classList.add("dragging");
+      Object.assign(tile.style, { position: "fixed", left: "0", top: "0", width: w + "px", height: h + "px", margin: "0", zIndex: "50",
+        pointerEvents: "none", transition: "none", transformOrigin: "50% 50%", transform: `translate3d(${r.left}px,${r.top}px,0)` });
+      grid.appendChild(tile);
+      try { tile.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    };
+    // Where the floating tile sits, clamped so it never leaves the grid.
+    const pos = () => {
+      const g = grid.getBoundingClientRect();
+      return {
+        x: Math.min(Math.max(px - offX, g.left), Math.max(g.left, g.right - w)),
+        y: Math.min(Math.max(py - offY, g.top), Math.max(g.top, g.bottom - h)),
+      };
+    };
+    const place = (cx, cy) => {
+      let row = null, best = Infinity;
+      for (const r of grid.querySelectorAll(".mx-row")) {
+        const b = r.getBoundingClientRect();
+        const d = cy < b.top - 11 ? b.top - 11 - cy : cy > b.bottom + 11 ? cy - b.bottom - 11 : 0;
+        if (d < best) { best = d; row = r; }
       }
+      if (!row) return;
+      if (row === newRow) {
+        const cur = ph.parentNode;
+        if (!cur.querySelector(".mx-tile") && cur.nextElementSibling === newRow) return; // already alone in the last row
+        flip(() => { const r = document.createElement("div"); r.className = "mx-row"; grid.insertBefore(r, newRow); r.appendChild(ph); tidy(); });
+        return;
+      }
+      const others = [...row.querySelectorAll(".mx-tile")];
+      if (ph.parentNode !== row && others.length >= MX_PER_ROW) return; // row is full
+      // Equal slots across the row keep the target stable while tiles resize, so nothing jitters.
+      const slots = others.length + 1 + (row.contains(addBox) ? 1 : 0);
+      const b = row.getBoundingClientRect();
+      const idx = Math.max(0, Math.min(others.length, Math.floor(((cx - b.left) / b.width) * slots)));
+      const before = others[idx] || (row.contains(addBox) ? addBox : null);
+      if (ph.parentNode === row && ph.nextElementSibling === before) return;
+      flip(() => { row.insertBefore(ph, before); tidy(); });
+    };
+    const frame = () => {
+      raf = 0;
+      const { x, y } = pos();
+      tile.style.transform = `translate3d(${x}px,${y}px,0) scale(1.03)`;
+      place(x + w / 2, y + h / 2);
+    };
+    const move = (ev) => {
+      px = ev.clientX; py = ev.clientY;
+      if (!dragging) { if (Math.hypot(px - x0, py - y0) < 6) return; start(); }
       ev.preventDefault();
-      tile.style.pointerEvents = "none";
-      place(tile, ev.clientX, ev.clientY);
-      tile.style.pointerEvents = "";
+      if (!raf) raf = requestAnimationFrame(frame);
     };
     const up = () => {
       tile.removeEventListener("pointermove", move); tile.removeEventListener("pointerup", up); tile.removeEventListener("pointercancel", up);
       if (!dragging) return;
-      tile.classList.remove("dragging"); grid.classList.remove("mx-sorting");
-      tidy();
-      onSave([...grid.querySelectorAll(".mx-row")].map((r) => [...r.querySelectorAll(".mx-tile")].map((t) => t.dataset.mxKey)).filter((r) => r.length));
+      if (raf) cancelAnimationFrame(raf);
+      const t = ph.getBoundingClientRect();
+      tile.style.transition = "transform 160ms ease-out";
+      tile.style.transform = `translate3d(${t.left}px,${t.top}px,0)`;
+      let done = false;
+      const finish = () => {
+        if (done) return; done = true;
+        tile.removeAttribute("style"); tile.classList.remove("dragging");
+        flip(() => { ph.replaceWith(tile); grid.classList.remove("mx-sorting"); tidy(); });
+        onSave([...grid.querySelectorAll(".mx-row")].map((r) => [...r.querySelectorAll(".mx-tile")].map((x) => x.dataset.mxKey)).filter((r) => r.length));
+      };
+      tile.addEventListener("transitionend", finish, { once: true });
+      setTimeout(finish, 220);
     };
     tile.addEventListener("pointermove", move); tile.addEventListener("pointerup", up); tile.addEventListener("pointercancel", up);
   }));
