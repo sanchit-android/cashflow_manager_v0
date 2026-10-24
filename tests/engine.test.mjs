@@ -63,9 +63,10 @@ test("annual status, upcoming and runway", () => {
   assert.ok(up.some((u) => u.label === "Google One" && u.kind === "Annual"));
   assert.ok(up.some((u) => u.label === "House help"));
   const r = E.runway(db, "2026-11");
-  assert.equal(r.savings, 2163375);
+  const cash = 2163375 + Math.max(0, E.summarize(db, "2026-11").closing);
+  assert.equal(r.savings, cash);
   assert.equal(r.burn, 25970 + 14000 + 160000 - 47250);
-  assert.equal(r.months, Math.floor(2163375 / r.burn));
+  assert.equal(r.months, Math.floor(cash / r.burn));
 });
 
 test("salaried user ahead of plan", () => {

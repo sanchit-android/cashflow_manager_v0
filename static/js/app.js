@@ -12,6 +12,7 @@ import { catIcon } from "./icons.js";
 import { setCurrency, currencyOptions, guessCurrency } from "./currency.js";
 import { track, startTracking } from "./track.js";
 import { viewAdmin } from "./admin.js";
+import * as F from "./formula.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -637,7 +638,7 @@ function monthSummary() {
     : `<span class="big bad">${inr(v.amount)} from savings</span>This month spends more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
   $("#summary").innerHTML = `
     <div class="card verdict">${verdict}
-      ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, liquid savings of ${inr(r.savings)} last about ${r.months} months.</p>` : ""}</div>
+      ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
     ${balanceFlow(s)}
     ${extraMetrics(s, r)}
     ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
@@ -646,12 +647,22 @@ function monthSummary() {
   const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
   $$("[data-mx-hide]").forEach((b) => (b.onclick = () => saveMx(curMx().filter((k) => k !== b.dataset.mxHide))));
   $$("[data-mx-show]").forEach((b) => (b.onclick = () => saveMx([...curMx(), b.dataset.mxShow])));
+  $$("[data-mx-edit]").forEach((b) => (b.onclick = () => customMetricSheet(customMetrics().find((m) => m.id === b.dataset.mxEdit), s, r)));
+  $$("[data-mx-del]").forEach((b) => (b.onclick = async () => {
+    const m = customMetrics().find((x) => x.id === b.dataset.mxDel);
+    if (!m || !confirm(`Delete "${m.label}"? It will be removed from your list for good.`)) return;
+    const on = curMx().filter((k) => k !== "c:" + m.id);
+    try { await saveCustomMetrics(customMetrics().filter((x) => x.id !== m.id)); } catch (e) { showError(e); return; }
+    saveMx(on);
+  }));
+  const mxNew = $("#mx-new");
+  if (mxNew) mxNew.onclick = () => customMetricSheet(null, s, r);
   const mxAdd = $("#mx-add");
   if (mxAdd) mxAdd.onclick = (e) => {
     e.stopPropagation();
     const pop = $("#mx-pop"); pop.hidden = !pop.hidden; mxAdd.setAttribute("aria-expanded", String(!pop.hidden));
     if (!pop.hidden) document.addEventListener("click", function close(ev) {
-      if (!pop.contains(ev.target)) { pop.hidden = true; mxAdd.setAttribute("aria-expanded", "false"); document.removeEventListener("click", close); }
+      if (!pop.contains(ev.target) || ev.target.closest("[data-mx-edit], [data-mx-del], #mx-new")) { pop.hidden = true; mxAdd.setAttribute("aria-expanded", "false"); document.removeEventListener("click", close); }
     });
   };
   $$("[data-pay]").forEach((b) => (b.onclick = async () => {
@@ -685,24 +696,169 @@ function balanceFlow(s) {
 }
 
 /** Numbers that sit outside the balance math. The user picks which ones show. */
+// [key, label, value(s, r) → number|null, hint, better: 1 = higher is better, -1 = lower is better, 0 = no trend, fmt?]
+const months = (n) => `${n} months`;
 const MONTH_METRICS = [
-  ["regular_expense", "Regular expense", (s) => inr(s.regular_expense), "Spending without one-offs, annual items or investments"],
-  ["regular_net", "Regular income − regular expense", (s) => inr(s.regular_net), "What a normal month leaves over (or takes from savings)"],
-  ["total_spend", "All spending", (s) => inr(s.monthly_expense + s.annual_expense), "Regular + one-off + annual items"],
-  ["oneoff_net", "One-off income − one-off expense", (s) => inr(s.oneoff_inflow - s.oneoff_expense), ""],
-  ["pending", "Commitments still due", (s) => inr(s.commitments_pending), "Monthly commitments not yet marked paid"],
-  ["card_payments", "Card bills paid", (s) => inr(s.card_payments), "Payments from the bank to credit cards"],
-  ["burn", "3-month average burn", (s, r) => (r.burn == null ? "–" : inr(r.burn)), "Spending incl. annual items minus regular income"],
-  ["runway", "Runway", (s, r) => (r.months == null ? "–" : `${r.months} months`), "How long liquid savings last at the average burn"],
+  ["regular_expense", "Regular expense", (s) => s.regular_expense, "Spending without one-offs, annual items or investments", -1],
+  ["regular_net", "Regular income − regular expense", (s) => s.regular_net, "What a normal month leaves over (or takes from savings)", 1],
+  ["total_spend", "All spending", (s) => s.monthly_expense + s.annual_expense, "Regular + one-off + annual items", -1],
+  ["oneoff_net", "One-off income − one-off expense", (s) => s.oneoff_inflow - s.oneoff_expense, "", 1],
+  ["pending", "Commitments still due", (s) => s.commitments_pending, "Monthly commitments not yet marked paid", 0],
+  ["card_payments", "Card bills paid", (s) => s.card_payments, "Payments from the bank to credit cards", 0],
+  ["burn", "3-month average burn", (s, r) => r.burn, "Spending incl. annual items minus regular income", -1],
+  ["runway", "Runway", (s, r) => r.months, "How long bank balance + liquid savings last at the 3-month average burn", 1, months],
 ];
+// Values a custom formula can use: [variable, label, value(s, r)].
+const FORMULA_VARS = [
+  ["regular_income", "Regular income", (s) => s.regular_inflow],
+  ["oneoff_income", "One-off income", (s) => s.oneoff_inflow],
+  ["from_savings", "From savings", (s) => s.drawn_from_savings],
+  ["regular_expense", "Regular expense", (s) => s.regular_expense],
+  ["oneoff_expense", "One-off expense", (s) => s.oneoff_expense],
+  ["annual_items", "Annual items", (s) => s.annual_expense],
+  ["investments", "Investments", (s) => s.investments],
+  ["all_spending", "All spending", (s) => s.monthly_expense + s.annual_expense],
+  ["regular_net", "Regular income − regular expense", (s) => s.regular_net],
+  ["commitments_due", "Commitments still due", (s) => s.commitments_pending],
+  ["card_bills_paid", "Card bills paid", (s) => s.card_payments],
+  ["opening", "Opening balance", (s) => s.opening],
+  ["closing", "Closing balance", (s) => s.closing],
+  ["burn", "3-month average burn", (s, r) => r.burn],
+  ["savings", "Bank + liquid savings", (s, r) => r.savings],
+  ["runway", "Runway (months)", (s, r) => r.months],
+];
+const FORMULA_VAR_NAMES = FORMULA_VARS.map(([k]) => k);
+const formulaVars = (s, r) => Object.fromEntries(FORMULA_VARS.map(([k, , f]) => [k, f(s, r)]));
+const METRIC_FORMATS = {
+  money: ["Amount", inr],
+  percent: ["Percent", (n) => `${n}%`],
+  number: ["Plain number", (n) => n.toLocaleString("en-IN")],
+  months: ["Months", months],
+};
+
+/** The user's own formulas, kept in their (encrypted) settings record so they follow the account. */
+const customMetrics = () => (settingsRec()?.data.custom_metrics || []);
+async function saveCustomMetrics(list) {
+  const rec = settingsRec();
+  await store.save({ id: rec.id, type: "settings", data: { ...rec.data, custom_metrics: list } });
+  saves++;
+}
+/** Built-in and custom metrics in one shape: [key, label, value, hint, better, fmt, custom?]. */
+function allMetrics() {
+  return [...MONTH_METRICS, ...customMetrics().map((m) => [
+    "c:" + m.id, m.label, (s, r) => F.evaluate(m.formula, formulaVars(s, r)), m.formula, +m.better || 0, (METRIC_FORMATS[m.format] || METRIC_FORMATS.money)[1], m,
+  ])];
+}
+const fmtValue = (fmt, n) => (n == null ? "–" : fmt(fmt === inr ? Math.round(n) : Math.round(n * 10) / 10));
+
+/** Add or edit a custom number. */
+function customMetricSheet(m, s, r) {
+  const isNew = !m;
+  m = m || { label: "", formula: "", format: "money", better: 0 };
+  const vars = formulaVars(s, r);
+  const FUNCS = [["pct(a, b)", "pct(", "a as a percent of b"], ["avg(a, b, …)", "avg(", "Average"], ["min(a, b)", "min(", "Smaller of"], ["max(a, b)", "max(", "Larger of"], ["abs(a)", "abs(", "Ignore the sign"], ["round(a, 1)", "round(", "Round to decimals"]];
+  const back = document.createElement("div");
+  back.className = "ml-back mx-sheet-back";
+  back.innerHTML = `<form class="ml-sheet mx-sheet" role="dialog" aria-modal="true" aria-label="${isNew ? "Create" : "Edit"} custom number">
+    <div class="ml-grab" aria-hidden="true"></div><h3>${isNew ? "Create a custom number" : "Edit custom number"}</h3>
+    <div class="ml-field"><label class="ml-lbl" for="cm-label">Name</label><input id="cm-label" value="${esc(m.label)}" placeholder="e.g. Savings rate" autocomplete="off"></div>
+    <div class="ml-field"><label class="ml-lbl" for="cm-formula">Formula</label><textarea id="cm-formula" rows="2" spellcheck="false" placeholder="e.g. pct(regular_net, regular_income)">${esc(m.formula)}</textarea>
+      <div class="mx-preview" id="cm-preview" aria-live="polite"></div></div>
+    <div class="mx-chips"><span class="ml-lbl">Numbers (tap to insert)</span>${FORMULA_VARS.map(([k, l]) => `<button type="button" class="mx-chip" data-ins="${k}" title="${k} · this month ${vars[k] == null ? "–" : esc(inr(Math.round(vars[k])))}">${esc(l)}</button>`).join("")}</div>
+    <div class="mx-chips"><span class="ml-lbl">Maths</span>${[["+", "+"], ["−", "-"], ["×", "*"], ["÷", "/"], ["(", "("], [")", ")"]].map(([l, ins]) => `<button type="button" class="mx-chip op" data-ins="${ins}">${l}</button>`).join("")}${FUNCS.map(([l, ins, t]) => `<button type="button" class="mx-chip op" data-ins="${ins}" title="${t}">${l}</button>`).join("")}</div>
+    <div class="row mx-opts">
+      <div class="ml-field"><label class="ml-lbl" for="cm-format">Show as</label><select id="cm-format">${Object.entries(METRIC_FORMATS).map(([k, [l]]) => `<option value="${k}" ${m.format === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="ml-field"><label class="ml-lbl" for="cm-better">Compared with year average</label><select id="cm-better">${[[1, "Higher is better"], [-1, "Lower is better"], [0, "No trend arrow"]].map(([v, l]) => `<option value="${v}" ${(+m.better || 0) === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+    </div>
+    <p class="error ml-err" role="alert"></p>
+    <div class="ml-actions"><span class="spacer"></span><button type="button" class="ml-cancel">Cancel</button><button type="submit" class="primary">${isNew ? "Create and show" : "Save"}</button></div></form>`;
+  document.body.appendChild(back);
+  document.body.classList.add("ml-open");
+  const form = back.querySelector("form"), $f = (sel) => form.querySelector(sel), fx = $f("#cm-formula"), err = $f(".ml-err");
+  const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  form.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+  $f(".ml-cancel").onclick = close;
+  const preview = () => {
+    const out = $f("#cm-preview");
+    if (!fx.value.trim()) { out.textContent = ""; return; }
+    try {
+      F.parse(fx.value, FORMULA_VAR_NAMES);
+      const v = F.evaluate(fx.value, vars);
+      out.className = "mx-preview"; out.textContent = `This month: ${v == null ? "– (no data yet)" : fmtValue(METRIC_FORMATS[$f("#cm-format").value][1], v)}`;
+    } catch (e) { out.className = "mx-preview bad"; out.textContent = e.message; }
+  };
+  fx.addEventListener("input", preview);
+  $f("#cm-format").addEventListener("change", preview);
+  form.querySelectorAll("[data-ins]").forEach((b) => (b.onclick = () => {
+    const ins = b.dataset.ins, a = fx.selectionStart ?? fx.value.length, z = fx.selectionEnd ?? a;
+    const before = fx.value.slice(0, a), pad = before && !/[\s(]$/.test(before) ? " " : "";
+    const text = pad + ins + (/^[a-z_]+$/.test(ins) || "+-*/".includes(ins) ? " " : "");
+    fx.value = before + text + fx.value.slice(z);
+    fx.focus(); fx.selectionStart = fx.selectionEnd = a + text.length; preview();
+  }));
+  preview();
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const label = $f("#cm-label").value.trim();
+    if (!label) { err.textContent = "Give it a name."; return; }
+    try { F.parse(fx.value, FORMULA_VAR_NAMES); } catch (e2) { err.textContent = e2.message; return; }
+    const next = { id: m.id || crypto.randomUUID().slice(0, 8), label, formula: fx.value.trim(), format: $f("#cm-format").value, better: +$f("#cm-better").value };
+    const on = $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
+    try {
+      const list = customMetrics();
+      await saveCustomMetrics(isNew ? [...list, next] : list.map((x) => (x.id === next.id ? next : x)));
+    } catch (e2) { err.textContent = e2.message; return; }
+    close();
+    if (isNew) try { localStorage.setItem("monthMetrics", JSON.stringify([...on, "c:" + next.id])); } catch (e2) { /* ignore */ }
+    monthSummary();
+  };
+  $f("#cm-label").focus();
+}
+
+/** Average of each shown metric over the other months of this year (up to the current month) that have data. */
+function yearAverages(metrics) {
+  const d = db(), year = S.period.slice(0, 4);
+  const ps = [...new Set(d.transaction.map((t) => t.period))].filter((p) => p.startsWith(year) && p < S.period);
+  const out = {};
+  if (!ps.length || !metrics.length) return out;
+  const rows = ps.map((p) => [E.summarize(d, p), E.runway(d, p)]);
+  for (const [k, , f] of metrics) {
+    const vals = rows.map(([s, r]) => f(s, r)).filter((v) => v != null && isFinite(v));
+    if (vals.length) out[k] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+  return out;
+}
+const PENCIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const BIN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
 function extraMetrics(s, r) {
   let on = ["regular_expense", "regular_net", "pending"];
   try { const v = JSON.parse(localStorage.getItem("monthMetrics")); if (Array.isArray(v)) on = v; } catch (e) { /* ignore */ }
-  const shown = MONTH_METRICS.filter(([k]) => on.includes(k));
-  const hidden = MONTH_METRICS.filter(([k]) => !on.includes(k));
-  const tiles = shown.map(([k, l, f, hint]) => `<div class="card metric mx-tile" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${k}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${l}</div><div class="value">${f(s, r)}</div></div>`).join("");
-  const add = hidden.length ? `<div class="mx-add-wrap"><button class="mx-add" id="mx-add" type="button" aria-expanded="false">+ Add a number</button>
-    <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}</div></div>` : "";
+  const all = allMetrics();
+  const shown = on.map((k) => all.find(([x]) => x === k)).filter(Boolean);
+  const hidden = all.filter(([k, , , , , , c]) => !c && !on.includes(k));
+  const customs = all.filter(([, , , , , , c]) => c);
+  const avg = yearAverages(shown);
+  const tiles = shown.map(([k, l, f, hint, better, fmt = inr]) => {
+    const v = f(s, r), a = avg[k];
+    let arrow = "";
+    if (better && v != null && a != null && Math.round(v) !== Math.round(a)) {
+      const good = (v > a) === (better > 0);
+      arrow = `<span class="mx-trend ${good ? "good" : "bad"}" title="${good ? "Better" : "Worse"} than this year's average">${v > a ? "▲" : "▼"}</span>`;
+    }
+    const avgHtml = a != null ? `<div class="mx-avg"><span>${S.period.slice(0, 4)} avg</span>${fmtValue(fmt, a)}</div>` : "";
+    return `<div class="card metric mx-tile" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${esc(k)}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${esc(l)}</div><div class="value">${fmtValue(fmt, v)}${arrow}</div>${avgHtml}</div>`;
+  }).join("");
+  const customRows = customs.map(([k, l, , hint, , , c]) => {
+    const isOn = on.includes(k);
+    return `<div class="mx-crow"><button type="button" class="mx-opt" ${isOn ? "disabled" : `data-mx-show="${esc(k)}"`}><span>${esc(l)}${isOn ? ' <em class="mx-on">shown</em>' : ""}</span><small class="mx-code">${esc(hint)}</small></button>`
+      + `<button type="button" class="mx-ico" data-mx-edit="${esc(c.id)}" aria-label="Edit ${esc(l)}" title="Edit">${PENCIL}</button>`
+      + `<button type="button" class="mx-ico del" data-mx-del="${esc(c.id)}" aria-label="Delete ${esc(l)}" title="Delete">${BIN}</button></div>`;
+  }).join("");
+  const add = `<div class="mx-add-wrap"><button class="mx-add" id="mx-add" type="button" aria-expanded="false">+ Add a number</button>
+    <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}
+      ${customs.length ? `<div class="mx-sec">Your numbers</div>${customRows}` : ""}
+      <button type="button" class="mx-opt mx-new" id="mx-new"><span>+ Create a custom number</span><small>Your own formula on these numbers: a percent, average, difference…</small></button></div></div>`;
   return `<h2 class="mx-head">Other numbers</h2><div class="grid mx-grid">${tiles}${add}</div>`;
 }
 

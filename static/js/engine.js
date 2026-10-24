@@ -202,10 +202,10 @@ export function liquidSavings(db) {
     .reduce((x, a) => x + num(a.balance), 0));
 }
 
-/** Months the liquid savings last at the average burn. null when not burning. */
+/** Months the money you can reach (liquid savings + this month's closing bank balance) lasts at the average burn. null when not burning. */
 export function runway(db, period) {
   const burn = averageBurn(db, period);
-  const savings = liquidSavings(db);
+  const savings = round(liquidSavings(db) + Math.max(0, summarize(db, period).closing));
   if (burn === null || burn <= 0) return { burn, savings, months: null };
   return { burn, savings, months: Math.floor(savings / burn), runs_out: shiftPeriod(period, Math.floor(savings / burn)) };
 }
