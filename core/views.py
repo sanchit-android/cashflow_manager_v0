@@ -7,7 +7,8 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model, login, logout
-from django.core.mail import send_mail
+from django.core.cache import cache
+from django.core.mail import EmailMessage, send_mail
 from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -62,7 +63,8 @@ def guide(request, slug):
     if not g:
         raise Http404
     others = {k: v for k, v in seo.GUIDES.items() if k != slug}
-    return render(request, "guide.html", {"g": g, "slug": slug, "others": others,
+    sections = [(h, items, ill) for (h, items), ill in zip(g["sections"], seo.GUIDE_ILLUS.get(slug, []) + [None] * 9)]
+    return render(request, "guide.html", {"g": g, "slug": slug, "others": others, "sections": sections,
                                           "jsonld": seo.guide_jsonld(settings.SITE_URL, slug, g)})
 
 
@@ -77,7 +79,7 @@ def robots_txt(request):
 @require_GET
 def sitemap_xml(request):
     site = settings.SITE_URL
-    paths = ["/", "/privacy/"] + [f"/{slug}/" for slug in seo.GUIDES]
+    paths = ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in seo.GUIDES]
     urls = "".join(f"<url><loc>{site}{p}</loc></url>" for p in paths)
     body = ('<?xml version="1.0" encoding="UTF-8"?>'
             f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
@@ -96,13 +98,67 @@ def llms_txt(request):
     lines += ["", "## FAQ", ""]
     lines += [f"### {q}\n{a}\n" for q, a in seo.HOME_FAQ]
     lines += ["## Links", "", f"- [Home]({site}/)", f"- [Privacy: what we can and can't see]({site}/privacy/)",
-              f"- [Sign up free]({site}/login/)", ""]
+              f"- [About]({site}/about/)", f"- [Contact]({site}/contact/)",
+              f"- [Sign up free]({site}/login/)", "",
+              f"{seo.NAME} is a product of {seo.COMPANY}, a privately owned business based in India. Contact: {seo.CONTACT_EMAIL}", ""]
     return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
 
 
 @require_GET
 def privacy(request):
     return render(request, "privacy.html")
+
+
+@require_GET
+def about(request):
+    return render(request, "about.html")
+
+
+def _client_ip(request):
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    return fwd.split(",")[0].strip() or request.META.get("REMOTE_ADDR", "")
+
+
+@require_http_methods(["GET", "POST"])
+@ensure_csrf_cookie
+def contact(request):
+    ctx = {"topics": seo.CONTACT_TOPICS, "contact_email": seo.CONTACT_EMAIL, "form": {}}
+    if request.method == "GET":
+        ctx["sent"] = request.GET.get("sent") == "1"
+        return render(request, "contact.html", ctx)
+    f = {k: (request.POST.get(k) or "").strip() for k in ("name", "email", "topic", "subject", "message", "website")}
+    ctx["form"] = f
+    if f["website"]:  # honeypot: bots fill hidden fields
+        return redirect("/contact/?sent=1")
+    errors = []
+    if not f["email"] or "@" not in f["email"] or len(f["email"]) > 254:
+        errors.append("Enter a valid email address so we can reply.")
+    if f["topic"] not in seo.CONTACT_TOPIC_VALUES:
+        errors.append("Choose a topic.")
+    if len(f["message"]) < 10 or len(f["message"]) > 5000:
+        errors.append("Write a message between 10 and 5,000 characters.")
+    if len(f["name"]) > 100 or len(f["subject"]) > 150:
+        errors.append("Name or subject is too long.")
+    key = "contact:" + _client_ip(request)
+    if not errors and cache.get(key, 0) >= 5:
+        errors.append(f"Too many messages from your network. Please email {seo.CONTACT_EMAIL} directly.")
+    if errors:
+        ctx["errors"] = errors
+        return render(request, "contact.html", ctx, status=400)
+    signed_in = request.user.email if request.user.is_authenticated else "(not signed in)"
+    body = (f"From: {f['name'] or '(no name)'} <{f['email']}>\n"
+            f"Topic: {f['topic']}\n"
+            f"Signed in as: {signed_in}\n\n"
+            f"{f['message']}\n")
+    subject = f"[PlannedOut] {f['topic']}" + (f": {f['subject']}" if f["subject"] else "")
+    try:
+        EmailMessage(" ".join(subject.split())[:200], body, settings.DEFAULT_FROM_EMAIL,
+                     [seo.CONTACT_EMAIL], reply_to=[f["email"]]).send()
+    except Exception:
+        ctx["errors"] = [f"We couldn't send your message right now. Please email {seo.CONTACT_EMAIL} directly."]
+        return render(request, "contact.html", ctx, status=502)
+    cache.set(key, cache.get(key, 0) + 1, 3600)
+    return redirect("/contact/?sent=1")
 
 
 @require_GET

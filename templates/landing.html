@@ -4,18 +4,37 @@
 {% block body %}
 <header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></span><a href="/login/">Sign in</a></header>
 <main class="wrap landing">
-  <section class="hero">
+  <section class="hero hero-split"><div>
     <h1>Know whether this month adds to your savings or eats into them.</h1>
     <p class="lead">PlannedOut is a free, private cash-flow planner. Enter money like you would in Excel, get analytics and future projections automatically, and keep your data encrypted so only you can read it.</p>
     <p class="muted">Earning a salary? See how much more you can safely spend. Living off savings? See exactly how long they last.</p>
     <p><a href="/login/"><button class="primary">Start free</button></a> <span class="muted small">No bank login · No SMS access · No ads</span></p>
-  </section>
+  </div>{% include "illus/hero.html" %}</section>
 
   <section aria-labelledby="why">
     <h2 id="why">Why people switch to PlannedOut</h2>
     <div class="points">
-      {% for title, text in benefits %}<div class="card"><h3>{{ title }}</h3><p>{{ text }}</p></div>{% endfor %}
+      {% for title, text in benefits %}<div class="card">{% include "illus/icon.html" with i=forloop.counter %}<h3>{{ title }}</h3><p>{{ text }}</p></div>{% endfor %}
     </div>
+  </section>
+
+  <section aria-labelledby="future" class="card gsec">
+    <div>
+      <h2 id="future">See where your money is heading</h2>
+      <p>Most apps only show where your money went. PlannedOut also projects your savings year by year, up to any year you choose, using your real spending, yearly bills and inflation.</p>
+      <p>Try a what-if, such as spending 20% less, dropping a fixed commitment or adding income, and see the difference straight away.</p>
+      <p><a href="/savings-runway-calculator/">How long will my savings last? →</a></p>
+    </div>
+    {% include "illus/projection.html" %}
+  </section>
+
+  <section aria-labelledby="safe" class="card gsec">
+    <div>
+      <h2 id="safe">Private by design, not by promise</h2>
+      <p>Your entries are encrypted in your browser before they're saved. The key comes from a passphrase only you know, so even we can't read your amounts, names or categories.</p>
+      <p><a href="/privacy/">Exactly what we can and can't see →</a></p>
+    </div>
+    {% include "illus/flow.html" %}
   </section>
 
   <section aria-labelledby="compare">
@@ -46,7 +65,8 @@
     </div>
   </section>
 
-  <section aria-labelledby="how">
+  <section aria-labelledby="how" class="gsec">
+    <div>
     <h2 id="how">How it works</h2>
     <ol class="steps">
       <li><strong>Sign in</strong> with Google or an email code, and set a vault passphrase only you know.</li>
@@ -54,6 +74,8 @@
       <li><strong>Read the verdict</strong>: surplus or shortfall, where it went, and what's trending up.</li>
       <li><strong>Plan ahead</strong>: project savings year by year and try what-ifs.</li>
     </ol>
+    </div>
+    {% include "illus/steps.html" %}
   </section>
 
   <section aria-labelledby="faq-h" class="faq">

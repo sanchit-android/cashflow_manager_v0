@@ -8,6 +8,6 @@ def js_dir(request):
 
 def site(request):
     """Absolute site address and this page's canonical URL (query strings dropped)."""
-    from .seo import GUIDES
+    from .seo import COMPANY, CONTACT_EMAIL, GUIDES
     return {"SITE_URL": settings.SITE_URL, "CANONICAL_URL": settings.SITE_URL + request.path,
-            "guides_nav": list(GUIDES.items())}
+            "guides_nav": list(GUIDES.items()), "COMPANY": COMPANY, "CONTACT_EMAIL": CONTACT_EMAIL}

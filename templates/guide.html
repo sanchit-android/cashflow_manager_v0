@@ -12,8 +12,8 @@
     <p class="lead">{{ g.intro }}</p>
     <p><a href="/login/"><button class="primary">Start free</button></a> <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
   </section>
-  {% for heading, items in g.sections %}
-  <section class="card"><h2>{{ heading }}</h2><ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></section>
+  {% for heading, items, ill in sections %}
+  <section class="card gsec"><div><h2>{{ heading }}</h2><ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></div>{% if ill %}{% include "illus/"|add:ill|add:".html" %}{% endif %}</section>
   {% endfor %}
   <section class="faq">
     <h2>Questions</h2>

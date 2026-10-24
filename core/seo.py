@@ -239,6 +239,29 @@ GUIDES = {
 }
 
 
+# One illustration per guide section, in section order (templates/illus/<name>.html).
+GUIDE_ILLUS = {
+    "budget-planner-india": ["india_month", "annual_cal", "verdict"],
+    "excel-budget-alternative": ["grid", "year_bars", "import"],
+    "private-expense-tracker": ["flow", "never_ask", "control"],
+    "savings-runway-calculator": ["burn", "runway", "personas"],
+    "annual-expenses-planner": ["annual_cal", "sinking"],
+}
+
+COMPANY = "Pravaha.AI"
+CONTACT_EMAIL = "pravaha.ai@gmail.com"
+
+# Contact form topics: category -> subcategories. "Other" lets people describe anything.
+CONTACT_TOPICS = [
+    ("Support", ["Can't sign in", "Passphrase or recovery keys", "Importing data", "Something is broken"]),
+    ("Feedback", ["Feature request", "Design or usability", "Something I like"]),
+    ("Privacy & data", ["Delete my data", "Security report", "Privacy question"]),
+    ("Business", ["Partnership", "Press or media"]),
+    ("Other", ["Something else"]),
+]
+CONTACT_TOPIC_VALUES = {f"{c} / {s}" for c, subs in CONTACT_TOPICS for s in subs}
+
+
 def _ld(*items):
     """JSON-LD script body. Escapes '<' so content can never close the script tag."""
     data = items[0] if len(items) == 1 else {"@context": "https://schema.org", "@graph": list(items)}
@@ -253,7 +276,9 @@ def _faq(pairs):
 def home_jsonld(site):
     return _ld(
         {"@context": "https://schema.org", "@type": "Organization", "@id": site + "/#org", "name": NAME,
-         "url": site + "/", "logo": site + "/static/img/icon-512.png"},
+         "url": site + "/", "logo": site + "/static/img/icon-512.png", "email": CONTACT_EMAIL,
+         "parentOrganization": {"@type": "Organization", "name": COMPANY, "email": CONTACT_EMAIL,
+                                "address": {"@type": "PostalAddress", "addressCountry": "IN"}}},
         {"@type": "WebSite", "@id": site + "/#website", "name": NAME, "url": site + "/", "publisher": {"@id": site + "/#org"},
          "inLanguage": "en-IN"},
         {"@type": "WebApplication", "name": NAME, "url": site + "/", "applicationCategory": "FinanceApplication",

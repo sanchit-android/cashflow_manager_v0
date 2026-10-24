@@ -415,3 +415,38 @@ table.compare th, table.compare td { border: 1px solid var(--border); padding: 8
 table.compare td:last-child { font-weight: 600; color: var(--good); }
 .site-foot { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 16px; line-height: 1.8; }
 @media (max-width: 600px) { .landing .hero h1 { font-size: 26px; } }
+
+/* ---- illustrations (inline SVG, theme-aware) ---- */
+.ill { margin: 0; }
+.ill svg { width: 100%; height: auto; display: block; }
+.ill figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+svg.d .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+svg.d .box2 { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+svg.d .acc { fill: var(--accent); }
+svg.d .accs { stroke: var(--accent); fill: none; stroke-width: 2.5; }
+svg.d .ln { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+svg.d .grid { stroke: var(--border); stroke-width: 1; }
+svg.d .good { fill: var(--good); } svg.d .bad { fill: var(--bad); } svg.d .mut { fill: var(--muted); }
+svg.d .gs { stroke: var(--good); fill: none; stroke-width: 2.5; } svg.d .bs { stroke: var(--bad); fill: none; stroke-width: 2.5; }
+svg.d text { fill: var(--text); font: 13px system-ui, sans-serif; }
+svg.d text.m { fill: var(--muted); font-size: 11px; }
+svg.d text.b { font-weight: 600; }
+svg.d text.big { font-size: 26px; font-weight: 700; }
+svg.d text.g { fill: var(--good); } svg.d text.r { fill: var(--bad); } svg.d text.a { fill: var(--accent); }
+svg.d text.inv { fill: var(--accent-text); font-weight: 600; }
+svg.d text.mono { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+.gsec { display: grid; gap: 16px; align-items: center; }
+.gsec h2 { margin-top: 0; }
+.hero-split { display: grid; gap: 24px; align-items: center; }
+@media (min-width: 760px) {
+  .gsec { grid-template-columns: 1fr 1fr; }
+  .hero-split { grid-template-columns: 1.1fr 1fr; }
+}
+.bicon { width: 32px; height: 32px; color: var(--accent); display: block; margin-bottom: 4px; }
+.landing .card h3 { margin-top: 4px; }
+/* contact form */
+.contact-form label { display: block; font-weight: 600; margin: 12px 0 4px; }
+.contact-form .hp { position: absolute; left: -9999px; }
+.contact-form textarea { min-height: 140px; font: inherit; }
+.notice { padding: 10px 14px; border-radius: var(--radius); background: var(--warn-bg); margin-bottom: 12px; }
+.site-foot .legal { font-size: 12px; }

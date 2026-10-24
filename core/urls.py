@@ -5,6 +5,8 @@ from . import google_auth, seo, views
 urlpatterns = [
     path("", views.landing),
     path("privacy/", views.privacy),
+    path("about/", views.about),
+    path("contact/", views.contact),
     path("robots.txt", views.robots_txt),
     path("sitemap.xml", views.sitemap_xml),
     path("llms.txt", views.llms_txt),

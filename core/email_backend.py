@@ -25,10 +25,14 @@ class HttpApiEmailBackend(BaseEmailBackend):
             headers = {"api-key": settings.EMAIL_API_KEY}
             body = {"sender": {"email": sender}, "to": [{"email": t} for t in msg.to],
                     "subject": msg.subject, "textContent": msg.body}
+            if msg.reply_to:
+                body["replyTo"] = {"email": msg.reply_to[0]}
         elif provider == "resend":
             url = "https://api.resend.com/emails"
             headers = {"Authorization": f"Bearer {settings.EMAIL_API_KEY}"}
             body = {"from": sender, "to": list(msg.to), "subject": msg.subject, "text": msg.body}
+            if msg.reply_to:
+                body["reply_to"] = list(msg.reply_to)
         else:
             raise ValueError(f"Unknown EMAIL_API_PROVIDER: {provider!r}")
         headers.update({"Content-Type": "application/json", "Accept": "application/json"})

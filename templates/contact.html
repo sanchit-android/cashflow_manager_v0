@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Contact PlannedOut{% endblock %}
+{% block description %}Get in touch with the PlannedOut team at {{ COMPANY }} for support, feedback, privacy requests or business enquiries.{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></a><a href="/login/">Sign in</a></header>
+<main class="wrap landing">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › Contact</nav>
+  <section class="hero">
+    <h1>Contact us</h1>
+    <p class="lead">We only take messages by email. Use the form below, or write to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>. We usually reply within a few working days.</p>
+  </section>
+
+  <div class="gsec" style="align-items:start">
+    <section class="card">
+      {% if sent %}
+        <div class="notice" role="status"><strong>Thanks, your message has been sent.</strong> We'll reply to the email address you gave.</div>
+        <p><a href="/contact/">Send another message</a></p>
+      {% else %}
+      {% if errors %}<div class="notice" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+      <form method="post" action="/contact/" class="contact-form">
+        {% csrf_token %}
+        <label for="c-topic">Topic</label>
+        <select id="c-topic" name="topic" required>
+          <option value="">Choose a topic…</option>
+          {% for cat, subs in topics %}<optgroup label="{{ cat }}">{% for sub in subs %}{% with cat|add:" / "|add:sub as v %}<option value="{{ v }}"{% if form.topic == v %} selected{% endif %}>{{ sub }}</option>{% endwith %}{% endfor %}</optgroup>{% endfor %}
+        </select>
+        <label for="c-subject">Subject <span class="muted small">(optional)</span></label>
+        <input id="c-subject" name="subject" maxlength="150" value="{{ form.subject }}">
+        <label for="c-name">Your name <span class="muted small">(optional)</span></label>
+        <input id="c-name" name="name" maxlength="100" autocomplete="name" value="{{ form.name }}">
+        <label for="c-email">Your email</label>
+        <input id="c-email" name="email" type="email" required maxlength="254" autocomplete="email" value="{{ form.email }}">
+        <label for="c-msg">Message</label>
+        <textarea id="c-msg" name="message" required minlength="10" maxlength="5000">{{ form.message }}</textarea>
+        <div class="hp" aria-hidden="true"><label for="c-web">Leave this empty</label><input id="c-web" name="website" tabindex="-1" autocomplete="off"></div>
+        <p class="muted small">Please don't include passphrases, recovery keys or account numbers. We will never ask for them.</p>
+        <p><button class="primary" type="submit">Send message</button></p>
+      </form>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2>Before you write</h2>
+      <ul>
+        <li><strong>Forgot your passphrase?</strong> Use one of your recovery keys. We can't reset or recover encrypted data, because we never have your key.</li>
+        <li><strong>Want your data deleted?</strong> Settings → Delete account removes everything immediately.</li>
+        <li><strong>Found a security issue?</strong> Choose "Privacy &amp; data / Security report". We take every report seriously.</li>
+      </ul>
+      <p class="muted small">{{ COMPANY }} · Privately owned · India · <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+    </section>
+  </div>
+</main>
+{% include "_footer.html" %}
+{% endblock %}

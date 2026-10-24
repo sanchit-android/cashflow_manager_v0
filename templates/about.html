@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}About PlannedOut | A private cash-flow planner by {{ COMPANY }}{% endblock %}
+{% block description %}PlannedOut is a free, private cash-flow planner made in India by {{ COMPANY }}, a privately owned business. Why we built it and what we stand for.{% endblock %}
+{% block body %}
+<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></a><a href="/login/">Sign in</a></header>
+<main class="wrap landing">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › About us</nav>
+  <section class="hero hero-split">
+    <div>
+      <h1>About us</h1>
+      <p class="lead">PlannedOut is made by {{ COMPANY }}, a small, privately owned business based in India. We build simple tools that help people understand their money without giving it away.</p>
+    </div>
+    {% include "illus/steps.html" %}
+  </section>
+
+  <section class="card gsec">
+    <div>
+      <h2>Why we built PlannedOut</h2>
+      <p>Most of us run our household money from a spreadsheet that's hard to keep up, or from an app that wants our bank login and SMS inbox. Neither answers the questions people actually ask: is this month adding to my savings, can I afford this, and how long would my money last?</p>
+      <p>PlannedOut keeps the speed of a spreadsheet, adds the analytics and projections you'd otherwise build by hand, and encrypts everything so that only you can read it.</p>
+    </div>
+    {% include "illus/hero.html" %}
+  </section>
+
+  <section>
+    <h2>What we stand for</h2>
+    <div class="points">
+      <div class="card">{% include "illus/icon.html" with i=4 %}<h3>Your data is yours</h3><p>Encrypted in your browser. We can't read it, sell it or share it.</p></div>
+      <div class="card">{% include "illus/icon.html" with i=3 %}<h3>Answers over records</h3><p>Every screen should tell you something useful, not just store numbers.</p></div>
+      <div class="card">{% include "illus/icon.html" with i=1 %}<h3>Simple and fast</h3><p>No forms for every expense. Type, paste or import and get on with your day.</p></div>
+      <div class="card">{% include "illus/icon.html" with i=6 %}<h3>Free and ad-free</h3><p>No ads and no data deals. Your finances aren't the product.</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Company details</h2>
+    <ul>
+      <li><strong>Product:</strong> PlannedOut (plannedout.in)</li>
+      <li><strong>Owned and operated by:</strong> {{ COMPANY }}, a privately owned business</li>
+      <li><strong>Based in:</strong> India</li>
+      <li><strong>Contact:</strong> <a href="mailto:{{ CONTACT_EMAIL }}">{{ CONTACT_EMAIL }}</a> or our <a href="/contact/">contact form</a></li>
+    </ul>
+    <p class="muted small">PlannedOut is a planning tool, not financial, tax or investment advice. Check important decisions with a qualified professional.</p>
+  </section>
+
+  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p><a href="/login/"><button class="primary">Start free</button></a></p></section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}
