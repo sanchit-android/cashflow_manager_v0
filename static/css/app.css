@@ -393,6 +393,7 @@ table.ins-t tr.flag-down th, table.ins-t tr.flag-down td { background: color-mix
 .month-title .caret { font-size: .55em; opacity: .6; vertical-align: middle; }
 .month-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
   padding: 8px; background: var(--card, #fff); border: 1px solid var(--line, #ccc); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); min-width: 220px; }
+.month-menu[hidden] { display: none; }
 .month-menu button { padding: 6px 8px; }
 .month-menu button.on { font-weight: 700; outline: 2px solid currentColor; }
 .link-btn { background: none; border: 0; text-decoration: underline; cursor: pointer; color: inherit; padding: 4px 6px; }

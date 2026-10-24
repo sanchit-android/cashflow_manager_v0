@@ -352,13 +352,14 @@ function viewMonth() {
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
   if ($("#today")) $("#today").onclick = (e) => goPeriod(curPeriod, e.currentTarget);
   const menu = $("#mmenu"), pick = $("#mpick");
-  const closeMenu = () => { menu.hidden = true; pick.setAttribute("aria-expanded", "false"); document.removeEventListener("click", outside); };
+  const closeMenu = () => { menu.hidden = true; pick.setAttribute("aria-expanded", "false"); document.removeEventListener("click", outside); document.removeEventListener("keydown", onKey); };
+  const onKey = (e) => { if (e.key === "Escape") { closeMenu(); pick.focus(); } };
   const outside = (e) => { if (!e.target.closest(".month-pick")) closeMenu(); };
   pick.onclick = () => {
     if (!menu.hidden) return closeMenu();
-    menu.hidden = false; pick.setAttribute("aria-expanded", "true"); document.addEventListener("click", outside);
+    menu.hidden = false; pick.setAttribute("aria-expanded", "true"); document.addEventListener("click", outside); document.addEventListener("keydown", onKey);
   };
-  menu.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => { document.removeEventListener("click", outside); goPeriod(b.dataset.p, pick); }));
+  menu.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => { closeMenu(); goPeriod(b.dataset.p, pick); }));
   monthSummary();
   mountTxGrid();
 }
