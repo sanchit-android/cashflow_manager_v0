@@ -1,3 +1,4 @@
+import { money } from "./currency.js";
 // Spending insights. Pure functions over an indexed db (engine.index); everything runs in the browser.
 import * as E from "./engine.js";
 import * as P from "./plan.js";
@@ -46,7 +47,7 @@ export function commitmentsYearly(db, period) {
 /**
  * Each category's average over the last `recent` months against its average over the `base` months before that.
  * Day-to-day and one-off spending only (fixed commitments and annual items have their own sections).
- * Flags changes of at least 20% and ₹1,000 a month.
+ * Flags changes of at least 20% and 1,000 a month (in the user's currency).
  */
 export function categoryTrends(db, end, recent = 3, base = 6) {
   const rec = windowPeriods(db, end, recent), basePs = windowPeriods(db, E.shiftPeriod(end, -recent), base);
@@ -107,15 +108,15 @@ export function annualCalendar(db, year, period) {
 export function headlines({ split, trends, merchants, annual }) {
   const out = [];
   const fixed = split.groups.find((g) => g.key === "fixed");
-  if (fixed && fixed.pct >= 35) out.push({ tone: "neutral", title: `${fixed.pct}% of spending is fixed`, body: `₹${fixed.monthly.toLocaleString("en-IN")} a month goes on commitments before the month starts — ₹${(fixed.monthly * 12).toLocaleString("en-IN")} a year.` });
+  if (fixed && fixed.pct >= 35) out.push({ tone: "neutral", title: `${fixed.pct}% of spending is fixed`, body: `${money(fixed.monthly)} a month goes on commitments before the month starts — ${money(fixed.monthly * 12)} a year.` });
   const ups = trends.filter((t) => t.flag === "up").sort((a, b) => b.diff - a.diff), downs = trends.filter((t) => t.flag === "down").sort((a, b) => a.diff - b.diff);
-  // Lead with rupees; a percentage only when the earlier figure is big enough for it to mean something.
+  // Lead with amounts; a percentage only when the earlier figure is big enough for it to mean something.
   const pct = (t) => (t.before >= 2000 ? ` (${t.change > 0 ? "+" : ""}${t.change}%)` : "");
-  const inr = (n) => "₹" + Math.abs(n).toLocaleString("en-IN");
+  const inr = (n) => money(Math.abs(n));
   if (ups[0]) out.push({ tone: "bad", title: `${ups[0].category} up ${inr(ups[0].diff)} a month${pct(ups[0])}`, body: `${inr(ups[0].recent)} a month over the last 3 months, against ${inr(ups[0].before)} in the 6 months before — ${inr(ups[0].diff * 12)} a year if it continues.` });
   if (downs[0]) out.push({ tone: "good", title: `${downs[0].category} down ${inr(downs[0].diff)} a month${pct(downs[0])}`, body: `${inr(downs[0].recent)} a month over the last 3 months, against ${inr(downs[0].before)} before — about ${inr(downs[0].diff * 12)} a year less.` });
-  if (out.length < 3 && merchants[0]) out.push({ tone: "neutral", title: `${merchants[0].label}: ₹${merchants[0].yearly.toLocaleString("en-IN")} a year`, body: `${merchants[0].count} payments in ${split.months} months, about ₹${merchants[0].monthly.toLocaleString("en-IN")} a month.` });
-  if (out.length < 3 && annual && annual.total && annual.peak.amount > annual.setAside * 3) out.push({ tone: "neutral", title: `Annual items peak in one month`, body: `₹${annual.peak.amount.toLocaleString("en-IN")} falls in a single month. Setting aside ₹${annual.setAside.toLocaleString("en-IN")} a month would spread it evenly.` });
+  if (out.length < 3 && merchants[0]) out.push({ tone: "neutral", title: `${merchants[0].label}: ${money(merchants[0].yearly)} a year`, body: `${merchants[0].count} payments in ${split.months} months, about ${money(merchants[0].monthly)} a month.` });
+  if (out.length < 3 && annual && annual.total && annual.peak.amount > annual.setAside * 3) out.push({ tone: "neutral", title: `Annual items peak in one month`, body: `${money(annual.peak.amount)} falls in a single month. Setting aside ${money(annual.setAside)} a month would spread it evenly.` });
   return out.slice(0, 3);
 }
 
@@ -141,7 +142,7 @@ export function categoryMonthly(db, periods) {
 }
 
 /**
- * What-if on the projection: cut day-to-day spending by a %, cut fixed commitments by ₹/month, add income ₹/month.
+ * What-if on the projection: cut day-to-day spending by a %, cut fixed commitments by an amount a month, add income a month.
  * Returns runway before/after and the burn used.
  */
 export function whatIf(db, opts, period, start, { flexCutPct = 0, fixedCut = 0, extraIncome = 0, flexMonthly = 0 } = {}) {

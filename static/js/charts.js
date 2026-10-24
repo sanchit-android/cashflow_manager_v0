@@ -2,14 +2,8 @@
 // Colours come from CSS tokens (--series-1..4) so themes and dark mode apply; text uses text tokens.
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const lakh = (n) => {
-  const a = Math.abs(n), sign = n < 0 ? "−" : "";
-  if (a >= 1e7) return `${sign}₹${+(a / 1e7).toFixed(a >= 1e8 ? 0 : 1)}Cr`;
-  if (a >= 1e5) return `${sign}₹${+(a / 1e5).toFixed(a >= 1e6 ? 0 : 1)}L`;
-  if (a >= 1e3) return `${sign}₹${+(a / 1e3).toFixed(0)}K`;
-  return `${sign}₹${Math.round(a)}`;
-};
-export const money = (n) => (n == null ? "—" : (n < 0 ? "−₹" : "₹") + Math.abs(Math.round(n)).toLocaleString("en-IN"));
+import { money, compact as lakh } from "./currency.js";
+export { money };
 
 function ticks(min, max, count = 5) {
   if (min === max) max = min + 1;
@@ -39,7 +33,7 @@ function showTip(tip, host, x, y, html) {
 }
 
 /**
- * Stacked bars with an optional line, one y-axis (all in ₹).
+ * Stacked bars with an optional line, one y-axis (all in the user's currency).
  * { labels, stacks: [{name, color, values}], line: {name, color, values}, title }
  */
 export function stackedBars(host, { labels, stacks, line, title, height = 260, fmt = money, axis = lakh }) {

@@ -1,3 +1,4 @@
+import { num } from "./currency.js";
 // Pure helpers for the grid: formulas, date entry, formatting, and description suggestions.
 
 // ---------- formulas: =121+347+103, =(115000+50000)*1.01475, =45000*5% ----------
@@ -41,7 +42,7 @@ export function parseAmountInput(text) {
   const s = String(text ?? "").trim();
   if (!s) return null;
   if (s.startsWith("=")) return { value: evalFormula(s), formula: s };
-  const clean = s.replace(/[₹$,\s]/g, "");
+  const clean = s.replace(/[₹$€£¥৳,\s]|AED|SAR|QAR|CHF|RM|Rs\.?|[A-Z]{0,2}\$/gi, "");
   const neg = /^\(.*\)$/.test(clean);
   const n = parseFloat(clean.replace(/[()]/g, ""));
   if (!Number.isFinite(n)) throw new Error("Enter a number, or a formula starting with =");
@@ -87,7 +88,7 @@ export function formatAmount(n) {
   if (n === null || n === undefined || n === "") return "";
   const v = Number(n);
   if (!Number.isFinite(v)) return "";
-  const s = Math.abs(v).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const s = num(Math.abs(v), 2);
   return v < 0 ? `(${s})` : s;
 }
 

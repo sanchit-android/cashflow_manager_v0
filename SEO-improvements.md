@@ -24,7 +24,7 @@ All page text lives in `core/seo.py`.
 | ✅ | 2 | **Social preview image** (1200×630) used for `og:image` and `twitter:image`. File: `static/img/og-image.png`; rebuild with `python scripts/make_og_image.py` | Better-looking links on WhatsApp, LinkedIn and X, so more people click | ~20 min |
 | ⬜ | 3 | **More guide pages** for long, specific searches (list below) | Each brings steady traffic from specific questions; AI tools quote pages that answer one clear question | ~15 min per page |
 | ⬜ | 4 | **Free calculators** on public pages (no sign-in needed): savings runway, emergency fund, sinking fund, 50/30/20 split | Tools attract backlinks and repeat visits, and AI assistants recommend them | ~1–2 hrs each |
-| ⬜ | 5 | **Multi-currency support** (USD, GBP, EUR, AED, SGD and others) | Makes the global pages credible for visitors outside India | ~half a day |
+| ✅ | 5 | **Multi-currency support**: 20 currencies (INR, USD, GBP, EUR, AED, SGD and others), picked during setup (guessed from time zone) and changeable in Settings. Code in `static/js/currency.js` | Makes the global pages credible for visitors outside India | ~half a day |
 | ⬜ | 6 | **`lastmod` dates in the sitemap** | Helps crawlers spot updated pages | ~10 min |
 | ⬜ | 7 | **Product screenshots** on the homepage and guides (with alt text) | Ranks in image search and makes the pages more convincing | ~30 min, once screenshots exist |
 | ⬜ | 8 | **Hindi versions** of the homepage and the India guide (with `hreflang`) | Reaches Hindi searchers, where there is little competition | ~2 hrs |

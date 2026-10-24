@@ -9,13 +9,14 @@ import * as P from "./plan.js";
 import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
 import { catIcon } from "./icons.js";
+import { setCurrency, currencyOptions, guessCurrency } from "./currency.js";
 import { track, startTracking } from "./track.js";
 import { viewAdmin } from "./admin.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const inr = (n) => (n == null ? "—" : "₹" + Math.round(n).toLocaleString("en-IN"));
+const inr = money;
 const today = () => new Date().toISOString().slice(0, 10);
 const html = (s) => { root.innerHTML = s; };
 const $ = (sel) => root.querySelector(sel);
@@ -184,6 +185,7 @@ function afterUnlock() {
   const s = settingsRec();
   if (!s) return onboarding();
   if (s.data.theme) applyTheme(s.data.theme, s.data.custom_theme);
+  setCurrency(s.data.currency);
   S.tab = "month";
   S.period = E.periodOf(today(), s.data);
   renderTabs(); render();
@@ -194,6 +196,7 @@ function onboarding() {
   html(`<div class="narrow card">
     <h1>Set up your month</h1>
     <label>Pick a look</label>${themePicker(theme)}
+    <label for="cur">Currency</label><select id="cur">${currencyOptions(guessCurrency())}</select>
     <label for="fm">How is your household funded?</label>
     <select id="fm"><option value="salary">Salary</option><option value="savings">Savings (no regular salary)</option><option value="both">Salary plus savings</option></select>
     <div id="sal"><label for="samt">Monthly take-home salary</label><input id="samt" type="number" min="0" placeholder="85000">
@@ -210,7 +213,7 @@ function onboarding() {
   $("#go").onclick = async () => {
     try {
       const fm = $("#fm").value, sday = +$("#sday").value || null;
-      const settings = { funding_mode: fm, theme, currency: "INR",
+      const settings = { funding_mode: fm, theme, currency: $("#cur").value,
         period_mode: fm !== "savings" && $("#cycle").checked && sday ? "pay_cycle" : "calendar", cycle_day: sday };
       const period = E.periodOf(today(), settings);
       const items = [{ type: "settings", data: settings },
@@ -777,7 +780,7 @@ function viewInsights() {
       <tr class="em"><th class="rowh">Total</th><td>${money(commits.reduce((x, c) => x + c.monthly, 0))}</td><td>${money(commits.reduce((x, c) => x + c.yearly, 0))}</td></tr></tbody></table></div>` : ""}</div>
 
     <div class="card"><h2>Category trends</h2>
-      <p class="muted">Day-to-day and one-off spending: the last 3 months against the 6 months before. Highlighted rows moved by at least 20% and ₹1,000 a month.</p>
+      <p class="muted">Day-to-day and one-off spending: the last 3 months against the 6 months before. Highlighted rows moved by at least 20% and ${money(1000)} a month.</p>
       <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Category</th><th>Last 3 months</th><th>6 months before</th><th>Change per month</th></tr></thead><tbody>
       ${trends.map((t) => `<tr class="${t.flag ? "flag-" + t.flag : ""}"><th class="rowh">${catIcon(t.category)}${esc(t.category)}</th><td>${money(t.recent)}</td><td>${t.before === null ? "–" : money(t.before)}</td><td class="${t.flag === "up" ? "bad" : t.flag === "down" ? "good" : ""}">${arrow(t)}</td></tr>`).join("")}
       </tbody></table></div></div>
@@ -827,9 +830,9 @@ function runwaySection(d, now, ps) {
     <div class="whatif">
       <label for="wf-flex">Cut day-to-day spending by <strong id="wf-flex-o">0%</strong> <span class="muted">(you average ${money(flex)} a month)</span></label>
       <input id="wf-flex" type="range" min="0" max="50" step="5" value="0">
-      <label for="wf-fixed">Cut fixed commitments by <strong id="wf-fixed-o">₹0</strong> a month <span class="muted">(currently ${money(fixed)})</span></label>
+      <label for="wf-fixed">Cut fixed commitments by <strong id="wf-fixed-o">${money(0)}</strong> a month <span class="muted">(currently ${money(fixed)})</span></label>
       <input id="wf-fixed" type="range" min="0" max="${Math.max(1000, Math.ceil(fixed / 1000) * 1000)}" step="1000" value="0">
-      <label for="wf-inc">Add income of <strong id="wf-inc-o">₹0</strong> a month</label>
+      <label for="wf-inc">Add income of <strong id="wf-inc-o">${money(0)}</strong> a month</label>
       <input id="wf-inc" type="range" min="0" max="${Math.max(50000, Math.ceil((dd.breakEvenExtra * 1.2) / 5000) * 5000)}" step="5000" value="0">
       <p class="whatif-out" id="wf-out" aria-live="polite"></p>
     </div>
@@ -897,9 +900,9 @@ function savingsRateSection(d, ps) {
 }
 
 // ================= Savings, projections and checkpoints =================
-const PROJ_FIELDS = [["burn", "Monthly burn (spending − regular income)", "₹"], ["burn_growth_pct", "Burn grows each year", "%"],
-  ["annual_base", "Annual items per year", "₹"], ["annual_growth_pct", "Annual items grow each year", "%"],
-  ["holiday_per_year", "Holiday budget per year", "₹"], ["horizon_year", "Plan until (year)", ""], ["start_override", "Starting savings (blank = latest checkpoint)", "₹"]];
+const PROJ_FIELDS = [["burn", "Monthly burn (spending − regular income)", "amt"], ["burn_growth_pct", "Burn grows each year", "%"],
+  ["annual_base", "Annual items per year", "amt"], ["annual_growth_pct", "Annual items grow each year", "%"],
+  ["holiday_per_year", "Holiday budget per year", "amt"], ["horizon_year", "Plan until (year)", ""], ["start_override", "Starting savings (blank = latest checkpoint)", "amt"]];
 
 function viewSavings() {
   const s = settingsRec(), period = E.periodOf(today(), s.data), d = db();
@@ -1019,6 +1022,8 @@ function viewSettings() {
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
       <label for="fm2">Household is funded by</label><select id="fm2" style="max-width:320px"><option value="salary">Salary / regular income</option><option value="savings">Savings (no regular income)</option><option value="both">Both</option></select>
+      <label for="cur2">Currency</label><select id="cur2" style="max-width:320px">${currencyOptions(s.data.currency || "INR")}</select>
+      <p class="muted" style="margin:4px 0 0">Changes the symbol and number format only. Amounts are not converted.</p>
       <label for="cd">Salary day</label><input id="cd" type="number" min="1" max="31" style="max-width:120px" value="${esc(s.data.cycle_day || "")}">
       <label style="display:flex;gap:8px;align-items:flex-start;color:var(--text);font-size:14px;margin-top:14px"><input type="checkbox" id="rollup" style="width:auto;margin-top:3px" ${s.data.card_rollup ? "checked" : ""}>
         <span>Count each card's monthly spending against my main account, as a read-only row. Months where I record the card bill payment aren't counted twice.</span></label>
@@ -1042,10 +1047,11 @@ function viewSettings() {
   $("#savepm").onclick = async () => {
     const day = +$("#cd").value || null;
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));
-    const data = { ...settingsRec().data, period_mode: $("#pm").value, funding_mode: $("#fm2").value, cycle_day: day, card_rollup: $("#rollup").checked };
+    const data = { ...settingsRec().data, period_mode: $("#pm").value, funding_mode: $("#fm2").value, currency: $("#cur2").value, cycle_day: day, card_rollup: $("#rollup").checked };
     // Re-file transactions into periods under the new rule.
     const tx = store.ofType("transaction").map((r) => ({ id: r.id, type: "transaction", data: { ...r.data, period: E.periodOf(r.data.date, data) } }));
     await store.save([{ id: s.id, type: "settings", data }, ...tx]);
+    setCurrency(data.currency);
     S.period = E.periodOf(today(), data); alert("Saved.");
   };
   $$("[data-revoke]").forEach((b) => (b.onclick = async () => {
