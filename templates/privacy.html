@@ -27,7 +27,7 @@
   .pv .matrix th[scope=row] { text-align: left; }
   .pv .yes { color: var(--good); font-weight: 600; } .pv .no { color: var(--bad); font-weight: 600; }
 </style>
-<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a><a href="/login/">Sign in</a></header>
+<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a>{% endif %}</header>
 <main class="wrap landing pv">
   <section class="hero">
     <h1>Your money data is yours. We built it so we can't read it.</h1>
@@ -168,7 +168,7 @@
 
   <section class="hero cta">
     <h2>Plan your money without handing it over.</h2>
-    <p><a href="/login/"><button class="primary">Start free</button></a></p>
+    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %}</p>
   </section>
 </main>
 {% include "_footer.html" %}

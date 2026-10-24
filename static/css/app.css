@@ -299,7 +299,7 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
   .wrap { padding: 12px; }
   header.top { padding: 10px 12px; position: sticky; top: 0; z-index: 30; }
   header.top nav.tabs { display: none; }
-  header.top form { display: none; }
+  header.top form:not(.signout) { display: none; }
   #bottomnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--border);
     padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); }
   #bottomnav button { flex: 1; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; min-height: 52px; color: var(--muted); font-size: 11px; border-radius: var(--radius); }

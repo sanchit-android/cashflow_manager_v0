@@ -2,13 +2,13 @@
 {% block title %}PlannedOut — Free Private Budget &amp; Cash-Flow Planner (Spreadsheet-Style, Encrypted){% endblock %}
 {% block description %}Know if this month adds to your savings or eats into them. Excel-like entry, monthly analytics, savings projections and runway, with data encrypted in your browser. Free. No bank linking, no SMS reading.{% endblock %}
 {% block body %}
-<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></span><a href="/login/">Sign in</a></header>
+<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></span>{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a>{% endif %}</header>
 <main class="wrap landing">
   <section class="hero hero-split"><div>
     <h1>Know whether this month adds to your savings or eats into them.</h1>
     <p class="lead">PlannedOut is a free, private cash-flow planner. Enter money like you would in Excel, get analytics and future projections automatically, and keep your data encrypted so only you can read it.</p>
     <p class="muted">Earning a salary? See how much more you can safely spend. Living off savings? See exactly how long they last.</p>
-    <p><a href="/login/"><button class="primary">Start free</button></a> <span class="muted small">No bank login · No SMS access · No ads</span></p>
+    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %} <span class="muted small">No bank login · No SMS access · No ads</span></p>
   </div>{% include "illus/hero.html" %}</section>
 
   <section aria-labelledby="why">
@@ -85,7 +85,7 @@
 
   <section class="hero cta">
     <h2>Start planning your money privately, for free.</h2>
-    <p><a href="/login/"><button class="primary">Start free</button></a></p>
+    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %}</p>
   </section>
 </main>
 {% include "_footer.html" %}
