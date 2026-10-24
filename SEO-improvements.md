@@ -21,7 +21,7 @@ All page text lives in `core/seo.py`.
 | Status | # | Task | Why it helps | Effort |
 |---|---|------|--------------|--------|
 | ✅ | 1 | **IndexNow**: ping Bing (and Yandex, Seznam) whenever a page changes. Runs ~45s after each Render start (`python manage.py indexnow`); only changed pages are sent. Code in `core/indexnow.py` | Bing indexes changes within hours. ChatGPT search and Copilot draw heavily on Bing. | ~10 min |
-| ⬜ | 2 | **Social preview image** (1200×630) used for `og:image` | Better-looking links on WhatsApp, LinkedIn and X, so more people click | ~20 min |
+| ✅ | 2 | **Social preview image** (1200×630) used for `og:image` and `twitter:image`. File: `static/img/og-image.png`; rebuild with `python scripts/make_og_image.py` | Better-looking links on WhatsApp, LinkedIn and X, so more people click | ~20 min |
 | ⬜ | 3 | **More guide pages** for long, specific searches (list below) | Each brings steady traffic from specific questions; AI tools quote pages that answer one clear question | ~15 min per page |
 | ⬜ | 4 | **Free calculators** on public pages (no sign-in needed): savings runway, emergency fund, sinking fund, 50/30/20 split | Tools attract backlinks and repeat visits, and AI assistants recommend them | ~1–2 hrs each |
 | ⬜ | 5 | **Multi-currency support** (USD, GBP, EUR, AED, SGD and others) | Makes the global pages credible for visitors outside India | ~half a day |
