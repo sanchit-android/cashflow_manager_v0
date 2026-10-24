@@ -39,6 +39,11 @@ def _redirect_uri(request):
 
 def _fail(reason):
     log.warning("Google sign-in failed: %s", reason)
+    from .models import ErrorEvent
+    try:
+        ErrorEvent.objects.create(kind="api", path="/auth/google/callback", status=0, message=f"Google sign-in failed: {reason}"[:300])
+    except Exception:
+        pass
     return redirect("/login/?error=google")
 
 
@@ -118,11 +123,13 @@ def callback(request):
     # 3. New person: create the account and link Google to it.
     user = User.objects.create(username=email, email=email)
     GoogleIdentity.objects.create(user=user, sub=sub, email=email)
-    return _sign_in(request, user)
+    return _sign_in(request, user, "signup:google")
 
 
-def _sign_in(request, user):
+def _sign_in(request, user, event="login:google"):
+    from .monitor import log_event
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    log_event(user.id, event)
     return redirect("/app")
 
 

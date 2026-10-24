@@ -67,6 +67,16 @@ Import tab → choose a `.csv` or `.xlsx`. Files are parsed in the browser and n
 - **Checkpoints:** dated snapshots of liquid savings, committed spending and long-term holdings, edited in the grid. A new checkpoint carries holdings forward from the previous one and recalculates commitments. The latest checkpoint is the projection's starting balance.
 - The workbook importer also brings in the Checkpoint sheet, the Cashflow sheet's notes, money lent to people listed as "Credit - …", and treats inflow lines after the first (rent) as one-off.
 
+## Admin dashboard
+
+Signed in as the owner (`OWNER_EMAIL`, default `pravaha.ai@gmail.com`), the app shows an extra **Admin** tab with three views:
+
+- **Business:** new vs returning users, daily/weekly/monthly actives, activation funnel, weekly retention, screens and what-ifs used, records added, depth of use, most active users.
+- **Technical:** health checks, traffic and where it comes from (search, AI assistants, social, other sites, campaigns), landing pages, crawlers and AI bots, 404s, endpoint timings and errors, browser errors, email sign-in health, database size against the free-tier limit (`DB_SIZE_LIMIT_MB`, default 512), cold starts.
+- **Admins:** add or remove admins by email. The owner can't be removed.
+
+Code: `core/monitor.py` (middleware and APIs), `static/js/admin.js` (dashboard), `static/js/track.js` (usage counts sent by the app: fixed labels only, never content). Monitoring tables trim themselves (page views and errors after 90 days).
+
 ## Deploy (free tiers)
 
 1. **Database:** create a Neon project, copy the connection string.

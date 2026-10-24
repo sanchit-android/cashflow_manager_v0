@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import google_auth, seo, views
+from . import google_auth, monitor, seo, views
 
 urlpatterns = [
     path("", views.landing),
@@ -24,4 +24,8 @@ urlpatterns = [
     path("api/records", views.records_pull),
     path("api/records/push", views.records_push),
     path("api/account/delete", views.delete_account),
+    path("api/telemetry", monitor.telemetry),
+    path("api/admin/tech", monitor.tech),
+    path("api/admin/business", monitor.business),
+    path("api/admin/admins", monitor.admins),
 ] + [path(f"{slug}/", views.guide, {"slug": slug}) for slug in seo.GUIDES]

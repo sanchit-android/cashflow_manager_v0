@@ -18,6 +18,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from . import seo
+from .monitor import is_admin, log_event
 from .models import LoginCode, Record, Vault, VaultKey
 
 User = get_user_model()
@@ -234,8 +235,9 @@ def verify_code(request):
         return _err("That code isn't right. Check the email and try again.")
     lc.used = True
     lc.save(update_fields=["used"])
-    user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
+    user, created = User.objects.get_or_create(username=email, defaults={"email": email})
     login(request, user)
+    log_event(user.id, "signup:email" if created else "login:email")
     return JsonResponse({"ok": True})
 
 
@@ -255,7 +257,8 @@ def _vault_json(v):
 def vault(request):
     v = Vault.objects.filter(user=request.user).first()
     if request.method == "GET":
-        return JsonResponse({"vault": _vault_json(v) if v else None, "email": request.user.email})
+        return JsonResponse({"vault": _vault_json(v) if v else None, "email": request.user.email,
+                             "is_admin": is_admin(request.user)})
 
     data = _body(request)
     if not data or not all(isinstance(data.get(k), (str, dict)) for k in ("kdf", "salt", "wrapped_key")):
@@ -273,6 +276,7 @@ def vault(request):
             for k in keys:
                 VaultKey.objects.create(vault=v, label=str(k.get("label", ""))[:64],
                                         wrapped_key=k["wrapped_key"])
+        log_event(request.user.id, "vault:created")
         return JsonResponse({"vault": _vault_json(v)}, status=201)
 
     # PUT: change passphrase (re-wrap only; data untouched)
@@ -369,6 +373,7 @@ def records_push(request):
 @api_login_required
 def delete_account(request):
     user = request.user
+    log_event(None, "account:deleted")
     logout(request)
     user.delete()  # cascades to vault, keys, records
     return JsonResponse({"ok": True})

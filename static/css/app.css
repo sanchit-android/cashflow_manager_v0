@@ -451,3 +451,18 @@ svg.d text.mono { font-family: ui-monospace, Consolas, monospace; font-size: 11p
 .contact-form textarea { min-height: 140px; font: inherit; }
 .notice { padding: 10px 14px; border-radius: var(--radius); background: var(--warn-bg); margin-bottom: 12px; }
 .site-foot .legal { font-size: 12px; }
+
+/* ---------- admin dashboard ---------- */
+.adm-2 { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); align-items: start; }
+.adm-2 > div > .card:last-child { margin-bottom: 16px; }
+.adm-checks { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 8px; font-weight: 600; }
+.adm-gauge { height: 14px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+.adm-gauge span { display: block; height: 100%; background: var(--good); }
+.adm-gauge span.warm { background: var(--series-3); }
+.adm-gauge span.hot { background: var(--bad); }
+.adm-err { border-top: 1px solid var(--border); padding: 6px 0; font-size: 13px; }
+.adm-err summary { cursor: pointer; overflow-wrap: anywhere; }
+.adm-err pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--surface-2); padding: 8px; border-radius: var(--radius); max-height: 320px; overflow: auto; }
+table.adm-t td { white-space: normal; }
+table.adm-t th.rowh { white-space: normal; max-width: 360px; overflow-wrap: anywhere; }
+.heat { display: inline-block; min-width: 44px; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--series-1) calc(var(--h) * 100%), transparent); }

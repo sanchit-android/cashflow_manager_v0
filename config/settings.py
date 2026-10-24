@@ -35,7 +35,13 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.SecurityHeadersMiddleware",
+    "core.monitor.MonitorMiddleware",
 ]
+
+# Admin dashboard: the owner is always an admin and can add others from the dashboard.
+OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "pravaha.ai@gmail.com")
+# Free-tier database storage limit, for the usage gauge (Neon free = 0.5 GB).
+DB_SIZE_LIMIT_MB = int(os.environ.get("DB_SIZE_LIMIT_MB", "512"))
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"

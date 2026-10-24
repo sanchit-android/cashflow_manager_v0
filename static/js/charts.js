@@ -42,7 +42,7 @@ function showTip(tip, host, x, y, html) {
  * Stacked bars with an optional line, one y-axis (all in ₹).
  * { labels, stacks: [{name, color, values}], line: {name, color, values}, title }
  */
-export function stackedBars(host, { labels, stacks, line, title, height = 260 }) {
+export function stackedBars(host, { labels, stacks, line, title, height = 260, fmt = money, axis = lakh }) {
   const H = height, pad = { l: 56, r: 12, t: 12, b: 28 };
   const { width, svg, tip } = frame(host, H);
   const totals = labels.map((_, i) => stacks.reduce((x, s) => x + Math.max(0, s.values[i] || 0), 0));
@@ -55,7 +55,7 @@ export function stackedBars(host, { labels, stacks, line, title, height = 260 })
   const bw = (width - pad.l - pad.r) / labels.length, barW = Math.min(36, bw * 0.62);
   const X = (i) => pad.l + bw * i + bw / 2;
   let g = `<title>${esc(title || "")}</title>`;
-  for (const t of tk) g += `<line x1="${pad.l}" x2="${width - pad.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? "c-base" : "c-grid"}"/><text x="${pad.l - 6}" y="${Y(t) + 4}" class="c-axis" text-anchor="end">${lakh(t)}</text>`;
+  for (const t of tk) g += `<line x1="${pad.l}" x2="${width - pad.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? "c-base" : "c-grid"}"/><text x="${pad.l - 6}" y="${Y(t) + 4}" class="c-axis" text-anchor="end">${axis(t)}</text>`;
   labels.forEach((l, i) => {
     g += `<text x="${X(i)}" y="${H - 8}" class="c-axis" text-anchor="middle">${esc(l)}</text>`;
     let base = 0;
@@ -82,7 +82,7 @@ export function stackedBars(host, { labels, stacks, line, title, height = 260 })
     const i = +hit.dataset.i, rect = host.getBoundingClientRect();
     svg.querySelectorAll(".c-hit.on").forEach((x) => x.classList.remove("on")); hit.classList.add("on");
     showTip(tip, host, e.clientX - rect.left, e.clientY - rect.top,
-      `<strong>${esc(labels[i])}</strong>${stacks.map((s) => `<div><i style="--c:${s.color}"></i>${esc(s.name)} <b>${money(s.values[i])}</b></div>`).join("")}${line ? `<div><i class="ln" style="--c:${line.color}"></i>${esc(line.name)} <b>${money(lineVals[i])}</b></div>` : ""}`);
+      `<strong>${esc(labels[i])}</strong>${stacks.map((s) => `<div><i style="--c:${s.color}"></i>${esc(s.name)} <b>${fmt(s.values[i])}</b></div>`).join("")}${line ? `<div><i class="ln" style="--c:${line.color}"></i>${esc(line.name)} <b>${fmt(lineVals[i])}</b></div>` : ""}`);
   });
   svg.addEventListener("mouseleave", () => { tip.hidden = true; svg.querySelectorAll(".c-hit.on").forEach((x) => x.classList.remove("on")); });
 }
@@ -90,7 +90,7 @@ export function stackedBars(host, { labels, stacks, line, title, height = 260 })
 /**
  * Lines over a shared x axis. { labels, series: [{name, color, values (null = gap), dashed, dots}], markLabel(i) }
  */
-export function lines(host, { labels, series, title, everyNth }) {
+export function lines(host, { labels, series, title, everyNth, fmt = money, axis = lakh }) {
   const H = 260, pad = { l: 60, r: 14, t: 14, b: 28 };
   const { width, svg, tip } = frame(host, H);
   const all = series.flatMap((s) => s.values.filter((v) => v != null));
@@ -101,7 +101,7 @@ export function lines(host, { labels, series, title, everyNth }) {
   const X = (i) => pad.l + step * i;
   const nth = everyNth || Math.ceil(labels.length / Math.max(3, Math.floor((width - pad.l) / 72))); // ~72px per label
   let g = `<title>${esc(title || "")}</title>`;
-  for (const t of tk) g += `<line x1="${pad.l}" x2="${width - pad.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? "c-base" : "c-grid"}"/><text x="${pad.l - 6}" y="${Y(t) + 4}" class="c-axis" text-anchor="end">${lakh(t)}</text>`;
+  for (const t of tk) g += `<line x1="${pad.l}" x2="${width - pad.r}" y1="${Y(t)}" y2="${Y(t)}" class="${t === 0 ? "c-base" : "c-grid"}"/><text x="${pad.l - 6}" y="${Y(t) + 4}" class="c-axis" text-anchor="end">${axis(t)}</text>`;
   labels.forEach((l, i) => { if (i % nth === 0) g += `<text x="${X(i)}" y="${H - 8}" class="c-axis" text-anchor="middle">${esc(l)}</text>`; });
   for (const s of series) {
     const segs = []; let cur = [];
@@ -118,7 +118,7 @@ export function lines(host, { labels, series, title, everyNth }) {
     const rect = svg.getBoundingClientRect(), scale = width / rect.width;
     const i = Math.max(0, Math.min(labels.length - 1, Math.round(((e.clientX - rect.left) * scale - pad.l) / step)));
     cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("visibility", "visible");
-    const rows = series.filter((s) => s.values[i] != null).map((s) => `<div><i class="${s.dotsOnly ? "" : "ln"}" style="--c:${s.color}"></i>${esc(s.name)} <b>${money(s.values[i])}</b></div>`).join("");
+    const rows = series.filter((s) => s.values[i] != null).map((s) => `<div><i class="${s.dotsOnly ? "" : "ln"}" style="--c:${s.color}"></i>${esc(s.name)} <b>${fmt(s.values[i])}</b></div>`).join("");
     const hr = host.getBoundingClientRect();
     showTip(tip, host, e.clientX - hr.left, e.clientY - hr.top, `<strong>${esc(labels[i])}</strong>${rows || '<div class="muted">No data</div>'}`);
   });
@@ -129,7 +129,7 @@ export function lines(host, { labels, series, title, everyNth }) {
  * Horizontal bars, largest first, each labelled with its value (one series, so no legend).
  * { items: [{ label, value, icon }], color, total }
  */
-export function hbars(host, { items, color = "var(--series-1)", title }) {
+export function hbars(host, { items, color = "var(--series-1)", title, fmt = money }) {
   host.classList.add("chart", "hbars");
   const max = Math.max(1, ...items.map((i) => Math.abs(i.value)));
   const total = items.reduce((x, i) => x + i.value, 0);
@@ -137,14 +137,14 @@ export function hbars(host, { items, color = "var(--series-1)", title }) {
     const pct = Math.max(0, (it.value / max) * 100);
     return `<div class="hb-row" role="listitem" data-i="${i}"><span class="hb-label">${it.icon || ""}${esc(it.label)}</span>
       <span class="hb-track"><span class="hb-bar" style="width:${pct}%;background:${color}"></span></span>
-      <span class="hb-val">${money(it.value)}</span></div>`;
+      <span class="hb-val">${fmt(it.value)}</span></div>`;
   }).join("")}</div><div class="chart-tip" hidden></div>`;
   const tip = host.querySelector(".chart-tip");
   host.addEventListener("mousemove", (e) => {
     const row = e.target.closest(".hb-row"); if (!row) { tip.hidden = true; return; }
     const it = items[+row.dataset.i], r = host.getBoundingClientRect();
     host.querySelectorAll(".hb-row.on").forEach((x) => x.classList.remove("on")); row.classList.add("on");
-    showTip(tip, host, e.clientX - r.left, e.clientY - r.top, `<strong>${esc(it.label)}</strong><div>Amount <b>${money(it.value)}</b></div><div>Share of total <b>${total ? Math.round((it.value / total) * 1000) / 10 : 0}%</b></div>${it.count ? `<div>Transactions <b>${it.count}</b></div>` : ""}`);
+    showTip(tip, host, e.clientX - r.left, e.clientY - r.top, `<strong>${esc(it.label)}</strong><div>${fmt === money ? "Amount" : "Count"} <b>${fmt(it.value)}</b></div><div>Share of total <b>${total ? Math.round((it.value / total) * 1000) / 10 : 0}%</b></div>${it.count ? `<div>Transactions <b>${it.count}</b></div>` : ""}`);
   });
   host.addEventListener("mouseleave", () => { tip.hidden = true; host.querySelectorAll(".hb-row.on").forEach((x) => x.classList.remove("on")); });
 }

@@ -9,6 +9,8 @@ import * as P from "./plan.js";
 import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
 import { catIcon } from "./icons.js";
+import { track, startTracking } from "./track.js";
+import { viewAdmin } from "./admin.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -67,12 +69,14 @@ function showError(e) { const el = $("#err"); if (el) el.textContent = e.message
 
 // ================= start =================
 async function start() {
+  startTracking(() => S.tab);
+  track("app:open");
   try {
     await store.load();
     if (!store.vault) return setupVault();
     const remembered = await device.load(store.email);
     if (remembered) {
-      try { await store.unlock(remembered); return afterUnlock(); } catch { await device.forget(store.email); }
+      try { await store.unlock(remembered); track("unlock:remembered"); return afterUnlock(); } catch { await device.forget(store.email); }
     }
     unlockScreen();
   } catch (e) { html(`<p class="error">${esc(e.message)}</p>`); }
@@ -163,6 +167,7 @@ function unlockScreen(mode = "pass") {
       }
       if ($("#remember").checked) await device.save(store.email, key);
       await store.unlock(key);
+      track(recovery ? "unlock:recovery" : "unlock:passphrase");
       afterUnlock();
     } catch (e) { showError(e); $("#go").disabled = false; $("#go").textContent = "Unlock"; }
   };
@@ -214,13 +219,15 @@ function onboarding() {
       if (fm !== "savings" && +$("#samt").value) items.push({ type: "income", data: { label: "Salary", kind: "salary", amount: +$("#samt").value, day: sday } });
       if (+$("#other").value) items.push({ type: "income", data: { label: "Other income", kind: "other", amount: +$("#other").value } });
       await store.save(items);
+      track("onboard:" + fm);
       afterUnlock();
     } catch (e) { showError(e); }
   };
 }
 
 // ================= tabs =================
-const TABS = [["month", "Month"], ["year", "Year"], ["insights", "Insights"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+const BASE_TABS = [["month", "Month"], ["year", "Year"], ["insights", "Insights"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+const tabList = () => (store.isAdmin ? [...BASE_TABS, ["admin", "Admin"]] : BASE_TABS);
 // Phones: a bottom tab bar with the four main screens and "More" for the rest.
 const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
   ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
@@ -241,7 +248,7 @@ function moreSheet() {
   const back = document.createElement("div");
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
-    ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"]].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? [["admin", "Admin"]] : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
     <button type="button" class="more-item" data-go="signout">Sign out</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
@@ -258,11 +265,13 @@ window.matchMedia("(max-width: 640px)").addEventListener("change", () => { if (s
 function renderTabs() {
   renderBottomNav();
   tabsEl.hidden = false;
-  tabsEl.innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
+  tabsEl.innerHTML = tabList().map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
   tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
 }
+let lastTracked = null;
 function render() {
-  try { ({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab](); }
+  if (S.tab !== lastTracked) { lastTracked = S.tab; if (S.tab !== "admin") track("tab:" + S.tab); }
+  try { ({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings, admin: () => viewAdmin(root) })[S.tab](); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 
@@ -1151,9 +1160,11 @@ async function loadFile(file) {
   box.innerHTML = '<p class="muted">Reading…</p>';
   if (/\.xlsx$/i.test(file.name)) {
     IMP.book = await readXlsx(await file.arrayBuffer());
-    if (await I.looksLikeFinancesWorkbook(IMP.book)) return financesForm();
+    if (await I.looksLikeFinancesWorkbook(IMP.book)) { track("import:workbook"); return financesForm(); }
+    track("import:xlsx");
     return sheetPicker();
   }
+  track("import:csv");
   IMP.rows = I.parseCSV(await file.text());
   mappingForm();
 }

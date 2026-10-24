@@ -61,3 +61,72 @@ class GoogleIdentity(models.Model):
     sub = models.CharField(max_length=255, unique=True)
     email = models.EmailField()
     linked_at = models.DateTimeField(auto_now_add=True)
+
+
+# ---------- admin and monitoring ----------
+# None of these hold financial data. Visitors are counted with a daily-rotating hash; no IP is stored.
+
+class AdminGrant(models.Model):
+    """An email allowed to see the admin dashboard. The owner (settings.OWNER_EMAIL) is always admin."""
+    email = models.EmailField(unique=True)
+    added_by = models.EmailField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PageView(models.Model):
+    """One HTML page view: where the visitor came from and what they saw."""
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    path = models.CharField(max_length=200)
+    status = models.PositiveSmallIntegerField(default=200)
+    ms = models.PositiveIntegerField(default=0)
+    visitor = models.CharField(max_length=16, db_index=True)  # hash(secret, day, ip, user agent)
+    user_id = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=16)  # direct, search, ai, social, referral, email, internal, bot
+    source_name = models.CharField(max_length=64, blank=True, default="")  # google, chatgpt, linkedin, utm source…
+    referrer_host = models.CharField(max_length=120, blank=True, default="")
+    utm_campaign = models.CharField(max_length=80, blank=True, default="")
+    device = models.CharField(max_length=8, default="desktop")  # desktop, mobile, tablet, bot
+
+
+class EndpointStat(models.Model):
+    """Per-hour counters for every non-static request, grouped by route."""
+    hour = models.DateTimeField()
+    route = models.CharField(max_length=80)
+    count = models.PositiveIntegerField(default=0)
+    err4 = models.PositiveIntegerField(default=0)
+    err5 = models.PositiveIntegerField(default=0)
+    total_ms = models.BigIntegerField(default=0)
+    max_ms = models.PositiveIntegerField(default=0)
+    slow = models.PositiveIntegerField(default=0)  # over 1 second
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["hour", "route"], name="uniq_endpoint_hour")]
+
+
+class ErrorEvent(models.Model):
+    """A server error, a failed API call, or a browser-side error reported by the app."""
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    kind = models.CharField(max_length=8)  # server, api, client
+    path = models.CharField(max_length=200)
+    status = models.PositiveSmallIntegerField(default=0)
+    message = models.CharField(max_length=300)
+    detail = models.TextField(blank=True, default="")
+    user_id = models.IntegerField(null=True, blank=True)
+
+
+class UsageDaily(models.Model):
+    """How many times a signed-in user did a named thing on a day (screen opened, button used).
+    Event names are fixed labels from the app code; they never contain what the user typed."""
+    day = models.DateField()
+    user_id = models.IntegerField(null=True, blank=True)
+    event = models.CharField(max_length=48)
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["day", "user_id", "event"], name="uniq_usage_day")]
+        indexes = [models.Index(fields=["day", "event"], name="core_usage_day_event_idx")]
+
+
+class Boot(models.Model):
+    """One row per app process start. On a free host that sleeps, these are cold starts."""
+    created_at = models.DateTimeField(auto_now_add=True)

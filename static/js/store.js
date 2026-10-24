@@ -1,5 +1,6 @@
 // Talks to Django, keeps decrypted records in memory, remembers the data key on this device if asked.
 import * as C from "./crypto.js";
+import { track } from "./track.js";
 
 function csrf() {
   const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
@@ -45,13 +46,13 @@ export const device = {
 
 // ---- the store ----
 export const store = {
-  email: null, vault: null, key: null,
+  email: null, vault: null, key: null, isAdmin: false,
   rows: new Map(), // id -> { id, type, period, version, deleted, data }
   lastSync: null,
 
   async load() {
     const r = await api("/api/vault");
-    this.email = r.email; this.vault = r.vault;
+    this.email = r.email; this.vault = r.vault; this.isAdmin = !!r.is_admin;
     return r;
   },
 
@@ -80,10 +81,11 @@ export const store = {
   /** Save one or more { id?, type, period?, data, deleted? }. Returns saved ids. */
   async save(items) {
     items = Array.isArray(items) ? items : [items];
-    const payload = [];
+    const payload = [], prevVersion = new Map();
     for (const it of items) {
       const id = it.id || crypto.randomUUID();
       const prev = this.rows.get(id);
+      prevVersion.set(id, prev ? prev.version : 0);
       const base = { id, type: it.type, period: it.period || "", base_version: prev ? prev.version : 0, deleted: !!it.deleted };
       if (!it.deleted) Object.assign(base, await C.encryptRecord(this.key, this.email, { id, type: it.type, data: it.data }));
       payload.push(base);
@@ -93,6 +95,7 @@ export const store = {
       const r = await api("/api/records/push", { method: "POST", body: { records: payload.slice(i, i + 400) } });
       for (const s of r.saved) {
         const it = items.find((x) => x.id === s.id);
+        track(`${it.deleted ? "delete" : prevVersion.get(s.id) ? "edit" : "save"}:${it.type}`);
         this.rows.set(s.id, { id: s.id, type: it.type, period: it.period || "", version: s.version, deleted: !!it.deleted, data: it.deleted ? null : it.data });
       }
       if (r.conflicts.length) {
