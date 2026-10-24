@@ -177,7 +177,11 @@ td.xl-number .xl-editor { text-align: right; }
 .xl-help kbd { font: 11px var(--num); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; background: var(--surface); }
 
 /* account filter buttons */
-.acct-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+.acct-bar { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; }
+.acct-group { display: flex; align-items: baseline; gap: 10px; }
+.acct-group-label { flex: none; width: 150px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; opacity: .65; }
+.acct-chips { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.acct-select { display: none; width: 100%; }
 .acct-bar button { border-radius: 999px; padding: 6px 12px; font-size: 13px; }
 .acct-bar button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .acct-bar button small { opacity: .8; margin-left: 6px; font-family: var(--num); }
@@ -302,8 +306,8 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
   input, select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
   button { min-height: 40px; }
   button.link { min-height: 0; }
-  .acct-bar { flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; padding-bottom: 4px; margin-right: -14px; }
-  .acct-bar button { flex: none; scroll-snap-align: start; }
+  .acct-group { display: none; }
+  .acct-select { display: block; }
   .acct-sum { font-size: 13px; gap: 2px 12px; }
   .xl-help { display: none; }
   .proj-form { grid-template-columns: 1fr 1fr; }

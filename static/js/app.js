@@ -351,16 +351,35 @@ function accountBar() {
   const accts = barAccounts(d);
   if (S.account && !accts.some((a) => a.id === S.account)) S.account = (accts.find((a) => a.data.is_default_spending) || accts[0] || {}).id || null;
   const sel = selectedAccount();
-  $("#acctbar").innerHTML = accts.map((a) => {
+  const info = (a) => {
     const m = E.accountMonth(d, a.id, S.period);
     const n = m.spent + m.received + m.transfer_in + m.transfer_out;
-    const hint = a.data.role === "card" ? m.spent : a.data.role === "spending" ? m.closing : m.transfer_in;
+    return { n, hint: a.data.role === "card" ? m.spent : a.data.role === "spending" ? m.closing : m.transfer_in };
+  };
+  // Group by kind so the bar reads as Bank accounts / Cards / Savings & investments.
+  const groups = [
+    ["Bank accounts", accts.filter((a) => a.data.role === "spending")],
+    ["Cards", accts.filter((a) => a.data.role === "card")],
+    ["Savings & investments", accts.filter((a) => a.data.role !== "spending" && a.data.role !== "card")],
+  ].filter(([, list]) => list.length);
+  const chip = (a) => {
+    const { n, hint } = info(a);
     return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}" aria-pressed="${a.id === sel}">${acctIcon(a)}${esc(a.data.name)}${n ? `<small>${money(hint)}</small>` : ""}</button>`;
-  }).join("") || '<span class="muted">Add an account on the Accounts tab first.</span>';
-  $$("[data-acct]").forEach((b) => (b.onclick = () => {
-    S.account = b.dataset.acct; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
+  };
+  const opt = (a) => {
+    const { n, hint } = info(a);
+    return `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${esc(a.data.name)}${n ? ` · ${money(hint)}` : ""}</option>`;
+  };
+  $("#acctbar").innerHTML = groups.length
+    ? groups.map(([label, list]) => `<div class="acct-group"><span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div></div>`).join("")
+      + `<select class="acct-select" id="acctselect" aria-label="Account">${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`
+    : '<span class="muted">Add an account on the Accounts tab first.</span>';
+  const pick = (id) => {
+    S.account = id; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
     mountTxGrid();
-  }));
+  };
+  $$("[data-acct]").forEach((b) => (b.onclick = () => pick(b.dataset.acct)));
+  const selEl = $("#acctselect"); if (selEl) selEl.onchange = () => pick(selEl.value);
   accountSummary(d, sel);
 }
 
