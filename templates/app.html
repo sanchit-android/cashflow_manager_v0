@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% load static %}
 {% block title %}PlannedOut{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
+{% block theme %}<script src="{% static JS_DIR|add:'/theme.js' %}"></script>{% endblock %}
 {% block body %}
 <header class="top">
   <a class="brand" href="/" style="color:inherit;text-decoration:none"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>

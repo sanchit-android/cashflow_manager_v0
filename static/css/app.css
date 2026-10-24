@@ -470,7 +470,8 @@ table.adm-t th.rowh { white-space: normal; max-width: 360px; overflow-wrap: anyw
 /* Public site navigation */
 header.site-top { position: sticky; top: 0; z-index: 40; flex-wrap: nowrap; }
 .site-top details.menu > summary { display: none; }
-.site-top details.menu { display: contents; }
+.site-top details.menu { display: block; }
+@media (min-width: 861px) { .site-top details.menu::details-content { content-visibility: visible; } }
 .site-top summary { list-style: none; cursor: pointer; }
 .site-top summary::-webkit-details-marker { display: none; }
 .site-nav { display: flex; align-items: center; gap: 4px; }

@@ -27,7 +27,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="{{ SITE_URL }}{% static 'img/og-image.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script src="{% static JS_DIR|add:'/theme.js' %}"></script>
+  {% block theme %}{# Public pages keep the default light look; only the app applies the user's theme. #}{% endblock %}
   {% if jsonld %}<script type="application/ld+json">{{ jsonld }}</script>{% endif %}
 </head>
 <body>
