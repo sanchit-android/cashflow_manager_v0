@@ -20,6 +20,7 @@ const $ = (sel) => root.querySelector(sel);
 const $$ = (sel) => [...root.querySelectorAll(sel)];
 
 const THEMES = {
+  planned: ["PlannedOut", "#1c1e24", "#34d399"],
   excel: ["Excel", "#ffffff", "#217346"], paper: ["Paper", "#f7f6f2", "#2457c5"], sky: ["Sky", "#f3f7fc", "#1f6feb"],
   lavender: ["Lavender", "#f7f5fc", "#6b4fbb"], sand: ["Sand", "#faf6ee", "#a0612a"], rose: ["Rose", "#fdf6f7", "#b4325b"],
   mint: ["Mint", "#eef6f3", "#0f7a5c"], chai: ["Chai", "#f6efe4", "#9a4a12"], ink: ["Ink", "#ffffff", "#000000"], night: ["Night", "#121417", "#7aa7ff"],
@@ -111,7 +112,7 @@ function showRecoveryKeys(created) {
     <input id="check" autocomplete="off" spellcheck="false">
     <p><button class="primary" id="done">Finish setup</button></p>
     <p class="error" id="err" role="alert"></p></div>`);
-  const text = `Cashflow recovery keys for ${store.email}\nCreated ${today()}\n\n` + keys.map((k, i) => `${i + 1}. ${k}`).join("\n") +
+  const text = `PlannedOut recovery keys for ${store.email}\nCreated ${today()}\n\n` + keys.map((k, i) => `${i + 1}. ${k}`).join("\n") +
     "\n\nAny one of these unlocks your data. If you lose your passphrase and all of these, your data cannot be recovered.\n";
   $("#dl").onclick = () => {
     const a = document.createElement("a");

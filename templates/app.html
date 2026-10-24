@@ -1,8 +1,8 @@
 {% extends "base.html" %}{% load static %}
-{% block title %}Cashflow{% endblock %}
+{% block title %}PlannedOut{% endblock %}
 {% block body %}
 <header class="top">
-  <span class="brand">Cashflow</span>
+  <span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></span>
   <nav class="tabs" id="tabs" hidden></nav>
   <form method="post" action="/logout/">{% csrf_token %}<button class="link" type="submit">Sign out</button></form>
 </header>

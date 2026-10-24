@@ -1,7 +1,7 @@
-{% extends "base.html" %}
-{% block title %}Cashflow — know if this month adds to your savings or eats into them{% endblock %}
+{% extends "base.html" %}{% load static %}
+{% block title %}PlannedOut — know if this month adds to your savings or eats into them{% endblock %}
 {% block body %}
-<header class="top"><span class="brand">Cashflow</span><a href="/login/">Sign in</a></header>
+<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></span><a href="/login/">Sign in</a></header>
 <main class="wrap landing">
   <section class="hero">
     <h1>Know whether this month adds to your savings or eats into them.</h1>

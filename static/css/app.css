@@ -13,6 +13,12 @@
   --border: #e0d0b8; --accent: #9a4a12; --accent-text: #fffaf2; --good: #4f7a28; --bad: #a3321b; --warn-bg: #fbe7c2;
   --font: Georgia, "Iowan Old Style", serif; --radius: 4px;
 }
+/* Brand theme: matches the PlannedOut logo (charcoal with green-to-teal). */
+[data-theme="planned"] {
+  --bg: #1c1e24; --surface: #23262e; --surface-2: #2b2f38; --text: #eef1ef; --muted: #9aa3a0;
+  --border: #363b45; --accent: #34d399; --accent-text: #0f1a15; --good: #4ade80; --bad: #ff8a80; --warn-bg: #3a3220;
+  --grid-head: #2b2f38; --grid-sel: #1f3d33; --grid-active: #34d399; --radius: 8px;
+}
 [data-theme="mint"] {
   --bg: #eef6f3; --surface: #ffffff; --surface-2: #dfeee8; --text: #102a22; --muted: #557066;
   --border: #c5ddd4; --accent: #0f7a5c; --accent-text: #ffffff; --good: #0f7a5c; --bad: #b0302a; --warn-bg: #f6efd2;
@@ -30,7 +36,9 @@ a { color: var(--accent); }
 .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
 .narrow { max-width: 460px; }
 header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
-header.top .brand { font-weight: 600; margin-right: auto; }
+header.top .brand { font-weight: 700; margin-right: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
+header.top .brand img { width: 28px; height: 28px; display: block; }
+header.top .brand .tld { color: var(--accent); }
 nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 nav.tabs button { border: 0; background: transparent; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); }
 nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
@@ -169,7 +177,7 @@ td.xl-number .xl-editor { text-align: right; }
 
 /* ---------- charts (palette validated: light #2a78d6 #eb6834 #1baf7a #eda100; dark #3987e5 #d95926 #199e70 #c98500) ---------- */
 :root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; }
-[data-theme="night"] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; }
+[data-theme="night"], [data-theme="planned"] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; }
 .chart { position: relative; }
 .chart svg { display: block; overflow: visible; }
 .chart .c-grid { stroke: var(--grid-line); stroke-width: 1; opacity: .6; }
