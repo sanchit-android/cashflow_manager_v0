@@ -1,0 +1,1 @@
+(()=>{try{let t=document.documentElement,c=localStorage.getItem("theme")||"excel",e=c==="custom"?JSON.parse(localStorage.getItem("themeVars")||"null"):null;if(t.dataset.theme=e?e.base||"excel":c,e)for(let o in e.vars)t.style.setProperty(o,e.vars[o])}catch{}})();

@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#1c1e24">
   <meta property="og:image" content="{% static 'img/logo-full.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script src="{% static 'js/theme.js' %}"></script>
+  <script src="{% static JS_DIR|add:'/theme.js' %}"></script>
 </head>
 <body>
 {% block body %}{% endblock %}
