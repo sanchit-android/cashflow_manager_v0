@@ -498,3 +498,22 @@ html { scroll-padding-top: 72px; }
   .site-nav .dd-panel { position: static; box-shadow: none; border: 0; padding: 0 0 0 12px; min-width: 0; }
   .site-nav .nav-cta { margin: 8px 0 0; padding-top: 12px; border-top: 1px solid var(--border); justify-content: space-between; }
 }
+
+/* Brand banner. Always dark: the logo artwork has light text. */
+.banner { background: radial-gradient(120% 140% at 85% 0%, #123b31 0%, rgba(18,59,49,0) 55%), linear-gradient(135deg, #141820 0%, #0e1e1c 100%); color: #f0f2f5; border-bottom: 3px solid #34d399; }
+.banner-in { max-width: 1040px; margin: 0 auto; padding: 28px 16px; box-sizing: border-box; display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+.banner-logo { width: 340px; max-width: 100%; height: auto; display: block; }
+.banner-copy { flex: 1 1 280px; }
+.banner-tag { font-size: 26px; font-weight: 700; line-height: 1.25; margin: 0 0 14px; letter-spacing: -0.01em; }
+.banner-pills { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.banner-pills li { font-size: 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(52,211,153,.45); background: rgba(52,211,153,.1); color: #c9f5e2; }
+.banner-slim .banner-in { padding: 14px 16px; gap: 20px; }
+.banner-slim .banner-logo { width: 170px; }
+.banner-slim .banner-tag { font-size: 17px; font-weight: 600; margin: 0; color: #c9f5e2; }
+@media (max-width: 600px) {
+  .banner-in { padding: 20px 16px; gap: 16px; }
+  .banner-logo { width: 240px; }
+  .banner-tag { font-size: 21px; }
+  .banner-slim .banner-logo { width: 130px; }
+  .banner-slim .banner-tag { font-size: 15px; }
+}
