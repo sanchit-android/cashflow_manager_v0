@@ -696,6 +696,7 @@ def business(request):
                   "avg_accounts": round(sum(c.get("account", 0) for c in per_user_type.values()) / max(1, len(vault_users)), 1)},
         "tabs": tab_rows,
         "whatif": feature_rows("whatif:"),
+        "metrics": feature_rows("metric:"),
         "saves": feature_rows("save:"), "edits": feature_rows("edit:"), "deletes": feature_rows("delete:"),
         "clicks": feature_rows("click:")[:40],
         "changes": feature_rows("change:")[:40],

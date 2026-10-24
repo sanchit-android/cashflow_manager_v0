@@ -647,6 +647,7 @@ function monthSummary() {
   const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
   $$("[data-mx-hide]").forEach((b) => (b.onclick = () => saveMx(curMx().filter((k) => k !== b.dataset.mxHide))));
   mxDrag($(".mx-grid"), (rows) => {
+    track(`metric:${rows.length > 1 ? "rows" : "reorder"}`);
     saveMxLayout({ month_metric_rows: rows, month_metrics: rows.flat() }).catch((e) => alert(e.message));
   });
   $$("[data-mx-show]").forEach((b) => (b.onclick = () => saveMx([...curMx(), b.dataset.mxShow])));
@@ -813,6 +814,7 @@ function customMetricSheet(m, s, r) {
       await saveCustomMetrics(isNew ? [...list, next] : list.map((x) => (x.id === next.id ? next : x)));
     } catch (e2) { err.textContent = e2.message; return; }
     close();
+    track(isNew ? "metric:custom_create" : "metric:custom_edit");
     if (isNew) await saveMxLayout({ month_metrics: [...on, "c:" + next.id] }).catch(() => {});
     monthSummary();
   };

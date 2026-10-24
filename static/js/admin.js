@@ -97,6 +97,8 @@ function business(box, d) {
       ${card("Depth of use", `<h3>Transactions per user</h3>${bars("b-tx")}<h3>Months of data per user</h3>${bars("b-months")}
         <p class="muted">Average accounts per user: <strong>${d.depth.avg_accounts}</strong></p>`, "Users with a vault only.")}
     </div>
+    ${card("Other numbers (Month screen)", table(["Action", "Count", "Users"], (d.metrics || []).map((r) => [esc({ reorder: "Dragged a box (one row)", rows: "Dragged a box (several rows)", custom_create: "Created a custom number", custom_edit: "Edited a custom number" }[r.event] || r.event), num(r.count), num(r.users)])),
+      "Showing, hiding and deleting numbers are under Buttons used (month : mxShow, mxHide, mxDel).")}
     ${card("Buttons used", table(["Screen : button", "Clicks", "Users"], d.clicks.map((r) => [esc(r.event), num(r.count), num(r.users)])),
       "Named by button id. Useful to see whether features like export, checkpoints or custom themes get used.")}
     ${card("Settings changed", table(["Screen : field", "Changes", "Users"], d.changes.filter((r) => !r.event.startsWith("savings:")).map((r) => [esc(r.event), num(r.count), num(r.users)])))}
