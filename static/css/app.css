@@ -521,7 +521,7 @@ html { scroll-padding-top: 72px; }
 
 /* ---- card billing & month close ---- */
 .mclose { display: inline-flex; align-items: center; gap: 6px; }
-.close-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border, currentColor); }
+.close-tag { display: inline-flex; align-items: center; padding: 5px; border-radius: 999px; cursor: help; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border, currentColor); }
 .close-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .close-hint { font-size: 13px; color: var(--muted); }
 .month-menu button.closed { opacity: .75; }

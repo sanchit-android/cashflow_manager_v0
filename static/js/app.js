@@ -538,16 +538,17 @@ function openBillForm(c) {
   host.innerHTML = `<form class="bill-box bill-form" id="bill-form">
     <span>Transactions total <strong class="num">${money(base)}</strong>${adj ? " (before adjustment)" : ""}.</span>
     <label for="bill-amt">Amount on your statement</label>
-    <input id="bill-amt" type="number" step="1" inputmode="decimal" value="${c.billed ? c.amount : base}">
+    <input id="bill-amt" type="text" inputmode="decimal" autocomplete="off" value="${c.billed ? c.amount : base}">
     <span id="bill-diff" class="muted"></span><span class="spacer"></span>
     <button class="primary" type="submit">Confirm</button><button type="button" id="bill-cancel">Cancel</button></form>`;
   const inp = $("#bill-amt"), diffEl = $("#bill-diff");
-  const upd = () => { const v = Math.round(+inp.value || 0) - base; diffEl.textContent = v ? `${v > 0 ? "+" : "−"}${money(Math.abs(v))} will be added as an adjustment under Other` : "Matches your transactions"; };
+  const upd = () => { const v = Math.round(+inp.value.replace(/[,\s]/g, "") || 0) - base; diffEl.textContent = v ? `${v > 0 ? "+" : "−"}${money(Math.abs(v))} will be added as an adjustment under Other` : "Matches your transactions"; };
   inp.oninput = upd; upd(); inp.focus(); inp.select();
   $("#bill-cancel").onclick = () => billBox(db(), S.account);
   $("#bill-form").onsubmit = async (e) => {
     e.preventDefault();
-    if (inp.value === "" || !Number.isFinite(+inp.value)) return;
+    inp.value = inp.value.replace(/[,\s]/g, "");
+    if (inp.value === "" || !Number.isFinite(+inp.value)) { inp.focus(); return; }
     try { await markBilled(c.id, +inp.value); refreshMonth(); } catch (err) { showError(err); }
   };
 }
@@ -557,8 +558,8 @@ function monthCloseBar() {
   const host = $("#mclose"); if (!host) return;
   const st = E.monthStatus(db(), S.period);
   if (st.closed) {
-    host.innerHTML = `<span class="close-tag" title="Closed${st.closed_at ? " on " + st.closed_at.slice(0, 10) : ""}. You can still edit it.">${LOCK} Closed</span><button type="button" class="link-btn" id="mreopen">Reopen</button>`;
-    $("#mreopen").onclick = async () => { try { await saveClose(S.period, (d) => { d.closed = false; }); render(); } catch (err) { showError(err); } };
+    const tip = `Month closed${st.closed_at ? " on " + st.closed_at.slice(0, 10) : ""}. This is only a marker so you know what's in the past. You can still make changes.`;
+    host.innerHTML = `<span class="close-tag" tabindex="0" role="img" aria-label="${tip}" title="${tip}">${LOCK}</span>`;
   } else if (S.period > E.currentPeriod(db(), today())) {
     host.innerHTML = "";
   } else if (st.allBilled) {
