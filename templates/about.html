@@ -2,7 +2,7 @@
 {% block title %}About PlannedOut | A private cash-flow planner by {{ COMPANY }}{% endblock %}
 {% block description %}PlannedOut is a free, private cash-flow planner made in India by {{ COMPANY }}, a privately owned business. Why we built it and what we stand for.{% endblock %}
 {% block body %}
-<header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></a>{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a>{% endif %}</header>
+{% include "_site_header.html" %}
 <main class="wrap landing">
   <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › About us</nav>
   <section class="hero hero-split">

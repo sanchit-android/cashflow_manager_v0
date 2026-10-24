@@ -1,0 +1,26 @@
+{% load static %}<header class="top site-top">
+  <a class="brand" href="/" aria-label="PlannedOut home"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>
+  <details class="menu">
+    <summary aria-label="Menu"><span class="burger" aria-hidden="true"></span></summary>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#why">Features</a>
+      <a href="/#how">How it works</a>
+      <details class="dd">
+        <summary>Guides</summary>
+        <div class="dd-panel">{% for slug, item in guides_nav %}<a href="/{{ slug }}/"{% if request.path == "/"|add:slug|add:"/" %} aria-current="page"{% endif %}>{{ item.nav }}</a>{% endfor %}</div>
+      </details>
+      <a href="/#faq-h">FAQ</a>
+      <a href="/privacy/"{% if request.path == "/privacy/" %} aria-current="page"{% endif %}>Privacy</a>
+      <a href="/about/"{% if request.path == "/about/" %} aria-current="page"{% endif %}>About</a>
+      <span class="nav-cta">{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a><a href="/login/"><button class="primary">Start free</button></a>{% endif %}</span>
+    </nav>
+  </details>
+</header>
+<script>
+(function(){var h=document.currentScript.previousElementSibling,m=h.querySelector("details.menu"),mq=matchMedia("(min-width: 861px)");
+function sync(){m.open=mq.matches;}
+function closeAll(){h.querySelectorAll("details[open]").forEach(function(d){if(d!==m||!mq.matches)d.open=false;});}
+document.addEventListener("click",function(e){if(!h.contains(e.target)||e.target.closest("a"))closeAll();});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeAll();});
+sync();mq.addEventListener("change",sync);})();
+</script>

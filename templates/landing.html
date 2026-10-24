@@ -2,7 +2,7 @@
 {% block title %}PlannedOut — Free Private Budget &amp; Cash-Flow Planner (Spreadsheet-Style, Encrypted){% endblock %}
 {% block description %}Know if this month adds to your savings or eats into them. Excel-like entry, monthly analytics, savings projections and runway, with data encrypted in your browser. Free. No bank linking, no SMS reading.{% endblock %}
 {% block body %}
-<header class="top"><span class="brand"><img src="{% static 'img/logo-icon.png' %}" alt="PlannedOut logo" width="28" height="28">PlannedOut<span class="tld">.in</span></span>{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a>{% endif %}</header>
+{% include "_site_header.html" %}
 <main class="wrap landing">
   <section class="hero hero-split"><div>
     <h1>Know whether this month adds to your savings or eats into them.</h1>
