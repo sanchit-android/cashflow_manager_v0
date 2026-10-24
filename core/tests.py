@@ -70,3 +70,23 @@ class TrackingTests(TestCase):
         self.assertEqual(classify("https://lnkd.in/x", "", "plannedout.in")[:2], ("social", "linkedin"))
         self.assertEqual(classify("https://someblog.com/post", "", "plannedout.in")[:2], ("referral", "someblog.com"))
         self.assertEqual(classify("", "", "plannedout.in")[0], "direct")
+
+
+class CalculatorTests(TestCase):
+    def test_pages_render_and_are_in_sitemap(self):
+        from . import seo
+        self.assertEqual(self.client.get("/calculators/").status_code, 200)
+        for slug in seo.CALCULATORS:
+            r = self.client.get(f"/calculators/{slug}/")
+            self.assertContains(r, f'data-calc="{slug}"')
+            self.assertContains(r, "FAQPage")
+        self.assertEqual(self.client.get("/calculators/nope/").status_code, 404)
+        self.assertContains(self.client.get("/sitemap.xml"), "/calculators/emergency-fund/")
+        self.assertContains(self.client.get("/llms.txt"), "Sinking fund calculator")
+
+    def test_calc_use_counts_anonymously(self):
+        _post(self.client, "/api/calc-use", {"calc": "emergency-fund"})
+        _post(self.client, "/api/calc-use", {"calc": "emergency-fund"})
+        self.assertEqual(_post(self.client, "/api/calc-use", {"calc": "x"}).status_code, 400)
+        row = UsageDaily.objects.get(event="calc:emergency-fund")
+        self.assertEqual((row.count, row.user_id), (2, None))

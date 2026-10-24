@@ -70,6 +70,36 @@ def guide(request, slug):
 
 
 @require_GET
+def calculators(request):
+    return render(request, "calculators.html", {"calcs": seo.CALCULATORS, "hub": seo.CALC_HUB,
+                                                "jsonld": seo.calc_hub_jsonld(settings.SITE_URL)})
+
+
+@require_GET
+@ensure_csrf_cookie
+def calculator(request, slug):
+    c = seo.CALCULATORS.get(slug)
+    if not c:
+        raise Http404
+    others = {k: v for k, v in seo.CALCULATORS.items() if k != slug}
+    return render(request, "calculator.html", {"c": c, "slug": slug, "others": others, "form": f"calc/{slug}.html",
+                                               "jsonld": seo.calc_jsonld(settings.SITE_URL, slug, c)})
+
+
+@require_POST
+def calc_use(request):
+    """Counts that a public calculator was used (once per page view). Visitors are anonymous: no user, no values."""
+    try:
+        slug = json.loads(request.body or b"{}").get("calc")
+    except (json.JSONDecodeError, AttributeError):
+        slug = None
+    if slug not in seo.CALCULATORS:
+        return _err("Unknown calculator.")
+    log_event(request.user.id if request.user.is_authenticated else None, f"calc:{slug}")
+    return JsonResponse({"ok": True})
+
+
+@require_GET
 def robots_txt(request):
     site = settings.SITE_URL
     body = ("User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /api/\nDisallow: /auth/\nDisallow: /logout/\n\n"
@@ -101,6 +131,8 @@ def llms_txt(request):
     lines += [f"- **{t}**: {d}" for t, d in seo.BENEFITS]
     lines += ["", "## Guides", ""]
     lines += [f"- [{g['nav']}]({site}/{slug}/): {g['description']}" for slug, g in seo.GUIDES.items()]
+    lines += ["", "## Free calculators (no sign-in, run in the browser)", ""]
+    lines += [f"- [{c['h1']}]({site}/calculators/{slug}/): {c['description']}" for slug, c in seo.CALCULATORS.items()]
     lines += ["", "## FAQ", ""]
     lines += [f"### {q}\n{a}\n" for q, a in seo.HOME_FAQ]
     lines += ["## Links", "", f"- [Home]({site}/)", f"- [Privacy: what we can and can't see]({site}/privacy/)",

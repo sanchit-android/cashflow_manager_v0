@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{{ c.title }} | PlannedOut{% endblock %}
+{% block description %}{{ c.description }}{% endblock %}
+{% block og_title %}{{ c.title }}{% endblock %}
+{% block og_description %}{{ c.description }}{% endblock %}
+{% block body %}
+{% include "_site_header.html" %}
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › <a href="/calculators/">Calculators</a> › {{ c.h1 }}</nav>
+  <section class="hero">
+    <h1>{{ c.h1 }}</h1>
+    <p class="lead">{{ c.intro }}</p>
+    <p class="muted small">Free · No sign-in · Runs in your browser, nothing you type is sent anywhere</p>
+  </section>
+  <section class="card calc" aria-label="Calculator">
+    <form class="calc-form" data-calc="{{ slug }}" novalidate>
+      <label class="calc-cur">Currency <select name="currency" data-currency></select></label>
+      {% include form %}
+    </form>
+    <div class="calc-out" aria-live="polite"></div>
+  </section>
+  <section class="card">
+    <h2>How it is calculated</h2>
+    <ul>{% for i in c.how %}<li>{{ i }}</li>{% endfor %}</ul>
+  </section>
+  <section class="card">
+    <h2>Want this from your real numbers?</h2>
+    <p>PlannedOut is a free, private cash-flow planner. Enter income and spending like a spreadsheet, and it works out your runway, savings rate, yearly bills and future savings for you. Everything is encrypted in your browser.</p>
+    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %}</p>
+  </section>
+  <section class="faq">
+    <h2>Questions</h2>
+    {% for q, a in c.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
+  </section>
+  <section>
+    <h2>More free calculators</h2>
+    <ul>{% for s, o in others.items %}<li><a href="/calculators/{{ s }}/">{{ o.h1 }}</a>: {{ o.description }}</li>{% endfor %}</ul>
+  </section>
+</main>
+{% include "_footer.html" %}
+<script type="module" src="{% static JS_DIR|add:'/calc.js' %}"></script>
+{% endblock %}

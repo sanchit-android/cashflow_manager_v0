@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ hub.title }} | PlannedOut{% endblock %}
+{% block description %}{{ hub.description }}{% endblock %}
+{% block og_title %}{{ hub.title }}{% endblock %}
+{% block og_description %}{{ hub.description }}{% endblock %}
+{% block body %}
+{% include "_site_header.html" %}
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › Calculators</nav>
+  <section class="hero">
+    <h1>{{ hub.h1 }}</h1>
+    <p class="lead">Quick answers to common money questions. Free, no sign-in, and the math runs in your browser, so nothing you type is sent anywhere.</p>
+  </section>
+  <div class="points">
+    {% for slug, c in calcs.items %}<a class="card calc-link" href="/calculators/{{ slug }}/"><h2>{{ c.h1 }}</h2><p>{{ c.description }}</p></a>{% endfor %}
+  </div>
+  <section class="hero cta"><h2>Want these numbers from your real spending?</h2><p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Try PlannedOut free</button></a>{% endif %}</p></section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}

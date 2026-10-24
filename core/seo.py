@@ -248,6 +248,119 @@ GUIDE_ILLUS = {
     "annual-expenses-planner": ["annual_cal", "sinking"],
 }
 
+# Free calculators on public pages (no sign-in). The math runs in the browser (static/js/calc.js);
+# each form lives in templates/calc/<slug>.html.
+_PRIVATE = ("Is anything I type saved or sent to you?",
+            "No. The calculation runs in your browser and nothing you type leaves your device.")
+CALCULATORS = {
+    "savings-runway": {
+        "title": "Savings Runway Calculator: How Long Will My Savings Last? (Free)",
+        "h1": "Savings runway calculator",
+        "description": "Free calculator: enter your savings, monthly spending and any income to see how many months "
+                       "and years your money lasts, with inflation and returns. No sign-in, nothing leaves your browser.",
+        "nav": "Savings runway",
+        "intro": "Between jobs, on a sabbatical, building a startup or retired? Enter what you have and what you "
+                 "spend, and see the month your savings would run out.",
+        "how": ["Each month, spending grows with inflation and is taken from your savings",
+                "Any regular income (rent, pension, part-time work) is added back",
+                "Whatever is left earns the annual return you entered, spread across the year",
+                "Runway is the number of months until savings reach zero (checked up to 100 years)"],
+        "faq": [
+            ("How do I calculate how long my savings will last?",
+             "Divide your savings by your monthly spending minus any regular income. ₹12,00,000 of savings with "
+             "₹60,000 a month of spending lasts about 20 months. Inflation shortens that; returns on the money "
+             "you have not spent yet lengthen it. This calculator does both, month by month."),
+            ("What inflation rate should I use?",
+             "Around 5–6% for India and 2–3% for the US, UK or Europe is a reasonable start. Household inflation is "
+             "often higher than the official figure if school fees or rent are a big part of your spending."),
+            ("What return should I assume on my savings?",
+             "Use what the money actually earns: about 3–4% in a savings account, 6–7% in fixed deposits or debt "
+             "funds. Be careful assuming stock-market returns on money you will need within a few years."),
+            _PRIVATE,
+        ],
+    },
+    "emergency-fund": {
+        "title": "Emergency Fund Calculator: How Many Months Do I Need? (Free)",
+        "h1": "Emergency fund calculator",
+        "description": "Free emergency fund calculator: work out how many months of expenses to keep, your target "
+                       "amount, the gap to close and how long it takes to get there. No sign-in needed.",
+        "nav": "Emergency fund",
+        "intro": "An emergency fund covers your essential costs if income stops or a big bill lands. Enter your "
+                 "essential monthly spending and your situation to get a target.",
+        "how": ["Target = essential monthly expenses × months of cover",
+                "Months of cover is suggested from how steady your income is; you can change it",
+                "Gap = target minus what you have already set aside",
+                "Time to reach = gap ÷ what you can add each month"],
+        "faq": [
+            ("How many months of expenses should an emergency fund cover?",
+             "A common rule is 3 months with a stable salary and a second earner, 6 months for a single salaried "
+             "earner, and 9–12 months if you are self-employed, freelance or in an unstable industry. "
+             "Add more if you support dependents or have large EMIs."),
+            ("Which expenses count as essential?",
+             "Rent or home-loan EMI, other EMIs, groceries, utilities, insurance premiums, school fees, medicines "
+             "and transport. Leave out eating out, shopping, holidays and investments like SIPs that can be paused."),
+            ("Where should I keep my emergency fund?",
+             "Somewhere safe and quick to reach: a savings account, sweep-in fixed deposit or liquid fund. "
+             "Not in stocks, and not locked into anything with a long notice period."),
+            _PRIVATE,
+        ],
+    },
+    "sinking-fund": {
+        "title": "Sinking Fund Calculator: Save Monthly for Big Yearly Bills (Free)",
+        "h1": "Sinking fund calculator",
+        "description": "Free sinking fund calculator: list upcoming bills like insurance premiums, school fees, "
+                       "festivals or a new phone and see how much to set aside each month for each one, and in total.",
+        "nav": "Sinking fund",
+        "intro": "A sinking fund is money you put aside every month for a bill you know is coming: the insurance "
+                 "premium, school fees, Diwali, a wedding, car service or a new laptop. Add your bills below.",
+        "how": ["For each bill: (amount − already saved) ÷ months until it is due",
+                "A bill due this month needs the full remaining amount now",
+                "The total is what to move into savings each month to cover every bill on time"],
+        "faq": [
+            ("What is a sinking fund?",
+             "A pot of money you build in small monthly amounts for a known future expense, so the bill doesn't "
+             "wreck one month's budget. A ₹36,000 yearly insurance premium becomes ₹3,000 a month."),
+            ("What is the difference between a sinking fund and an emergency fund?",
+             "An emergency fund is for surprises, like job loss or a medical bill. A sinking fund is for expenses "
+             "you know about in advance. Keep them separate so planned bills don't drain your safety net."),
+            ("What should I create sinking funds for?",
+             "Insurance premiums, school or college fees, property tax, festivals, weddings, holidays, car or "
+             "bike servicing, gadget replacement, annual subscriptions and gifts."),
+            _PRIVATE,
+        ],
+    },
+    "50-30-20-budget": {
+        "title": "50/30/20 Budget Calculator: Split Income Into Needs, Wants and Savings (Free)",
+        "h1": "50/30/20 budget calculator",
+        "description": "Free 50/30/20 rule calculator: enter your monthly take-home pay to see how much goes to "
+                       "needs, wants and savings, and compare it with what you spend today. No sign-in needed.",
+        "nav": "50/30/20 budget",
+        "intro": "The 50/30/20 rule splits take-home pay into 50% needs, 30% wants and 20% savings. Enter your "
+                 "income to see your split, and optionally what you spend now to see how far off you are.",
+        "how": ["Needs (50%): rent or home EMI, groceries, utilities, insurance, school fees, transport, minimum loan payments",
+                "Wants (30%): eating out, shopping, entertainment, holidays, subscriptions",
+                "Savings (20%): SIPs, PF top-ups, emergency fund, extra loan prepayments",
+                "Use take-home pay, after tax and PF deductions, not your CTC"],
+        "faq": [
+            ("What is the 50/30/20 rule?",
+             "A simple budgeting rule: spend 50% of take-home income on needs, 30% on wants and put 20% into "
+             "savings or debt repayment. It was popularised by Elizabeth Warren in the book All Your Worth."),
+            ("Does the 50/30/20 rule work in India?",
+             "It is a useful starting point, but in big cities rent and EMIs often push needs above 50%. Many "
+             "households aim for 20–30% savings and squeeze wants instead. Use the calculator to see your real split."),
+            ("Should I use gross salary or take-home pay?",
+             "Take-home pay: what lands in your bank account after income tax, PF and other deductions."),
+            _PRIVATE,
+        ],
+    },
+}
+CALC_HUB = {
+    "title": "Free Money Calculators: Savings Runway, Emergency Fund, Sinking Fund, 50/30/20",
+    "h1": "Free money calculators",
+    "description": "Free personal finance calculators that run in your browser: savings runway, emergency fund, "
+                   "sinking funds and the 50/30/20 budget rule. No sign-in, nothing you type is sent anywhere.",
+}
+
 COMPANY = "Pravaha.AI"
 CONTACT_EMAIL = "pravaha.ai@gmail.com"
 
@@ -264,7 +377,8 @@ CONTACT_TOPIC_VALUES = {f"{c} / {s}" for c, subs in CONTACT_TOPICS for s in subs
 
 def public_paths():
     """Every page we want search engines to index (used by the sitemap and IndexNow)."""
-    return ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in GUIDES]
+    return ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in GUIDES] + \
+        ["/calculators/"] + [f"/calculators/{slug}/" for slug in CALCULATORS]
 
 
 def _ld(*items):
@@ -303,4 +417,30 @@ def guide_jsonld(site, slug, g):
             {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
             {"@type": "ListItem", "position": 2, "name": g["nav"], "item": url}]},
         _faq(g["faq"]),
+    )
+
+
+def calc_jsonld(site, slug, c):
+    url = f"{site}/calculators/{slug}/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "WebApplication", "name": c["h1"], "url": url,
+         "description": c["description"], "applicationCategory": "FinanceApplication",
+         "operatingSystem": "Any (web browser)", "isAccessibleForFree": True,
+         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"},
+         "isPartOf": {"@id": site + "/#website"}, "publisher": {"@id": site + "/#org"}},
+        {"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+            {"@type": "ListItem", "position": 2, "name": "Calculators", "item": site + "/calculators/"},
+            {"@type": "ListItem", "position": 3, "name": c["h1"], "item": url}]},
+        _faq(c["faq"]),
+    )
+
+
+def calc_hub_jsonld(site):
+    return _ld(
+        {"@context": "https://schema.org", "@type": "CollectionPage", "name": CALC_HUB["title"],
+         "url": site + "/calculators/", "description": CALC_HUB["description"], "isPartOf": {"@id": site + "/#website"}},
+        {"@type": "ItemList", "itemListElement": [
+            {"@type": "ListItem", "position": i, "name": c["h1"], "url": f"{site}/calculators/{slug}/"}
+            for i, (slug, c) in enumerate(CALCULATORS.items(), 1)]},
     )

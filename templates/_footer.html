@@ -2,6 +2,9 @@
   <nav aria-label="Guides">
     <a href="/">Home</a>{% for slug, item in guides_nav %} · <a href="/{{ slug }}/">{{ item.nav }}</a>{% endfor %}
   </nav>
+  <nav aria-label="Calculators">
+    <a href="/calculators/">Free calculators</a>{% for slug, item in calcs_nav %} · <a href="/calculators/{{ slug }}/">{{ item.nav }}</a>{% endfor %}
+  </nav>
   <nav aria-label="Company"><a href="/about/">About us</a> · <a href="/contact/">Contact</a> · <a href="/privacy/">Privacy</a></nav>
   <p class="muted small">PlannedOut, a private cash-flow planner made in India.</p>
   <p class="muted legal">© {% now "Y" %} {{ COMPANY }}. All rights reserved. PlannedOut is a product of {{ COMPANY }}, a privately owned business based in India. Contact: <a href="mailto:{{ CONTACT_EMAIL }}">{{ CONTACT_EMAIL }}</a></p>

@@ -9,6 +9,10 @@
         <summary>Guides</summary>
         <div class="dd-panel">{% for slug, item in guides_nav %}<a href="/{{ slug }}/"{% if request.path == "/"|add:slug|add:"/" %} aria-current="page"{% endif %}>{{ item.nav }}</a>{% endfor %}</div>
       </details>
+      <details class="dd">
+        <summary>Calculators</summary>
+        <div class="dd-panel"><a href="/calculators/"{% if request.path == "/calculators/" %} aria-current="page"{% endif %}>All calculators</a>{% for slug, item in calcs_nav %}<a href="/calculators/{{ slug }}/"{% if request.path == "/calculators/"|add:slug|add:"/" %} aria-current="page"{% endif %}>{{ item.nav }}</a>{% endfor %}</div>
+      </details>
       <a href="/#faq-h">FAQ</a>
       <a href="/privacy/"{% if request.path == "/privacy/" %} aria-current="page"{% endif %}>Privacy</a>
       <a href="/about/"{% if request.path == "/about/" %} aria-current="page"{% endif %}>About</a>
