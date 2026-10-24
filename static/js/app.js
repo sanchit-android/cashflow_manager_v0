@@ -1143,7 +1143,8 @@ function viewYear() {
     <div class="card"><h2>Spending and money in, by month</h2>
       <p class="muted">Two charts, each with its own scale so neither is flattened by the other. Months line up vertically.</p>
       <h3 class="chart-h">Spending</h3><div id="ychart"></div>
-      <h3 class="chart-h">Money in</h3><div id="ichart"></div></div>
+      <h3 class="chart-h">Money in</h3><div id="ichart"></div>
+      <h3 class="chart-h">Net monthly burn</h3><div id="bchart"></div></div>
     <div class="card"><h2>Year at a glance</h2><p class="muted">Click a month to open it. Notes save as you type.</p>
       <div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh"></th>${ms.map((m) => `<th><a href="#" data-goto="${m.period}">${m.label}</a></th>`).join("")}<th>${year}</th></tr></thead><tbody>
       ${ROWS.map(([label, k, cls, hint]) => `<tr class="${cls || ""}"><th class="rowh" ${hint ? `title="${esc(hint)}"` : ""}>${label}</th>${ms.map((m) => {
@@ -1175,6 +1176,27 @@ function viewYear() {
     labels: ms.map((m) => m.label.slice(0, 3)),
     stacks: [{ name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
              { name: "Additional inflow", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_inflow")) }],
+  });
+  // Net burn bars + running average. Months after the last one with data are projected:
+  // a straight-line trend of the actual burns fills them in, and the average carries on (dashed).
+  const burn = ms.map((m) => v(m, "net_burn"));
+  const last = burn.reduce((a, x, i) => (x != null ? i : a), -1);
+  const pts = burn.map((x, i) => [i, x]).filter(([, x]) => x != null);
+  const n = pts.length, mx = pts.reduce((a, [i]) => a + i, 0) / (n || 1), my = pts.reduce((a, [, y]) => a + y, 0) / (n || 1);
+  const den = pts.reduce((a, [i]) => a + (i - mx) ** 2, 0);
+  const slope = den ? pts.reduce((a, [i, y]) => a + (i - mx) * (y - my), 0) / den : 0;
+  let sum = 0, cnt = 0;
+  const avg = burn.map((x, i) => {
+    if (last < 0) return null;
+    const val = i <= last ? x : my + slope * (i - mx);
+    if (val == null) return cnt ? sum / cnt : null;
+    sum += val; cnt++; return sum / cnt;
+  });
+  stackedBars($("#bchart"), {
+    title: `Net monthly burn and running average, ${year}`, height: 220,
+    labels: ms.map((m) => m.label.slice(0, 3)),
+    stacks: [{ name: "Net monthly burn", color: "var(--series-2)", negColor: "var(--series-3)", values: burn }],
+    line: { name: "Running average", color: "var(--series-1)", values: avg, projectFrom: last + 1 },
   });
 }
 

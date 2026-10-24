@@ -34,15 +34,17 @@ function showTip(tip, host, x, y, html) {
 
 /**
  * Stacked bars with an optional line, one y-axis (all in the user's currency).
- * { labels, stacks: [{name, color, values}], line: {name, color, values}, title }
+ * { labels, stacks: [{name, color, values}], line: {name, color, values, projectFrom}, title }
+ * Negative stack values draw below zero. line.projectFrom = index where the line turns dashed (a projection).
  */
 export function stackedBars(host, { labels, stacks, line, title, height = 260, fmt = money, axis = lakh }) {
   const H = height, pad = { l: 56, r: 12, t: 12, b: 28 };
   const { width, svg, tip } = frame(host, H);
   const totals = labels.map((_, i) => stacks.reduce((x, s) => x + Math.max(0, s.values[i] || 0), 0));
+  const negs = labels.map((_, i) => stacks.reduce((x, s) => x + Math.min(0, s.values[i] || 0), 0));
   const lineVals = line ? line.values : [];
   const maxV = Math.max(1, ...totals, ...lineVals.map((v) => v || 0));
-  const minV = Math.min(0, ...stacks.flatMap((s) => s.values.map((v) => v || 0)));
+  const minV = Math.min(0, ...negs, ...lineVals.map((v) => v || 0));
   const tk = ticks(minV, maxV);
   const y0 = tk[0], y1 = tk[tk.length - 1];
   const Y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - y0) / (y1 - y0));
@@ -62,21 +64,31 @@ export function stackedBars(host, { labels, stacks, line, title, height = 260, f
         : `<rect x="${X(i) - barW / 2}" y="${top}" width="${barW}" height="${h}" style="fill:${s.color}"/>`;
       base += v;
     });
+    let nb = 0;
+    stacks.forEach((s) => {
+      const v = Math.min(0, s.values[i] || 0); if (!v) return;
+      const top = Y(nb), bot = Y(nb + v);
+      g += `<rect x="${X(i) - barW / 2}" y="${top}" width="${barW}" height="${Math.max(0, bot - top)}" style="fill:${s.negColor || s.color}"/>`;
+      nb += v;
+    });
   });
   if (line) {
+    const pf = line.projectFrom ?? labels.length;
     const pts = lineVals.map((v, i) => (v == null ? null : [X(i), Y(v)]));
-    g += `<polyline points="${pts.filter(Boolean).map((p) => p.join(",")).join(" ")}" fill="none" style="stroke:${line.color}" stroke-width="2" stroke-linejoin="round"/>`;
-    g += pts.filter(Boolean).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" style="fill:${line.color};stroke:var(--surface)" stroke-width="2"/>`).join("");
+    const poly = (arr, dash) => arr.length > 1 ? `<polyline points="${arr.map((p) => p.join(",")).join(" ")}" fill="none" style="stroke:${line.color}" stroke-width="2" stroke-linejoin="round" ${dash ? 'stroke-dasharray="5 4"' : ""}/>` : "";
+    g += poly(pts.slice(0, pf).filter(Boolean), false);
+    g += poly(pts.slice(Math.max(0, pf - 1)).filter(Boolean), true); // starts at the last actual point so the two join
+    g += pts.map((p, i) => p && i < pf ? `<circle cx="${p[0]}" cy="${p[1]}" r="4" style="fill:${line.color};stroke:var(--surface)" stroke-width="2"/>` : "").join("");
   }
   labels.forEach((l, i) => { g += `<rect class="c-hit" data-i="${i}" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${H - pad.t - pad.b}"/>`; });
   svg.innerHTML = g;
-  host.insertAdjacentHTML("afterbegin", legend([...stacks.map((s) => ({ name: s.name, color: s.color })), ...(line ? [{ name: line.name, color: line.color, line: true }] : [])]));
+  host.insertAdjacentHTML("afterbegin", legend([...stacks.map((s) => ({ name: s.name, color: s.color })), ...(line ? [{ name: line.name, color: line.color, line: true }] : []), ...(line && line.projectFrom != null && line.projectFrom < labels.length ? [{ name: "Projected", color: line.color, line: true, dashed: true }] : [])]));
   svg.addEventListener("mousemove", (e) => {
     const hit = e.target.closest(".c-hit"); if (!hit) { tip.hidden = true; return; }
     const i = +hit.dataset.i, rect = host.getBoundingClientRect();
     svg.querySelectorAll(".c-hit.on").forEach((x) => x.classList.remove("on")); hit.classList.add("on");
     showTip(tip, host, e.clientX - rect.left, e.clientY - rect.top,
-      `<strong>${esc(labels[i])}</strong>${stacks.map((s) => `<div><i style="--c:${s.color}"></i>${esc(s.name)} <b>${fmt(s.values[i])}</b></div>`).join("")}${line ? `<div><i class="ln" style="--c:${line.color}"></i>${esc(line.name)} <b>${fmt(lineVals[i])}</b></div>` : ""}`);
+      `<strong>${esc(labels[i])}</strong>${stacks.map((s) => `<div><i style="--c:${s.color}"></i>${esc(s.name)} <b>${fmt(s.values[i])}</b></div>`).join("")}${line && lineVals[i] != null ? `<div><i class="ln" style="--c:${line.color}"></i>${esc(line.name)}${i >= (line.projectFrom ?? labels.length) ? " (projected)" : ""} <b>${fmt(lineVals[i])}</b></div>` : ""}`);
   });
   svg.addEventListener("mouseleave", () => { tip.hidden = true; svg.querySelectorAll(".c-hit.on").forEach((x) => x.classList.remove("on")); });
 }
