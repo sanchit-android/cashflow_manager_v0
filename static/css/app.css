@@ -102,6 +102,15 @@ nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weig
 .mx-sheet-back { align-items: center; }
 .mx-sheet { border-radius: 16px; }
 @media (max-width: 640px) { .mx-sheet-back { align-items: flex-end; } .mx-sheet { border-radius: 16px 16px 0 0; } }
+@media (max-width: 640px) {
+  .mx-row { gap: 10px; row-gap: 20px; }
+  .mx-row > * { min-width: 140px; }
+  .mx-tile { padding: 14px 12px 10px; }
+  .mx-tile .value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mx-avg { position: static; transform: none; text-align: left; margin-top: 4px; display: flex; gap: 4px; align-items: baseline; font-size: 11px; }
+  .mx-avg span { display: inline; }
+  .mx-x { min-height: 0; width: 22px; height: 22px; line-height: 22px; top: -11px; right: -8px; }
+}
 .mx-sheet textarea { width: 100%; font: 15px var(--num); padding: 8px; box-sizing: border-box; resize: vertical; }
 .mx-preview { min-height: 18px; margin-top: 4px; font: 500 13px var(--num); color: var(--muted); }
 .mx-preview.bad { color: var(--bad, #c62828); }
