@@ -206,41 +206,78 @@ async function migrateCloses() {
   if (cur !== S.period) { S.period = cur; if (S.tab === "month") render(); }
 }
 
+// First-run setup: a short wizard. Theme, motion, cards etc. use defaults and live in Settings.
 function onboarding() {
-  let theme = document.documentElement.dataset.theme || "excel";
-  html(`<div class="narrow card">
-    <h1>Set up your month</h1>
-    <label>Pick a look</label>${themePicker(theme)}
-    <label for="cur">Currency</label><select id="cur">${currencyOptions(guessCurrency())}</select>
-    <label for="fm">How is your household funded?</label>
-    <select id="fm"><option value="salary">Salary</option><option value="savings">Savings (no regular salary)</option><option value="both">Salary plus savings</option></select>
-    <div id="sal"><label for="samt">Monthly take-home salary</label><input id="samt" type="number" min="0" placeholder="85000">
-      <label for="sday">Salary usually arrives on day</label><input id="sday" type="number" min="1" max="31" placeholder="26">
-      <label><input type="checkbox" id="cycle" style="width:auto"> Run my months from salary day to salary day</label></div>
-    <label for="other">Other regular monthly income (rent, interest), if any</label><input id="other" type="number" min="0" placeholder="0">
-    <label for="ob">Current balance of your main spending account</label><input id="ob" type="number" placeholder="150000">
-    <label for="sv">Liquid savings outside it (FDs, savings accounts, mutual funds), roughly</label><input id="sv" type="number" min="0" placeholder="0">
-    <p><button class="primary" id="go">Start</button></p><p class="muted">You can change any of this later.</p>
-    <p class="error" id="err" role="alert"></p></div>`);
-  wireThemePicker((t) => { theme = t; });
-  const sync = () => { $("#sal").hidden = $("#fm").value === "savings"; };
-  $("#fm").onchange = sync; sync();
-  $("#go").onclick = async () => {
+  const w = { step: 0, currency: guessCurrency(), fm: "salary", samt: "", sday: "", cycle: false, other: "", ob: "", sv: "" };
+  const STEPS = ["Basics", "Income", "Money today"];
+  const FUND = [["salary", "Salary", "A regular paycheque"], ["savings", "Savings", "Living off savings, no regular salary"], ["both", "Both", "Salary plus drawing on savings"]];
+  const val = (id) => { const el = $("#" + id); return el ? el.value : ""; };
+  const grab = () => {
+    for (const k of ["samt", "sday", "other", "ob", "sv"]) if ($("#" + k)) w[k] = val(k);
+    if ($("#cur")) w.currency = val("cur");
+    if ($("#cycle")) w.cycle = $("#cycle").checked;
+  };
+  const body = () => {
+    if (w.step === 0) return `<h1>Welcome! Let's set up your month</h1>
+      <p class="muted">Three quick steps. Leave anything blank you're unsure of.</p>
+      <label for="cur">Currency</label><select id="cur">${currencyOptions(w.currency)}</select>
+      <label>How is your household funded?</label>
+      <div class="ob-choices">${FUND.map(([k, t, d]) => `<button type="button" class="ob-choice ${w.fm === k ? "on" : ""}" data-fm="${k}" aria-pressed="${w.fm === k}"><strong>${t}</strong><span class="muted">${d}</span></button>`).join("")}</div>`;
+    if (w.step === 1) return `<h1>Your income</h1>
+      ${w.fm !== "savings" ? `<label for="samt">Monthly take-home salary</label><input id="samt" type="number" min="0" inputmode="decimal" placeholder="e.g. 85000" value="${esc(w.samt)}">
+      <label for="sday">Salary usually arrives on day</label><input id="sday" type="number" min="1" max="31" inputmode="numeric" placeholder="e.g. 26" value="${esc(w.sday)}">
+      <label><input type="checkbox" id="cycle" style="width:auto" ${w.cycle ? "checked" : ""}> Run my months from salary day to salary day</label>` : ""}
+      <label for="other">Other regular monthly income (rent, interest), if any</label><input id="other" type="number" min="0" inputmode="decimal" placeholder="0" value="${esc(w.other)}">`;
+    return `<h1>Your money today</h1>
+      <label for="ob">Current balance of your main spending account</label><input id="ob" type="number" inputmode="decimal" placeholder="e.g. 150000" value="${esc(w.ob)}">
+      <label for="sv">Liquid savings outside it (FDs, savings accounts, mutual funds), roughly</label><input id="sv" type="number" min="0" inputmode="decimal" placeholder="0" value="${esc(w.sv)}">
+      <p class="muted">You can add more accounts and cards later.</p>`;
+  };
+  const draw = () => {
+    html(`<div class="narrow card ob">
+      <ol class="ob-steps" aria-label="Setup progress">${STEPS.map((s, i) => `<li class="${i < w.step ? "done" : i === w.step ? "on" : ""}" ${i === w.step ? 'aria-current="step"' : ""}>${s}</li>`).join("")}</ol>
+      ${body()}
+      <p class="ob-nav">${w.step ? `<button type="button" id="back">Back</button>` : "<span></span>"}
+        <button class="primary" id="next">${w.step === STEPS.length - 1 ? "Finish" : "Next"}</button></p>
+      <p class="error" id="err" role="alert"></p></div>`);
+    $$("[data-fm]").forEach((b) => (b.onclick = () => { grab(); w.fm = b.dataset.fm; draw(); }));
+    if ($("#back")) $("#back").onclick = () => { grab(); w.step--; draw(); };
+    $("#next").onclick = next;
+    root.querySelectorAll("input").forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") next(); }));
+    (root.querySelector(".ob input, .ob select"))?.focus();
+  };
+  const next = async () => {
+    grab();
+    const sday = +w.sday;
+    if (w.sday && (sday < 1 || sday > 31)) return showError(new Error("Salary day should be between 1 and 31."));
+    if (w.step < STEPS.length - 1) { w.step++; track("onboard:step" + (w.step + 1)); return draw(); }
     try {
-      const fm = $("#fm").value, sday = +$("#sday").value || null;
-      const settings = { funding_mode: fm, theme, closing_migrated: true, currency: $("#cur").value,
-        period_mode: fm !== "savings" && $("#cycle").checked && sday ? "pay_cycle" : "calendar", cycle_day: sday };
+      $("#next").disabled = true;
+      const fm = w.fm, salaried = fm !== "savings", day = salaried && sday ? sday : null;
+      const settings = { funding_mode: fm, theme: document.documentElement.dataset.theme || "excel", closing_migrated: true, currency: w.currency,
+        period_mode: salaried && w.cycle && day ? "pay_cycle" : "calendar", cycle_day: day };
       const period = E.periodOf(today(), settings);
       const items = [{ type: "settings", data: settings },
-        { type: "account", data: { name: "Main account", kind: "bank", role: "spending", is_default_spending: true, opening_balance: +$("#ob").value || 0, opening_period: period } }];
-      if (+$("#sv").value) items.push({ type: "account", data: { name: "Savings", kind: "bank", role: "savings", balance: +$("#sv").value, liquid: true } });
-      if (fm !== "savings" && +$("#samt").value) items.push({ type: "income", data: { label: "Salary", kind: "salary", amount: +$("#samt").value, day: sday } });
-      if (+$("#other").value) items.push({ type: "income", data: { label: "Other income", kind: "other", amount: +$("#other").value } });
+        { type: "account", data: { name: "Main account", kind: "bank", role: "spending", is_default_spending: true, opening_balance: +w.ob || 0, opening_period: period } }];
+      if (+w.sv) items.push({ type: "account", data: { name: "Savings", kind: "bank", role: "savings", balance: +w.sv, liquid: true } });
+      if (salaried && +w.samt) items.push({ type: "income", data: { label: "Salary", kind: "salary", amount: +w.samt, day } });
+      if (+w.other) items.push({ type: "income", data: { label: "Other income", kind: "other", amount: +w.other } });
       await store.save(items);
       track("onboard:" + fm);
-      afterUnlock();
-    } catch (e) { showError(e); }
+      done();
+    } catch (e) { $("#next").disabled = false; showError(e); }
   };
+  const done = () => {
+    html(`<div class="narrow card ob">
+      <h1>You're all set</h1>
+      <p>Your month is ready. Start by adding a few expenses on the Month screen.</p>
+      <p class="muted">Want to make it yours? In <strong>Settings</strong> you can pick a theme, screen motion and month style, and under <strong>Accounts</strong> add cards, loans and more accounts.</p>
+      <p class="ob-nav"><button type="button" id="toset">Open Settings</button><button class="primary" id="tomonth">Go to my month</button></p></div>`);
+    $("#tomonth").onclick = () => afterUnlock();
+    $("#toset").onclick = () => { track("onboard:to-settings"); afterUnlock(); goTab("settings"); };
+    $("#tomonth").focus();
+  };
+  draw();
 }
 
 // ================= tabs =================

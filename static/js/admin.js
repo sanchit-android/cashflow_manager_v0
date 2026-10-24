@@ -84,6 +84,7 @@ function business(box, d) {
         ["Unlock: remembered device", lc("unlock:remembered")], ["Unlock: passphrase", lc("unlock:passphrase")],
         ["Unlock: recovery key (forgot passphrase)", lc("unlock:recovery")],
         ["Setup: salary / savings / both", `${lc("onboard:salary")} / ${lc("onboard:savings")} / ${lc("onboard:both")}`],
+        ["Setup wizard: reached step 2 / step 3 / opened Settings after", `${lc("onboard:step2")} / ${lc("onboard:step3")} / ${lc("onboard:to-settings")}`],
         ["Imports: workbook / xlsx / csv", `${lc("import:workbook")} / ${lc("import:xlsx")} / ${lc("import:csv")}`],
         ["App opened", lc("app:open")]]))}
     </div>
