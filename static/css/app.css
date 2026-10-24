@@ -518,3 +518,19 @@ html { scroll-padding-top: 72px; }
   .banner-slim .banner-logo { width: 130px; }
   .banner-slim .banner-tag { font-size: 15px; }
 }
+
+/* ---- card billing & month close ---- */
+.mclose { display: inline-flex; align-items: center; gap: 6px; }
+.close-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border, currentColor); }
+.close-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.close-hint { font-size: 13px; color: var(--muted); }
+.month-menu button.closed { opacity: .75; }
+.month-menu button .ico-lock { width: 10px; height: 10px; margin-left: 3px; vertical-align: -1px; }
+.acct-bar button .bill-mark { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--accent-text); }
+.acct-bar button.on .bill-mark { background: var(--accent-text); color: var(--accent); }
+.acct-bar button .bill-mark.stale { background: var(--warn-bg); color: inherit; outline: 1px dashed currentColor; }
+.bill-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 12px; margin: 0 0 10px; border: 1px dashed var(--accent); border-radius: var(--radius); font-size: 13px; }
+.bill-box.billed { border-style: solid; }
+.bill-box .bill-tag { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--accent); }
+.bill-form label { margin: 0; }
+.bill-form input { width: 140px; }

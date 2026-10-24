@@ -10,6 +10,8 @@
 //   commitment  { label, amount, category, day, account_id, active_from, active_to }
 //   annual      { year, label, total, due_month (1-12), mode: card|cash }
 //   income      { label, kind: salary|rent|interest|other, amount, day }
+//   month_close { period, closed, closed_at, cards: { [card_id]: { amount, computed, adj_id, at } } }
+//                 Labels only: a closed month or billed card never blocks edits.
 //
 // Natures: recurring | variable | oneoff | annual | emergency | investment | income | income_oneoff
 
@@ -38,7 +40,7 @@ export function shiftPeriod(p, n) {
 }
 
 export function index(records) {
-  const by = { settings: {}, account: [], transaction: [], commitment: [], annual: [], income: [], note: [], snapshot: [] };
+  const by = { settings: {}, account: [], transaction: [], commitment: [], annual: [], income: [], note: [], snapshot: [], month_close: [] };
   for (const r of records) {
     if (r.deleted || !r.data) continue;
     const row = { id: r.id, ...r.data };
@@ -260,4 +262,67 @@ export function accountMonth(db, accId, period) {
     m.outstanding = round(owed);
   } else if (acc.balance !== undefined && acc.balance !== null && acc.balance !== "") m.balance = round(num(acc.balance));
   return m;
+}
+
+// ================= month close & card billing =================
+
+/** month_close row for a period, or null. */
+export function closeOf(db, period) {
+  return (db.month_close || []).find((c) => c.period === period) || null;
+}
+
+/** Card bill computed from the grid: spending minus refunds on the card in the period. */
+export function cardBill(db, cardId, period) {
+  let v = 0;
+  for (const t of db.transaction) {
+    if (t.period !== period || t.account_id !== cardId || t.direction === "transfer") continue;
+    v += t.direction === "in" ? -num(t.amount) : num(t.amount);
+  }
+  return round(v);
+}
+
+/** The month the user is working in: today's period, or the month after the latest closed one if that is later. */
+export function currentPeriod(db, todayStr) {
+  const natural = periodOf(todayStr, db.settings);
+  const closed = (db.month_close || []).filter((c) => c.closed).map((c) => c.period).sort().pop();
+  const next = closed ? shiftPeriod(closed, 1) : null;
+  return next && next > natural ? next : natural;
+}
+
+/**
+ * Billing and close state of a period. Cards with activity that month must be billed before it can be closed;
+ * a billed card is `stale` when its transactions changed after billing.
+ */
+export function monthStatus(db, period) {
+  const c = closeOf(db, period) || {};
+  const marks = c.cards || {};
+  const cards = db.account.filter((a) => a.role === "card" && accountVisible(db, a, period)).map((a) => {
+    const computed = cardBill(db, a.id, period);
+    const active = db.transaction.some((t) => t.period === period && t.account_id === a.id && t.direction !== "transfer");
+    const m = marks[a.id];
+    return { id: a.id, name: a.name, computed, active, billed: !!m, amount: m ? round(num(m.amount)) : null,
+      adj_id: m ? m.adj_id || null : null, stale: !!m && round(num(m.amount)) !== computed };
+  });
+  const needed = cards.filter((x) => x.active || x.billed);
+  return { period, closed: !!c.closed, closed_at: c.closed_at || null, id: c.id || null, cards,
+    pending: needed.filter((x) => !x.billed), allBilled: needed.every((x) => x.billed) };
+}
+
+/** Period a transaction dated `date` belongs to when entered while viewing `viewPeriod`:
+ *  after a month is closed early, its last days go into the next month. */
+export function periodForDate(db, date, viewPeriod) {
+  const p = periodOf(date, db.settings);
+  if (viewPeriod && p < viewPeriod && shiftPeriod(p, 1) === viewPeriod && closeOf(db, p)?.closed) return viewPeriod;
+  return p;
+}
+
+/** For users who had data before closing existed: every month before today's is closed and its cards billed as is. */
+export function legacyCloses(db, todayStr, at) {
+  const natural = periodOf(todayStr, db.settings);
+  const periods = [...new Set(db.transaction.map((t) => t.period))].filter((p) => p < natural).sort();
+  return periods.filter((p) => !closeOf(db, p)).map((p) => {
+    const cards = {};
+    for (const x of monthStatus(db, p).cards) if (x.active) cards[x.id] = { amount: x.computed, computed: x.computed, adj_id: null, at };
+    return { period: p, closed: true, closed_at: at, cards, legacy: true };
+  });
 }

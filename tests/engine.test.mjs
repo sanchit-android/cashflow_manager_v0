@@ -139,3 +139,38 @@ test("closed accounts only show in months with activity", () => {
   assert.equal(E.accountVisible(db, acc, "2026-08"), true, "has a transaction");
   assert.equal(E.accountVisible(db, acc, "2026-09"), false);
 });
+
+test("card billing and month close", () => {
+  const base = sample();
+  assert.equal(E.cardBill(base, "card", "2026-10"), 185970);
+  let st = E.monthStatus(base, "2026-10");
+  assert.equal(st.allBilled, false);
+  assert.equal(st.pending.length, 1);
+  assert.equal(E.currentPeriod(base, "2026-10-28"), "2026-10");
+
+  const withClose = (cards, closed) => E.index([...[
+    rec("settings", "s", { period_mode: "calendar" }),
+    rec("account", "card", { name: "Infinia", role: "card" }),
+    rec("transaction", "t2", { date: "2026-10-03", account_id: "card", amount: 25970, direction: "out" }),
+    rec("transaction", "t3", { date: "2026-10-04", account_id: "card", amount: 970, direction: "in" }),
+  ], rec("month_close", "mc", { period: "2026-10", closed, cards })]);
+  let d = withClose({ card: { amount: 25000 } }, false);
+  st = E.monthStatus(d, "2026-10");
+  assert.equal(st.allBilled, true);
+  assert.equal(st.cards[0].stale, false);
+  d = withClose({ card: { amount: 26000 } }, true);
+  assert.equal(E.monthStatus(d, "2026-10").cards[0].stale, true);
+  // closing October early makes November current, and late-October entries made in November stay there
+  assert.equal(E.currentPeriod(d, "2026-10-28"), "2026-11");
+  assert.equal(E.periodForDate(d, "2026-10-29", "2026-11"), "2026-11");
+  assert.equal(E.periodForDate(d, "2026-10-29", "2026-10"), "2026-10");
+  assert.equal(E.periodForDate(d, "2026-09-29", "2026-11"), "2026-09");
+});
+
+test("legacy closes cover months before today", () => {
+  const d = sample();
+  const closes = E.legacyCloses(d, "2026-11-05", "x");
+  assert.deepEqual(closes.map((c) => c.period), ["2026-10"]);
+  assert.equal(closes[0].cards.card.amount, 185970);
+  assert.equal(E.legacyCloses(d, "2026-10-05", "x").length, 0);
+});

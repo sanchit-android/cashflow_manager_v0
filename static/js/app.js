@@ -189,6 +189,19 @@ function afterUnlock() {
   S.tab = "month";
   S.period = E.periodOf(today(), s.data);
   renderTabs(); render();
+  migrateCloses().catch(() => {});
+}
+
+// Existing users: months before this one count as closed with their cards billed as entered. Runs once.
+async function migrateCloses() {
+  const s = settingsRec();
+  if (!s.data.closing_migrated) {
+    const at = new Date().toISOString();
+    const items = E.legacyCloses(db(), today(), at).map((data) => ({ type: "month_close", period: data.period, data }));
+    await store.save([...items, { id: s.id, type: "settings", data: { ...s.data, closing_migrated: true } }]);
+  }
+  const cur = E.currentPeriod(db(), today());
+  if (cur !== S.period) { S.period = cur; if (S.tab === "month") render(); }
 }
 
 function onboarding() {
@@ -213,7 +226,7 @@ function onboarding() {
   $("#go").onclick = async () => {
     try {
       const fm = $("#fm").value, sday = +$("#sday").value || null;
-      const settings = { funding_mode: fm, theme, currency: $("#cur").value,
+      const settings = { funding_mode: fm, theme, closing_migrated: true, currency: $("#cur").value,
         period_mode: fm !== "savings" && $("#cycle").checked && sday ? "pay_cycle" : "calendar", cycle_day: sday };
       const period = E.periodOf(today(), settings);
       const items = [{ type: "settings", data: settings },
@@ -352,13 +365,14 @@ function goPeriod(p, anchor) {
 
 function viewMonth() {
   const settings = settingsRec().data;
-  const curPeriod = E.periodOf(today(), settings);
+  const dd = db();
+  const curPeriod = E.currentPeriod(dd, today());
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   html(`
-    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)} <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}">${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}</button>`; }).join("")}</div></div>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>
+    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)} <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
+    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
@@ -372,6 +386,7 @@ function viewMonth() {
     menu.hidden = false; pick.setAttribute("aria-expanded", "true"); document.addEventListener("click", outside); document.addEventListener("keydown", onKey);
   };
   menu.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => { closeMenu(); goPeriod(b.dataset.p, pick); }));
+  monthCloseBar();
   monthSummary();
   mountTxGrid();
 }
@@ -389,6 +404,8 @@ function accountBar() {
     return { n, hint: a.data.role === "card" ? m.spent : a.data.role === "spending" ? m.closing : m.transfer_in };
   };
   // Group by kind so the bar reads as Bank accounts / Cards / Savings & investments.
+  const status = E.monthStatus(d, S.period);
+  const billOf = (a) => status.cards.find((c) => c.id === a.id && c.billed);
   const groups = [
     ["Bank accounts", accts.filter((a) => a.data.role === "spending")],
     ["Cards", accts.filter((a) => a.data.role === "card")],
@@ -396,7 +413,9 @@ function accountBar() {
   ].filter(([, list]) => list.length);
   const chip = (a) => {
     const { n, hint } = info(a);
-    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}" aria-pressed="${a.id === sel}">${acctIcon(a)}${esc(a.data.name)}${n ? `<small>${money(hint)}</small>` : ""}</button>`;
+    const b = billOf(a);
+    const mark = b ? `<span class="bill-mark${b.stale ? " stale" : ""}" title="${b.stale ? "Billed, but transactions changed since" : "Billed"}">${CHECK}</span>` : "";
+    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}${b ? " billed" : ""}" aria-pressed="${a.id === sel}" aria-label="${esc(a.data.name)}${b ? " (billed)" : ""}">${acctIcon(a)}${esc(a.data.name)}${n ? `<small>${money(hint)}</small>` : ""}${mark}</button>`;
   };
   const opt = (a) => {
     const { n, hint } = info(a);
@@ -413,6 +432,7 @@ function accountBar() {
   $$("[data-acct]").forEach((b) => (b.onclick = () => pick(b.dataset.acct)));
   const selEl = $("#acctselect"); if (selEl) selEl.onchange = () => pick(selEl.value);
   accountSummary(d, sel);
+  billBox(d, sel);
 }
 
 /** Totals for the selected account, shown above its grid. */
@@ -438,6 +458,126 @@ function accountSummary(d, sel) {
   if ($("#roll-yes")) { $("#roll-yes").onclick = () => setRoll(true); $("#roll-no").onclick = () => setRoll(false); }
 }
 
+// ================= card billing & month close =================
+// Labels only: closing a month or billing a card never blocks edits.
+const LOCK = '<svg class="ico-lock" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const CHECK = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17 19 7"/></svg>';
+const monthName = (p) => { const [y, m] = p.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" }); };
+
+/** Last date of a period (the day before the next period starts). */
+function periodEnd(p) {
+  const st = settingsRec().data;
+  const [ny, nm] = E.shiftPeriod(p, 1).split("-").map(Number);
+  const day = st.period_mode === "pay_cycle" && st.cycle_day ? +st.cycle_day : 1;
+  return new Date(Date.UTC(ny, nm - 1, day) - 864e5).toISOString().slice(0, 10);
+}
+
+/** Change the month_close record of a period. */
+async function saveClose(period, fn) {
+  const r = store.ofType("month_close").find((x) => x.data.period === period);
+  const data = { period, closed: false, ...(r ? r.data : {}) };
+  data.cards = { ...(data.cards || {}) };
+  fn(data);
+  await store.save({ id: r ? r.id : undefined, type: "month_close", period, data });
+  saves++;
+}
+
+const liveRow = (id) => { const r = id && store.rows.get(id); return r && !r.deleted ? r : null; };
+
+/** Mark a card billed at the statement amount; any difference from the grid becomes an adjustment row under Other. */
+async function markBilled(cardId, amount) {
+  const period = S.period, c = E.monthStatus(db(), period).cards.find((x) => x.id === cardId);
+  const adj = liveRow(c.adj_id);
+  const adjEffect = adj && adj.data.period === period ? (adj.data.direction === "in" ? -1 : 1) * (+adj.data.amount || 0) : 0;
+  const base = Math.round(c.computed - adjEffect), diff = Math.round(amount - base);
+  let adjId = null;
+  if (diff) {
+    adjId = (await store.save({ id: adj ? adj.id : undefined, type: "transaction", period, data: {
+      date: periodEnd(period), period, account_id: cardId, direction: diff > 0 ? "out" : "in", amount: Math.abs(diff), to_account_id: "",
+      description: "Statement adjustment", category: "Other", nature: diff > 0 ? "variable" : "income_oneoff", statement_adj: true } }))[0];
+  } else if (adj) await store.remove(adj.id);
+  await saveClose(period, (d) => { d.cards[cardId] = { amount: Math.round(amount), computed: base, adj_id: adjId, at: new Date().toISOString() }; });
+  track("bill:card");
+}
+
+async function unmarkBilled(cardId) {
+  const c = E.monthStatus(db(), S.period).cards.find((x) => x.id === cardId);
+  if (liveRow(c.adj_id)) await store.remove(c.adj_id);
+  await saveClose(S.period, (d) => { delete d.cards[cardId]; d.closed = false; });
+}
+
+const refreshMonth = () => { monthSummary(); mountTxGrid(); monthCloseBar(); };
+
+/** Billing strip above a card's grid. */
+function billBox(d, sel) {
+  const host = $("#billbox"); if (!host) return;
+  const a = store.rows.get(sel);
+  const c = a && a.data.role === "card" ? E.monthStatus(d, S.period).cards.find((x) => x.id === sel) : null;
+  if (!c) { host.innerHTML = ""; return; }
+  if (c.billed) {
+    host.innerHTML = `<div class="bill-box billed"><span class="bill-tag">${CHECK} Billed</span>
+      <span>Statement <strong class="num">${money(c.amount)}</strong>${liveRow(c.adj_id) ? ' <span class="muted">· includes a statement adjustment</span>' : ""}</span>
+      ${c.stale ? `<span class="bad">Transactions now total ${money(c.computed)}</span><button type="button" id="bill-redo">Bill again</button>` : ""}
+      <span class="spacer"></span><button type="button" class="link-btn" id="bill-undo">Unmark</button></div>`;
+    if ($("#bill-redo")) $("#bill-redo").onclick = () => openBillForm(c);
+    $("#bill-undo").onclick = async () => {
+      if (liveRow(c.adj_id) && !confirm("Unmark this bill? Its statement adjustment row will be removed.")) return;
+      try { await unmarkBilled(sel); refreshMonth(); } catch (err) { showError(err); }
+    };
+  } else {
+    host.innerHTML = `<div class="bill-box"><span>This month's bill from your transactions: <strong class="num">${money(c.computed)}</strong></span><span class="spacer"></span>
+      <button type="button" class="primary" id="bill-open">Mark billed</button></div>`;
+    $("#bill-open").onclick = () => openBillForm(c);
+  }
+}
+
+function openBillForm(c) {
+  const host = $("#billbox");
+  const adj = liveRow(c.adj_id);
+  const base = c.computed - (adj && adj.data.period === S.period ? (adj.data.direction === "in" ? -1 : 1) * (+adj.data.amount || 0) : 0);
+  host.innerHTML = `<form class="bill-box bill-form" id="bill-form">
+    <span>Transactions total <strong class="num">${money(base)}</strong>${adj ? " (before adjustment)" : ""}.</span>
+    <label for="bill-amt">Amount on your statement</label>
+    <input id="bill-amt" type="number" step="1" inputmode="decimal" value="${c.billed ? c.amount : base}">
+    <span id="bill-diff" class="muted"></span><span class="spacer"></span>
+    <button class="primary" type="submit">Confirm</button><button type="button" id="bill-cancel">Cancel</button></form>`;
+  const inp = $("#bill-amt"), diffEl = $("#bill-diff");
+  const upd = () => { const v = Math.round(+inp.value || 0) - base; diffEl.textContent = v ? `${v > 0 ? "+" : "−"}${money(Math.abs(v))} will be added as an adjustment under Other` : "Matches your transactions"; };
+  inp.oninput = upd; upd(); inp.focus(); inp.select();
+  $("#bill-cancel").onclick = () => billBox(db(), S.account);
+  $("#bill-form").onsubmit = async (e) => {
+    e.preventDefault();
+    if (inp.value === "" || !Number.isFinite(+inp.value)) return;
+    try { await markBilled(c.id, +inp.value); refreshMonth(); } catch (err) { showError(err); }
+  };
+}
+
+/** Close state next to the month title. */
+function monthCloseBar() {
+  const host = $("#mclose"); if (!host) return;
+  const st = E.monthStatus(db(), S.period);
+  if (st.closed) {
+    host.innerHTML = `<span class="close-tag" title="Closed${st.closed_at ? " on " + st.closed_at.slice(0, 10) : ""}. You can still edit it.">${LOCK} Closed</span><button type="button" class="link-btn" id="mreopen">Reopen</button>`;
+    $("#mreopen").onclick = async () => { try { await saveClose(S.period, (d) => { d.closed = false; }); render(); } catch (err) { showError(err); } };
+  } else if (S.period > E.currentPeriod(db(), today())) {
+    host.innerHTML = "";
+  } else if (st.allBilled) {
+    host.innerHTML = `<button type="button" id="mclose-btn" class="close-btn" title="Marks this month done. The next month becomes your current month.">${LOCK} Close month</button>`;
+    $("#mclose-btn").onclick = async (e) => {
+      const next = E.shiftPeriod(S.period, 1);
+      if (!confirm(`Close ${monthName(S.period)} and move to ${monthName(next)}?\n\nYou can still edit or reopen it later.`)) return;
+      try {
+        await saveClose(S.period, (d) => { d.closed = true; d.closed_at = new Date().toISOString(); });
+        track("close:month");
+        goPeriod(next, e.currentTarget);
+      } catch (err) { showError(err); }
+    };
+  } else {
+    const billed = st.cards.filter((c) => c.billed).length, total = billed + st.pending.length;
+    host.innerHTML = `<span class="close-hint" title="Mark every card billed to close this month">${billed} of ${total} cards billed</span>`;
+  }
+}
+
 function mountTxGrid() {
   accountBar();
   const sel = selectedAccount(), host = $("#txgrid");
@@ -454,7 +594,7 @@ function mountTxGrid() {
   const grid = mountGrid(host, {
     id: "tx", label: `Transactions for ${name(sel)}`, readonlyRows: rolled,
     rows, blankRows: 10, period: () => S.period, suggest,
-    newRow: () => ({ date: today().slice(0, 7) === S.period ? today() : S.period + "-01", account_id: sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
+    newRow: () => ({ date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
     meaningful: (x) => !!(String(x.description || "").trim() || (x.amount !== null && x.amount !== undefined && x.amount !== "")),
     columns: [
       { key: "date", label: "Date", type: "date", width: 96 },
@@ -472,14 +612,15 @@ function mountTxGrid() {
       if (data.direction === "in" && data.nature === "variable") data.nature = "income";
       if (data.direction !== "in" && /^income/.test(data.nature || "")) data.nature = "variable";
       if (data.direction !== "transfer") data.to_account_id = "";
-      data.period = E.periodOf(data.date, settings);
+      data.period = E.periodForDate(db(), data.date, S.period);
+      if (data.period !== E.periodOf(data.date, settings)) data.early_close = true; else delete data.early_close;
       const newId = await saveRec("transaction")(id, data);
       saves++;
       if (data.nature !== x.nature || data.to_account_id !== x.to_account_id) grid.refreshRow(newId, data);
       return newId;
     },
     remove: removeRec,
-    onChange: () => { monthSummary(); accountBar(); },
+    onChange: () => { monthSummary(); accountBar(); monthCloseBar(); },
   });
   S.grid = grid;
 }
@@ -1049,7 +1190,7 @@ function viewSettings() {
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));
     const data = { ...settingsRec().data, period_mode: $("#pm").value, funding_mode: $("#fm2").value, currency: $("#cur2").value, cycle_day: day, card_rollup: $("#rollup").checked };
     // Re-file transactions into periods under the new rule.
-    const tx = store.ofType("transaction").map((r) => ({ id: r.id, type: "transaction", data: { ...r.data, period: E.periodOf(r.data.date, data) } }));
+    const tx = store.ofType("transaction").map((r) => ({ id: r.id, type: "transaction", data: { ...r.data, period: r.data.early_close ? r.data.period : E.periodOf(r.data.date, data) } }));
     await store.save([{ id: s.id, type: "settings", data }, ...tx]);
     setCurrency(data.currency);
     S.period = E.periodOf(today(), data); alert("Saved.");
