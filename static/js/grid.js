@@ -113,7 +113,7 @@ function mountSheet(host, cfg) {
     const { r1, r2, c1, c2 } = range();
     for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) td(r, c)?.classList.add("xl-insel");
     const a = td(active.r, active.c);
-    if (a) { a.classList.add("xl-active"); a.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+    if (a) { a.classList.add("xl-active"); if (host.contains(document.activeElement)) a.scrollIntoView({ block: "nearest", inline: "nearest" }); }
     for (let c = c1; c <= c2; c++) host.querySelectorAll(`thead tr th:nth-child(${c + 2})`).forEach((e) => e.classList.add("xl-hl"));
     for (let r = r1; r <= r2; r++) tbody.children[r]?.firstElementChild.classList.add("xl-hl");
     const col = cols[active.c];
