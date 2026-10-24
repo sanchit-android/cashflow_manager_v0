@@ -22,15 +22,27 @@ export function yearView(db, year) {
       period, label: periodLabel(period), hasData, note: note ? note.text : "", note_id: note ? note.id : null,
       opening: s.opening, closing: s.closing, drop: s.opening - s.closing,
       regular_inflow: s.regular_inflow, oneoff_inflow: s.oneoff_inflow,
-      monthly_expense: s.monthly_expense, annual_expense: s.annual_expense, investments: s.investments,
+      monthly_expense: s.monthly_expense, regular_expense: s.regular_expense, oneoff_expense: s.oneoff_expense, annual_expense: s.annual_expense, investments: s.investments,
       net_burn: s.monthly_expense - s.regular_inflow,
       total_out: s.monthly_expense - s.regular_inflow + s.annual_expense,
     });
   }
   const withData = months.filter((m) => m.hasData);
   const sum = (k) => withData.reduce((x, m) => x + m[k], 0);
-  const totals = Object.fromEntries(["regular_inflow", "oneoff_inflow", "monthly_expense", "annual_expense", "investments", "net_burn", "total_out"].map((k) => [k, sum(k)]));
-  return { year, months, totals, avg_net_burn: withData.length ? round(totals.net_burn / withData.length) : null, months_with_data: withData.length };
+  const totals = Object.fromEntries(["regular_inflow", "oneoff_inflow", "monthly_expense", "regular_expense", "oneoff_expense", "annual_expense", "investments", "net_burn", "total_out"].map((k) => [k, sum(k)]));
+  return { year, months, totals, avg_regular_expense: withData.length ? round(totals.regular_expense / withData.length) : null, avg_net_burn: withData.length ? round(totals.net_burn / withData.length) : null, months_with_data: withData.length };
+}
+
+/** Regular expense (monthly spending without one-offs, annual items or investments) averaged over the last n months with data. */
+export function averageRegularExpense(db, period, n = 6) {
+  const rows = [];
+  for (let i = 0; i <= 24 && rows.length < n; i++) {
+    const p = E.shiftPeriod(period, -i);
+    if (!db.transaction.some((t) => t.period === p)) continue;
+    rows.push({ period: p, amount: E.summarize(db, p).regular_expense });
+  }
+  rows.reverse();
+  return { rows, avg: rows.length ? round(rows.reduce((x, r) => x + r.amount, 0) / rows.length) : null };
 }
 
 // ---------------- projection ----------------

@@ -47,6 +47,19 @@ nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weig
 .metric .label { color: var(--muted); font-size: 13px; }
 .metric .value { font: 600 20px var(--num); }
 .verdict { font-size: 18px; }
+.flow-row { display: flex; align-items: stretch; gap: 12px; }
+.flow-end { flex: none; min-width: 150px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); display: flex; flex-direction: column; justify-content: center; }
+.flow-end .label, .flow-step .label { color: var(--muted); font-size: 13px; }
+.flow-end .value { font: 600 22px var(--num); }
+.flow-end .sub { font-size: 12px; }
+.flow-steps { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; align-content: center; }
+.flow-step { display: flex; flex-direction: column; padding: 6px 12px; border-radius: var(--radius); border-left: 3px solid; background: var(--surface-2); cursor: help; }
+.flow-step .value { font: 600 16px var(--num); }
+.flow-step.in { border-color: var(--good); } .flow-step.in .value { color: var(--good); }
+.flow-step.out { border-color: var(--bad); } .flow-step.out .value { color: var(--bad); }
+.mx-head { margin: 16px 0 8px; }
+.mx-pick { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; font-size: 14px; }
+.mx-pick label { display: flex; align-items: center; gap: 6px; margin: 0; }
 .verdict .big { font: 600 30px var(--num); display: block; }
 .good { color: var(--good); } .bad { color: var(--bad); } .muted { color: var(--muted); }
 .notice { background: var(--warn-bg); padding: 12px; border-radius: var(--radius); }
@@ -202,6 +215,8 @@ table.yt th, table.yt td { border-right: 1px solid var(--grid-line); border-bott
 table.yt thead th { background: var(--grid-head); position: sticky; top: 0; font-weight: 600; }
 table.yt th.rowh { text-align: left; position: sticky; left: 0; background: var(--grid-head); font-weight: 600; z-index: 1; }
 table.yt tr.em td, table.yt tr.em th { font-weight: 700; }
+table.yt tr.sub th.rowh { padding-left: 22px; font-weight: 400; color: var(--muted); }
+table.yt tr.sub td { color: var(--muted); }
 table.yt td.nodata { color: var(--muted); }
 table.yt td.neg { color: var(--good); }
 table.yt td.note { text-align: left; min-width: 120px; white-space: normal; padding: 0; }
@@ -280,6 +295,8 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .metric .value { font-size: 17px; }
   .verdict .big { font-size: 24px; }
+  .flow-row { flex-direction: column; }
+  .flow-end { min-width: 0; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .kpis .metric .value { font-size: 17px; }
   input, select, textarea { font-size: 16px; } /* stops iOS zooming into fields */

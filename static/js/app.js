@@ -443,18 +443,64 @@ function monthSummary() {
   $("#summary").innerHTML = `
     <div class="card verdict">${verdict}
       ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, liquid savings of ${inr(r.savings)} last about ${r.months} months.</p>` : ""}</div>
-    <div class="grid">
-      ${[["Opening", s.opening], ["Regular income", s.regular_inflow], ["Monthly spending", s.monthly_expense], ["Annual items", s.annual_expense],
-        ["Investments", s.investments], ["One-off income", s.oneoff_inflow], ["Closing", s.closing]].map(([l, n]) => `<div class="card metric"><div class="label">${l}</div><div class="value">${inr(n)}</div></div>`).join("")}
-    </div>
+    ${balanceFlow(s)}
+    ${extraMetrics(s, r)}
     ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
   cardCategoryChart(d);
+  $("#mx-edit").onclick = () => { $("#mx-pick").hidden = !$("#mx-pick").hidden; };
+  $$("[data-mx]").forEach((c) => (c.onchange = () => {
+    const on = $$("[data-mx]").filter((x) => x.checked).map((x) => x.dataset.mx);
+    try { localStorage.setItem("monthMetrics", JSON.stringify(on)); } catch (e) { /* ignore */ }
+    monthSummary(); $("#mx-pick").hidden = false;
+  }));
   $$("[data-pay]").forEach((b) => (b.onclick = async () => {
     const c = store.rows.get(b.dataset.pay).data;
     const acct = c.account_id || (mainAccount() || {}).id;
     await store.save({ type: "transaction", period: S.period, data: { date: S.period + "-" + String(Math.min(c.day || 1, 28)).padStart(2, "0"), period: S.period, description: c.label, account_id: acct, direction: "out", category: c.category || "Other", nature: "recurring", amount: +c.amount, recurring_id: b.dataset.pay } });
     saves++; monthSummary(); mountTxGrid();
   }));
+}
+
+/** Opening balance → what came in and went out → closing balance. Always adds up exactly. */
+function balanceFlow(s) {
+  const steps = [
+    ["Regular income", s.regular_inflow, "Salary, rent and other regular money in"],
+    ["One-off income", s.oneoff_inflow, "Bonuses, refunds, gifts"],
+    ["From savings", s.drawn_from_savings, "Moved in from savings or investment accounts"],
+    ["Regular expense", -s.regular_expense, "Day-to-day and monthly fixed spending"],
+    ["One-off expense", -s.oneoff_expense, "Spending that won't repeat"],
+    ["Annual items", -s.annual_expense, "Insurance, school fees, taxes"],
+    ["Investments", -s.investments, "Moved to savings or investments — not spending"],
+    ["Card timing & other", s.other_movement, "Card spending not yet paid, card bills for earlier months, and money on other accounts"],
+  ].filter(([, n]) => n);
+  const sign = (n) => (n > 0 ? "+" : "−");
+  const net = s.closing - s.opening;
+  return `<div class="card flow"><h2>How your balance moved</h2>
+    <div class="flow-row">
+      <div class="flow-end"><div class="label">Opening</div><div class="value">${inr(s.opening)}</div></div>
+      <div class="flow-steps">${steps.map(([l, n, hint]) => `<div class="flow-step ${n > 0 ? "in" : "out"}" title="${esc(hint)}"><span class="label">${l}</span><span class="value">${sign(n)} ${inr(Math.abs(n))}</span></div>`).join("") || '<p class="muted">No money moved this month.</p>'}</div>
+      <div class="flow-end"><div class="label">Closing</div><div class="value ${s.closing < 0 ? "bad" : ""}">${inr(s.closing)}</div><div class="sub ${net < 0 ? "bad" : "good"}">${sign(net || 1)} ${inr(Math.abs(net))} this month</div></div>
+    </div></div>`;
+}
+
+/** Numbers that sit outside the balance math. The user picks which ones show. */
+const MONTH_METRICS = [
+  ["regular_expense", "Regular expense", (s) => inr(s.regular_expense), "Spending without one-offs, annual items or investments"],
+  ["regular_net", "Regular income − regular expense", (s) => inr(s.regular_net), "What a normal month leaves over (or takes from savings)"],
+  ["total_spend", "All spending", (s) => inr(s.monthly_expense + s.annual_expense), "Regular + one-off + annual items"],
+  ["oneoff_net", "One-off income − one-off expense", (s) => inr(s.oneoff_inflow - s.oneoff_expense), ""],
+  ["pending", "Commitments still due", (s) => inr(s.commitments_pending), "Monthly commitments not yet marked paid"],
+  ["card_payments", "Card bills paid", (s) => inr(s.card_payments), "Payments from the bank to credit cards"],
+  ["burn", "3-month average burn", (s, r) => (r.burn == null ? "–" : inr(r.burn)), "Spending incl. annual items minus regular income"],
+  ["runway", "Runway", (s, r) => (r.months == null ? "–" : `${r.months} months`), "How long liquid savings last at the average burn"],
+];
+function extraMetrics(s, r) {
+  let on = ["regular_expense", "regular_net", "pending"];
+  try { const v = JSON.parse(localStorage.getItem("monthMetrics")); if (Array.isArray(v)) on = v; } catch (e) { /* ignore */ }
+  const shown = MONTH_METRICS.filter(([k]) => on.includes(k));
+  return `<div class="row mx-head"><h2 style="margin:0">Other numbers</h2><span class="spacer"></span><button class="link" id="mx-edit" type="button">Choose numbers</button></div>
+    <div class="mx-pick" id="mx-pick" hidden>${MONTH_METRICS.map(([k, l]) => `<label><input type="checkbox" data-mx="${k}" ${on.includes(k) ? "checked" : ""}> ${l}</label>`).join("")}</div>
+    ${shown.length ? `<div class="grid">${shown.map(([, l, f, hint]) => `<div class="card metric" ${hint ? `title="${esc(hint)}"` : ""}><div class="label">${l}</div><div class="value">${f(s, r)}</div></div>`).join("")}</div>` : ""}`;
 }
 
 /** Card spending this month by category — only transactions on credit-card accounts. */
@@ -484,7 +530,14 @@ function cardCategoryChart(d) {
 // ================= Plan =================
 function viewPlan() {
   const year = +S.period.slice(0, 4);
+  const reg = P.averageRegularExpense(db(), S.period, 6);
+  const fixedTotal = store.ofType("commitment").reduce((x, c) => x + (+c.data.amount || 0), 0);
   html(`
+    ${reg.avg != null ? `<div class="kpis">
+      <div class="metric"><div class="label">Regular expense</div><div class="value">${money(reg.avg)}</div><div class="sub">average of last ${reg.rows.length} months</div></div>
+      <div class="metric"><div class="label">Fixed commitments</div><div class="value">${money(fixedTotal)}</div><div class="sub">planned below</div></div>
+      <div class="metric"><div class="label">Day to day</div><div class="value">${money(Math.max(0, reg.avg - fixedTotal))}</div><div class="sub">regular expense − commitments</div></div>
+    </div>` : ""}
     <div class="card"><h2>Monthly commitments</h2><p class="muted">Rent, help, tuition, family transfers. They show as "still to pay" each month until marked paid.</p><div id="g-cm"></div></div>
     <div class="card"><h2>Annual items for ${year}</h2><p class="muted">School fees, insurance, taxes.</p><div id="g-an"></div><div id="annsum"></div></div>
     <div class="card"><h2>Regular income</h2><div id="g-in"></div></div>
@@ -555,7 +608,8 @@ function viewYear() {
   const v = (m, k) => (m.hasData ? m[k] : null);
   const ROWS = [
     ["Opening balance", "opening"], ["Regular income", "regular_inflow"], ["Additional inflow", "oneoff_inflow"],
-    ["Monthly spending", "monthly_expense"], ["Annual items", "annual_expense"],
+    ["Monthly spending", "monthly_expense"], ["Regular expense", "regular_expense", "sub", "Monthly spending without one-offs"], ["One-off expense", "oneoff_expense", "sub"],
+    ["Annual items", "annual_expense"],
     ["Net monthly burn", "net_burn", "em", "Monthly spending − regular income"],
     ["Total out (burn + annual)", "total_out", "em", "What the month took from savings before investments and extra inflows"],
     ["Invested", "investments"], ["Closing balance", "closing"],
@@ -565,6 +619,7 @@ function viewYear() {
     <div class="row"><button id="py" aria-label="Previous year">←</button><h1 style="margin:0">${year}</h1><button id="ny" aria-label="Next year">→</button>
       <span class="muted">${yv.months_with_data} month${yv.months_with_data === 1 ? "" : "s"} with data</span></div>
     <div class="kpis" style="margin-top:12px">
+      <div class="metric"><div class="label">Average regular expense</div><div class="value">${money(yv.avg_regular_expense)}</div><div class="sub">per month, no one-offs or annual items</div></div>
       <div class="metric"><div class="label">Average net burn</div><div class="value">${money(yv.avg_net_burn)}</div><div class="sub">per month, before annual items</div></div>
       <div class="metric"><div class="label">Annual items</div><div class="value">${money(t.annual_expense)}</div><div class="sub">paid this year</div></div>
       <div class="metric"><div class="label">Total out</div><div class="value">${money(t.total_out)}</div><div class="sub">burn + annual items</div></div>
@@ -595,9 +650,10 @@ function viewYear() {
     }, 600);
   }));
   stackedBars($("#ychart"), {
-    title: `Monthly spending and annual items against regular income, ${year}`,
+    title: `Regular expense, one-offs and annual items, ${year}`,
     labels: ms.map((m) => m.label.slice(0, 3)),
-    stacks: [{ name: "Monthly spending", color: "var(--series-1)", values: ms.map((m) => v(m, "monthly_expense")) },
+    stacks: [{ name: "Regular expense", color: "var(--series-1)", values: ms.map((m) => v(m, "regular_expense")) },
+             { name: "One-off expense", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_expense")) },
              { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
   });
   stackedBars($("#ichart"), {
@@ -651,7 +707,7 @@ function viewInsights() {
       <div class="seg" role="group" aria-label="Period">${[3, 6, 12].map((n) => `<button type="button" data-win="${n}" class="${n === win ? "on" : ""}" aria-pressed="${n === win}">${n} months</button>`).join("")}</div></div>
     <p class="muted">${fromLabel} to ${toLabel} · ${ps.length} month${ps.length > 1 ? "s" : ""}. Calculated on this device from your own data — nothing is sent anywhere.</p>
     ${heads.length ? `<div class="ins-heads">${heads.map((h) => `<div class="ins-head ${h.tone}"><strong>${esc(h.title)}</strong><span>${esc(h.body)}</span></div>`).join("")}</div>` : ""}
-    <div id="ins-runway"></div><div id="ins-rate"></div>
+    <div id="ins-regular"></div><div id="ins-runway"></div><div id="ins-rate"></div>
 
     <div class="card"><h2>Where your money goes</h2>
       <p class="muted">${money(split.total)} spent over ${ps.length} months, about ${money(Math.round(split.total / Math.max(1, ps.length)))} a month. Investments and transfers aren't counted.</p>
@@ -679,6 +735,7 @@ function viewInsights() {
       ${annual.due ? ` Still to pay: ${money(annual.due)}, or ${money(annual.setAsideRemaining)} a month for the rest of the year.` : " Nothing left to pay this year."}</p>
       <div id="annchart"></div></div>`);
   $$("[data-win]").forEach((b) => (b.onclick = () => { S.insWin = +b.dataset.win; render(); }));
+  regularSection(d, ps);
   runwaySection(d, now, ps);
   savingsRateSection(d, ps);
   if (merchants.length) hbars($("#merch"), { title: "Top day-to-day merchants", items: merchants.map((m) => ({ label: `${m.label}`, value: m.amount, count: m.count, icon: catIcon(m.category) })) });
@@ -742,6 +799,24 @@ function runwaySection(d, now, ps) {
   };
   ["#wf-flex", "#wf-fixed", "#wf-inc"].forEach((id) => ($(id).oninput = upd));
   upd();
+}
+
+/** Regular expense per month: what a normal month costs, without one-offs, annual items or investments. */
+function regularSection(d, ps) {
+  const rows = ps.map((p) => { const s = E.summarize(d, p); return { period: p, exp: s.regular_expense, inc: s.regular_inflow, net: s.regular_net }; });
+  const avg = Math.round(rows.reduce((x, r) => x + r.exp, 0) / Math.max(1, rows.length));
+  const hi = rows.reduce((a, b) => (b.exp > a.exp ? b : a), rows[0]), lo = rows.reduce((a, b) => (b.exp < a.exp ? b : a), rows[0]);
+  $("#ins-regular").innerHTML = `<div class="card"><h2>Regular expense</h2>
+    <p class="muted">What a normal month costs: day-to-day and fixed monthly spending. One-offs, annual items and investments are left out.</p>
+    <div class="kpis">
+      <div class="metric"><div class="label">Average</div><div class="value">${money(avg)}</div><div class="sub">per month over ${rows.length} months</div></div>
+      <div class="metric"><div class="label">Highest</div><div class="value">${money(hi.exp)}</div><div class="sub">${P.periodLabel(hi.period)}</div></div>
+      <div class="metric"><div class="label">Lowest</div><div class="value">${money(lo.exp)}</div><div class="sub">${P.periodLabel(lo.period)}</div></div>
+      <div class="metric"><div class="label">Per year at this rate</div><div class="value">${money(avg * 12)}</div><div class="sub">before annual items</div></div>
+    </div>
+    <div id="regchart"></div></div>`;
+  stackedBars($("#regchart"), { title: "Regular expense by month", height: 190, labels: rows.map((r) => P.periodLabel(r.period).slice(0, 3)),
+    stacks: [{ name: "Regular expense", color: "var(--series-1)", values: rows.map((r) => r.exp) }] });
 }
 
 /** Savings rate for people with a regular income. */

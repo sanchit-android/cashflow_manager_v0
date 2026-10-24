@@ -140,6 +140,15 @@ export function summarize(db, period) {
   for (const r of s.card_rollups) { closing -= r.amount; s.card_payments += r.amount; }
   s.closing = round(closing);
 
+  // Regular expense: monthly spending without one-offs (annual items and investments are already separate).
+  s.oneoff_expense = round(s.by_nature.oneoff || 0);
+  s.regular_expense = round(s.monthly_expense - s.oneoff_expense);
+  s.regular_net = round(s.regular_inflow - s.regular_expense);
+  // Whatever moved the spending balance that isn't one of the flows above: card spend not yet paid,
+  // card bills for earlier months, income on other accounts. Keeps opening + flows = closing exact.
+  s.other_movement = round(s.closing - (s.opening + s.regular_inflow + s.oneoff_inflow + s.drawn_from_savings
+    - s.monthly_expense - s.annual_expense - s.investments));
+
   s.net_position = round(s.regular_inflow - s.monthly_expense);
   s.net_with_annual = round(s.net_position - s.annual_expense);
   s.verdict = s.net_with_annual >= 0
