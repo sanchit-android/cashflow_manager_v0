@@ -523,12 +523,11 @@ html { scroll-padding-top: 72px; }
 .mclose { display: inline-flex; align-items: center; gap: 6px; }
 .mlock { display: inline-block; vertical-align: super; line-height: 0; margin-left: 2px; }
 .close-tag { display: inline-flex; color: var(--lock, #e0a100); cursor: help; }
-.close-tag .ico-lock { width: 16px; height: 16px; stroke-width: 2.4; }
+.close-tag .ico-lock { width: 16px; height: 16px; }
 .close-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .close-hint { font-size: 13px; color: var(--muted); }
 .month-menu button.closed { position: relative; }
-.month-menu button .ico-lock { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; padding: 2px; border-radius: 50%;
-  background: var(--lock, #e0a100); color: #fff; stroke-width: 2.6; box-shadow: 0 0 0 2px var(--surface, #fff); }
+.month-menu button .ico-lock { position: absolute; top: -6px; right: -6px; width: 15px; height: 15px; }
 .acct-bar button .bill-mark { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--accent-text); }
 .acct-bar button.on .bill-mark { background: var(--accent-text); color: var(--accent); }
 .acct-bar button .bill-mark.stale { background: var(--warn-bg); color: inherit; outline: 1px dashed currentColor; }

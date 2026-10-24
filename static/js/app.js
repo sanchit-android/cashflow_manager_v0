@@ -460,7 +460,7 @@ function accountSummary(d, sel) {
 
 // ================= card billing & month close =================
 // Labels only: closing a month or billing a card never blocks edits.
-const LOCK = '<svg class="ico-lock" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const LOCK = '<svg class="ico-lock" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11" fill="none" stroke="#475a66" stroke-width="2.8"/><rect x="4" y="10" width="16" height="12" rx="3" fill="#ffc107"/><circle cx="12" cy="15" r="2" fill="#475a66"/><path d="M11 16h2l.5 3.5h-3z" fill="#475a66"/></svg>';
 const CHECK = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17 19 7"/></svg>';
 const monthName = (p) => { const [y, m] = p.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" }); };
 
