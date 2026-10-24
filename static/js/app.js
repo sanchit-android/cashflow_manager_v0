@@ -186,6 +186,7 @@ function afterUnlock() {
   const s = settingsRec();
   if (!s) return onboarding();
   if (s.data.theme) applyTheme(s.data.theme, s.data.custom_theme);
+  if (s.data.motion) applyMotion(s.data.motion);
   setCurrency(s.data.currency);
   S.tab = "month";
   S.period = E.periodOf(today(), s.data);
@@ -258,7 +259,7 @@ function renderBottomNav() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
   nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
     if (b.dataset.ptab === "more") return moreSheet();
-    S.tab = b.dataset.ptab; renderTabs(); render(); window.scrollTo({ top: 0 });
+    goTab(b.dataset.ptab);
   }));
 }
 function moreSheet() {
@@ -273,7 +274,7 @@ function moreSheet() {
   back.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
     close();
     if (b.dataset.go === "signout") return document.querySelector("header form").requestSubmit();
-    S.tab = b.dataset.go; renderTabs(); render(); window.scrollTo({ top: 0 });
+    goTab(b.dataset.go);
   }));
 }
 // Re-lay out when crossing the phone breakpoint (e.g. rotating a tablet).
@@ -283,8 +284,48 @@ function renderTabs() {
   renderBottomNav();
   tabsEl.hidden = false;
   tabsEl.innerHTML = tabList().map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
-  tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); render(); }));
+  tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => goTab(b.dataset.tab, false)));
 }
+// ================= motion =================
+// Screen transitions (fade / slide / none), saved per device and in settings.
+const MOTIONS = [["fade", "Fade"], ["slide", "Slide"], ["none", "None"]];
+const motion = () => document.documentElement.dataset.motion || "fade";
+function applyMotion(m) {
+  if (!MOTIONS.some(([k]) => k === m)) return;
+  document.documentElement.dataset.motion = m;
+  try { localStorage.setItem("motion", m); } catch (e) { /* ignore */ }
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let switching = 0;
+async function goTab(k, scroll = true) {
+  if (k === S.tab) return;
+  const order = tabList().map(([t]) => t), dir = order.indexOf(k) >= order.indexOf(S.tab) ? "m-fwd" : "m-back";
+  const n = ++switching, animate = motion() !== "none";
+  S.tab = k; renderTabs();
+  if (animate) { root.classList.remove("m-in", "m-fwd", "m-back", "m-fresh"); root.classList.add("m-out", dir); await wait(120); }
+  if (n !== switching) return; // a newer click won
+  root.classList.remove("m-out");
+  render();
+  if (scroll) window.scrollTo({ top: 0 });
+  if (!animate) return;
+  void root.offsetWidth; // restart the animation
+  root.classList.add("m-in", "m-fresh");
+  root.querySelectorAll("[data-count]").forEach((el) => countUp(el, +el.dataset.count, inr));
+  setTimeout(() => { if (n === switching) root.classList.remove("m-in", "m-fwd", "m-back"); }, 260);
+  setTimeout(() => { if (n === switching) root.classList.remove("m-fresh"); }, 1500);
+}
+// Numbers count up from zero to their value (Month summary headline).
+function countUp(el, value, fmt, ms = 600) {
+  if (motion() === "none" || !el || !isFinite(value)) return;
+  const t0 = performance.now(), suffix = el.dataset.suffix || "";
+  const step = (t) => {
+    const p = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(value * e) + suffix;
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 let lastTracked = null;
 function render() {
   if (S.tab !== lastTracked) { lastTracked = S.tab; if (S.tab !== "admin") track("tab:" + S.tab); }
@@ -634,8 +675,8 @@ function monthSummary() {
   const r = E.runway(d, S.period);
   const pending = s.commitments.filter((c) => !c.paid);
   const verdict = v.kind === "ahead"
-    ? `<span class="big good">${inr(v.amount)} ahead</span>Income covers this month's spending. ${s.commitments_pending ? `After ${inr(s.commitments_pending)} of commitments still due, you can spend up to <strong>${inr(Math.max(0, s.headroom))}</strong> more without touching savings.` : `You can spend up to <strong>${inr(v.amount)}</strong> more without touching savings.`}`
-    : `<span class="big bad">${inr(v.amount)} from savings</span>This month spends more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
+    ? `<span class="big good" data-count="${v.amount}" data-suffix=" ahead">${inr(v.amount)} ahead</span>Income covers this month's spending. ${s.commitments_pending ? `After ${inr(s.commitments_pending)} of commitments still due, you can spend up to <strong>${inr(Math.max(0, s.headroom))}</strong> more without touching savings.` : `You can spend up to <strong>${inr(v.amount)}</strong> more without touching savings.`}`
+    : `<span class="big bad" data-count="${v.amount}" data-suffix=" from savings">${inr(v.amount)} from savings</span>This month spends more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
   $("#summary").innerHTML = `
     <div class="card verdict">${verdict}
       ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
@@ -1495,7 +1536,9 @@ function viewSettings() {
   const keys = store.vault.keys;
   html(`
     <div class="card"><h2>Look</h2>${themePicker(s.data.theme || "paper", s.data.custom_theme)}
-      <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div></div>
+      <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div>
+      <label>Screen transitions</label><div class="motion-pick">${MOTIONS.map(([k, l]) => `<button type="button" data-motion-pick="${k}" class="${motion() === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <p class="muted" style="margin:4px 0 0">How screens change when you switch tabs. Saved on this device and with your settings.</p></div>
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
       <label for="fm2">Household is funded by</label><select id="fm2" style="max-width:320px"><option value="salary">Salary / regular income</option><option value="savings">Savings (no regular income)</option><option value="both">Both</option></select>
@@ -1521,6 +1564,13 @@ function viewSettings() {
   $("#fm2").value = s.data.funding_mode || "both";
   wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: t } }); }, s.data.custom_theme);
   $("#customize").onclick = () => themeEditor();
+  $$("[data-motion-pick]").forEach((b) => (b.onclick = async () => {
+    const m = b.dataset.motionPick;
+    if (m === motion()) return;
+    applyMotion(m); track("motion:" + m);
+    $$("[data-motion-pick]").forEach((x) => x.classList.toggle("on", x === b));
+    await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, motion: m } });
+  }));
   $("#savepm").onclick = async () => {
     const day = +$("#cd").value || null;
     if ($("#pm").value === "pay_cycle" && !day) return showError(new Error("Enter your salary day."));

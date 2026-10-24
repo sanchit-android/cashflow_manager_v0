@@ -698,6 +698,7 @@ def business(request):
         "whatif": feature_rows("whatif:"),
         "metrics": feature_rows("metric:"),
         "calcs": feature_rows("calc:"),
+        "motion": feature_rows("motion:"),
         "saves": feature_rows("save:"), "edits": feature_rows("edit:"), "deletes": feature_rows("delete:"),
         "clicks": feature_rows("click:")[:40],
         "changes": feature_rows("change:")[:40],

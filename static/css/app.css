@@ -600,3 +600,26 @@ a.calc-link { display: block; color: inherit; text-decoration: none; }
 a.calc-link:hover { border-color: var(--accent); }
 a.calc-link h2 { color: var(--accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ===== Motion: screen transitions, press feedback, chart growth ===== */
+#root.m-out { transition: opacity .12s ease, transform .12s ease; }
+[data-motion="fade"] #root.m-out { opacity: 0; transform: translateY(-4px); }
+[data-motion="slide"] #root.m-out.m-fwd { opacity: 0; transform: translateX(-24px); }
+[data-motion="slide"] #root.m-out.m-back { opacity: 0; transform: translateX(24px); }
+[data-motion="fade"] #root.m-in { animation: m-fade-in .18s ease-out; }
+[data-motion="slide"] #root.m-in.m-fwd { animation: m-slide-l .22s cubic-bezier(.2, .8, .2, 1); }
+[data-motion="slide"] #root.m-in.m-back { animation: m-slide-r .22s cubic-bezier(.2, .8, .2, 1); }
+@keyframes m-fade-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes m-slide-l { from { opacity: 0; transform: translateX(32px); } }
+@keyframes m-slide-r { from { opacity: 0; transform: translateX(-32px); } }
+body { overflow-x: clip; }
+/* Press feedback */
+:root:not([data-motion="none"]) button, :root:not([data-motion="none"]) [draggable] { transition: transform .08s ease, opacity .15s, background-color .15s, border-color .15s; }
+:root:not([data-motion="none"]) button:active:not(:disabled) { transform: scale(.96); }
+:root:not([data-motion="none"]) :root:not([data-motion="none"]) [draggable]:active { transform: scale(.985); }
+/* Chart bars grow in when a screen opens */
+:root:not([data-motion="none"]) #root.m-fresh .chart rect:not(.c-hit) { transform-box: fill-box; transform-origin: 50% 100%; animation: m-grow .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes m-grow { from { transform: scaleY(0); } }
+[data-motion="none"] #root { animation: none !important; transition: none !important; }
+.motion-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.motion-pick button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
