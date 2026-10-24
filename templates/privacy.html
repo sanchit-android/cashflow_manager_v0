@@ -2,18 +2,174 @@
 {% block title %}Privacy: what PlannedOut can and can't see about your money{% endblock %}
 {% block description %}PlannedOut encrypts your budget and expense data in your browser. See exactly what we can see (your email, record counts) and what we can't (amounts, balances, categories).{% endblock %}
 {% block body %}
+<style>
+  .pv .hero { padding: 40px 0 8px; }
+  .pv .split { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .pv .split .card h3 { margin-top: 0; display: flex; align-items: center; gap: 8px; }
+  .pv .split ul { margin: 0; padding-left: 20px; line-height: 1.8; }
+  .pv .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .pv figure { margin: 0 0 16px; }
+  .pv figure svg { width: 100%; height: auto; display: block; }
+  .pv figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .pv svg .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+  .pv svg .box2 { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+  .pv svg .acc { fill: var(--accent); }
+  .pv svg .accs { stroke: var(--accent); fill: none; stroke-width: 2; }
+  .pv svg .ln { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+  .pv svg .good { fill: var(--good); }
+  .pv svg .bad { fill: var(--bad); }
+  .pv svg text { fill: var(--text); font: 13px system-ui, sans-serif; }
+  .pv svg text.m { fill: var(--muted); font-size: 12px; }
+  .pv svg text.b { font-weight: 600; }
+  .pv svg text.inv { fill: var(--accent-text); font-weight: 600; }
+  .pv svg text.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .pv .matrix td, .pv .matrix th { text-align: center; }
+  .pv .matrix th[scope=row] { text-align: left; }
+  .pv .yes { color: var(--good); font-weight: 600; } .pv .no { color: var(--bad); font-weight: 600; }
+</style>
 <header class="top"><a class="brand" href="/"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a><a href="/login/">Sign in</a></header>
-<main class="wrap narrow">
-  <h1>What we can and can't see</h1>
-  <div class="card">
-    <h3>We can't see</h3>
-    <p>Amounts, balances, account names, descriptions, categories, salary, or anything else you enter. It's encrypted in your browser with a key derived from your vault passphrase, which we never receive.</p>
-    <h3>We can see</h3>
-    <p>Your email address, when you sign in, how many records you have, each record's type (for example "transaction"), the month it belongs to, and when it changed.</p>
-    <h3>If you lose your passphrase</h3>
-    <p>Any one of your recovery keys unlocks your data. If you lose your passphrase and every recovery key, nobody can recover your data, including us.</p>
-    <h3>Deleting your data</h3>
-    <p>Settings → Delete account removes your account and every record immediately.</p>
-  </div>
+<main class="wrap landing pv">
+  <section class="hero">
+    <h1>Your money data is yours. We built it so we can't read it.</h1>
+    <p class="lead">Most finance apps ask for your bank login, read your SMS, and store every transaction where their staff, partners and advertisers can reach it. PlannedOut works the other way round: everything you type is encrypted on your device before it leaves, and only you hold the key.</p>
+    <p class="muted">No bank linking · No SMS reading · No ads · No selling data, because we have nothing readable to sell.</p>
+  </section>
+
+  <section aria-labelledby="see">
+    <h2 id="see">What we can and can't see</h2>
+    <div class="split">
+      <div class="card">
+        <h3>We can't see <span class="tag good">encrypted</span></h3>
+        <ul>
+          <li>Amounts and balances</li>
+          <li>Account and bank names</li>
+          <li>Descriptions and notes</li>
+          <li>Categories and budgets</li>
+          <li>Salary, EMIs, investments</li>
+          <li>Projections and what-ifs</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>We can see <span class="tag muted">needed to run the service</span></h3>
+        <ul>
+          <li>Your email address</li>
+          <li>When you sign in</li>
+          <li>How many records you have</li>
+          <li>Each record's type (e.g. "transaction")</li>
+          <li>The month a record belongs to</li>
+          <li>When a record last changed</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="flow">
+    <h2 id="flow">How your data travels</h2>
+    <figure class="card">
+      <svg viewBox="0 0 720 230" role="img" aria-labelledby="flow-t">
+        <title id="flow-t">Data is encrypted in your browser, sent as unreadable ciphertext, and stored that way on our server.</title>
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker></defs>
+        <!-- device -->
+        <rect class="box2" x="10" y="20" width="300" height="190" rx="12"/>
+        <text class="b" x="26" y="44">Your browser</text>
+        <rect class="box" x="26" y="60" width="120" height="56" rx="8"/>
+        <text x="38" y="84">Salary ₹85,000</text><text class="m" x="38" y="104">what you type</text>
+        <rect class="acc" x="176" y="60" width="118" height="56" rx="8"/>
+        <text class="inv" x="190" y="84">AES-256-GCM</text><text class="inv" x="190" y="104" style="font-weight:400">encrypt</text>
+        <path class="ln" d="M146,88 L172,88" marker-end="url(#ar)"/>
+        <rect class="box" x="26" y="138" width="268" height="56" rx="8"/>
+        <text x="38" y="162">🔑 Key from your passphrase</text><text class="m" x="38" y="182">never sent anywhere</text>
+        <path class="ln" d="M235,138 L235,120" marker-end="url(#ar)"/>
+        <!-- wire -->
+        <path class="accs" d="M310,88 L410,88" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+        <text class="m" x="322" y="76">HTTPS</text>
+        <text class="mono" x="318" y="112">x9F#q…</text>
+        <!-- server -->
+        <rect class="box2" x="410" y="20" width="300" height="190" rx="12"/>
+        <text class="b" x="426" y="44">PlannedOut server</text>
+        <rect class="box" x="426" y="60" width="268" height="56" rx="8"/>
+        <text class="mono" x="438" y="84">k3Lz9…Qm8P==</text><text class="m" x="438" y="104">stored as ciphertext only</text>
+        <rect class="box" x="426" y="138" width="268" height="56" rx="8"/>
+        <text x="438" y="162">No key, no passphrase</text><text class="m" x="438" y="182">we can store it, never read it</text>
+      </svg>
+      <figcaption>Encryption and decryption happen only on your device. The server only ever handles scrambled bytes.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="record">
+    <h2 id="record">What one saved record looks like to us</h2>
+    <figure class="card">
+      <svg viewBox="0 0 720 200" role="img" aria-labelledby="rec-t">
+        <title id="rec-t">A stored record: type, month and timestamp are visible; the content is an encrypted blob.</title>
+        <rect class="box2" x="10" y="10" width="700" height="180" rx="12"/>
+        <rect class="good" x="30" y="30" width="6" height="36" rx="3"/>
+        <text class="m" x="46" y="44">type</text><text class="b" x="46" y="62">transaction</text>
+        <rect class="good" x="230" y="30" width="6" height="36" rx="3"/>
+        <text class="m" x="246" y="44">month</text><text class="b" x="246" y="62">2026-10</text>
+        <rect class="good" x="430" y="30" width="6" height="36" rx="3"/>
+        <text class="m" x="446" y="44">updated</text><text class="b" x="446" y="62">24 Oct, 09:14</text>
+        <rect class="box" x="30" y="86" width="660" height="84" rx="8"/>
+        <rect class="bad" x="30" y="86" width="6" height="84" rx="3"/>
+        <text class="m" x="50" y="108">content (amount, account, description, category…)</text>
+        <text class="mono" x="50" y="134">8fJ2kQ0xVb7mN+Lr3pT9wYc1Zs6eH4uA/oG5dKiR2nBqXy0Fh7==</text>
+        <text class="mono" x="50" y="154">pW3t…unreadable without your key</text>
+      </svg>
+      <figcaption><span class="yes">Green</span>: visible to us so sync works. <span class="no">Red</span>: encrypted, readable only by you.</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="cmp">
+    <h2 id="cmp">How this compares</h2>
+    <div class="table-scroll card">
+    <table class="compare matrix">
+      <thead><tr><th scope="col"></th><th scope="col">Typical expense apps</th><th scope="col">Cloud spreadsheets</th><th scope="col">PlannedOut</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Provider can read your amounts</th><td class="no">Yes</td><td class="no">Yes</td><td class="yes">No</td></tr>
+        <tr><th scope="row">Asks for bank login or SMS</th><td class="no">Often</td><td class="yes">No</td><td class="yes">Never</td></tr>
+        <tr><th scope="row">Shows ads or shares data</th><td class="no">Often</td><td>Varies</td><td class="yes">Never</td></tr>
+        <tr><th scope="row">Analytics &amp; projections built in</th><td>Some</td><td class="no">Build yourself</td><td class="yes">Yes</td></tr>
+        <tr><th scope="row">Delete everything instantly</th><td>Varies</td><td>Manual</td><td class="yes">One click</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="why">
+    <h2 id="why">Why it's worth staying</h2>
+    <div class="points">
+      <div class="card"><h3>Privacy that doesn't depend on trust</h3><p>You don't have to believe our promises. Even if our server were breached or subpoenaed, there's nothing readable to hand over.</p></div>
+      <div class="card"><h3>Spreadsheet speed</h3><p>Type, paste from Excel, use formulas, or import .xlsx, CSV and bank statements. No one-form-per-expense tedium.</p></div>
+      <div class="card"><h3>Answers, not just records</h3><p>Every month shows surplus or shortfall, where the money went, and what's creeping up.</p></div>
+      <div class="card"><h3>See the future</h3><p>Project savings year by year, plan yearly bills ahead, and see how long your savings last with what-ifs.</p></div>
+      <div class="card"><h3>Your data on every device</h3><p>Encrypted sync means you get the same plan on phone and laptop, unlocked with your passphrase.</p></div>
+      <div class="card"><h3>Free, with no catch</h3><p>No ads and no data deals. Your finances aren't the product.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="tech">
+    <h2 id="tech">The technical details</h2>
+    <div class="card">
+      <ul>
+        <li>Each vault has a random <strong>AES-256-GCM</strong> data key that encrypts every record.</li>
+        <li>That key is wrapped with a key derived from your passphrase using <strong>PBKDF2-SHA256 with 600,000 iterations</strong>.</li>
+        <li>Recovery keys wrap the same data key independently, so any one of them can unlock your vault.</li>
+        <li>All encryption uses your browser's built-in Web Crypto API. Your passphrase and unwrapped key never leave your device.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="ctrl">
+    <h2 id="ctrl">You stay in control</h2>
+    <div class="split">
+      <div class="card"><h3>If you lose your passphrase</h3><p>Any one of your recovery keys unlocks your data. Keep them somewhere safe and offline. If you lose your passphrase and every recovery key, nobody can recover your data, including us. That's the trade-off that makes it private.</p></div>
+      <div class="card"><h3>Deleting your data</h3><p>Settings → Delete account removes your account and every record immediately.</p></div>
+    </div>
+  </section>
+
+  <section class="hero cta">
+    <h2>Plan your money without handing it over.</h2>
+    <p><a href="/login/"><button class="primary">Start free</button></a></p>
+  </section>
 </main>
+{% include "_footer.html" %}
 {% endblock %}
