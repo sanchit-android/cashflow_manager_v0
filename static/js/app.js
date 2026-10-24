@@ -329,17 +329,36 @@ function selectedAccount() {
   return S.account;
 }
 
+// Change month without the page jumping: keep the clicked control at the same spot on screen.
+function goPeriod(p, anchor) {
+  const id = anchor && anchor.id, top = anchor ? anchor.getBoundingClientRect().top : 0;
+  root.style.minHeight = root.offsetHeight + "px"; // stop the page shrinking mid-render
+  S.period = p; render();
+  const fix = () => { const el = (id && document.getElementById(id)) || document.getElementById("mpick"); if (el) window.scrollBy(0, el.getBoundingClientRect().top - top); };
+  fix(); requestAnimationFrame(() => { fix(); root.style.minHeight = ""; fix(); });
+}
+
 function viewMonth() {
   const settings = settingsRec().data;
+  const curPeriod = E.periodOf(today(), settings);
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   html(`
-    <div class="row"><button id="prev" aria-label="Previous month">←</button><h1 style="margin:0">${esc(label)}${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}</h1><button id="next" aria-label="Next month">→</button></div>
+    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)} <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}">${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}</button>`; }).join("")}</div></div>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>
     <div id="summary" style="margin-top:12px"></div>
     <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
     <div id="cats"></div>`);
-  $("#prev").onclick = () => { S.period = E.shiftPeriod(S.period, -1); render(); };
-  $("#next").onclick = () => { S.period = E.shiftPeriod(S.period, 1); render(); };
+  $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
+  $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
+  if ($("#today")) $("#today").onclick = (e) => goPeriod(curPeriod, e.currentTarget);
+  const menu = $("#mmenu"), pick = $("#mpick");
+  const closeMenu = () => { menu.hidden = true; pick.setAttribute("aria-expanded", "false"); document.removeEventListener("click", outside); };
+  const outside = (e) => { if (!e.target.closest(".month-pick")) closeMenu(); };
+  pick.onclick = () => {
+    if (!menu.hidden) return closeMenu();
+    menu.hidden = false; pick.setAttribute("aria-expanded", "true"); document.addEventListener("click", outside);
+  };
+  menu.querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => { document.removeEventListener("click", outside); goPeriod(b.dataset.p, pick); }));
   monthSummary();
   mountTxGrid();
 }
@@ -466,12 +485,18 @@ function monthSummary() {
     ${extraMetrics(s, r)}
     ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
   cardCategoryChart(d);
-  $("#mx-edit").onclick = () => { $("#mx-pick").hidden = !$("#mx-pick").hidden; };
-  $$("[data-mx]").forEach((c) => (c.onchange = () => {
-    const on = $$("[data-mx]").filter((x) => x.checked).map((x) => x.dataset.mx);
-    try { localStorage.setItem("monthMetrics", JSON.stringify(on)); } catch (e) { /* ignore */ }
-    monthSummary(); $("#mx-pick").hidden = false;
-  }));
+  const saveMx = (on) => { try { localStorage.setItem("monthMetrics", JSON.stringify(on)); } catch (e) { /* ignore */ } monthSummary(); };
+  const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
+  $$("[data-mx-hide]").forEach((b) => (b.onclick = () => saveMx(curMx().filter((k) => k !== b.dataset.mxHide))));
+  $$("[data-mx-show]").forEach((b) => (b.onclick = () => saveMx([...curMx(), b.dataset.mxShow])));
+  const mxAdd = $("#mx-add");
+  if (mxAdd) mxAdd.onclick = (e) => {
+    e.stopPropagation();
+    const pop = $("#mx-pop"); pop.hidden = !pop.hidden; mxAdd.setAttribute("aria-expanded", String(!pop.hidden));
+    if (!pop.hidden) document.addEventListener("click", function close(ev) {
+      if (!pop.contains(ev.target)) { pop.hidden = true; mxAdd.setAttribute("aria-expanded", "false"); document.removeEventListener("click", close); }
+    });
+  };
   $$("[data-pay]").forEach((b) => (b.onclick = async () => {
     const c = store.rows.get(b.dataset.pay).data;
     const acct = c.account_id || (mainAccount() || {}).id;
@@ -517,9 +542,11 @@ function extraMetrics(s, r) {
   let on = ["regular_expense", "regular_net", "pending"];
   try { const v = JSON.parse(localStorage.getItem("monthMetrics")); if (Array.isArray(v)) on = v; } catch (e) { /* ignore */ }
   const shown = MONTH_METRICS.filter(([k]) => on.includes(k));
-  return `<div class="row mx-head"><h2 style="margin:0">Other numbers</h2><span class="spacer"></span><button class="link" id="mx-edit" type="button">Choose numbers</button></div>
-    <div class="mx-pick" id="mx-pick" hidden>${MONTH_METRICS.map(([k, l]) => `<label><input type="checkbox" data-mx="${k}" ${on.includes(k) ? "checked" : ""}> ${l}</label>`).join("")}</div>
-    ${shown.length ? `<div class="grid">${shown.map(([, l, f, hint]) => `<div class="card metric" ${hint ? `title="${esc(hint)}"` : ""}><div class="label">${l}</div><div class="value">${f(s, r)}</div></div>`).join("")}</div>` : ""}`;
+  const hidden = MONTH_METRICS.filter(([k]) => !on.includes(k));
+  const tiles = shown.map(([k, l, f, hint]) => `<div class="card metric mx-tile" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${k}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${l}</div><div class="value">${f(s, r)}</div></div>`).join("");
+  const add = hidden.length ? `<div class="mx-add-wrap"><button class="mx-add" id="mx-add" type="button" aria-expanded="false">+ Add a number</button>
+    <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}</div></div>` : "";
+  return `<h2 class="mx-head">Other numbers</h2><div class="grid mx-grid">${tiles}${add}</div>`;
 }
 
 /** Card spending this month by category — only transactions on credit-card accounts. */
