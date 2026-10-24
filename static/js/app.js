@@ -840,7 +840,9 @@ function extraMetrics(s, r) {
   const customs = all.filter(([, , , , , , c]) => c);
   const avg = yearAverages(shown);
   const tiles = shown.map(([k, l, f, hint, better, fmt = inr]) => {
-    const v = f(s, r), a = avg[k];
+    // An average already smooths months out, so comparing it to the year average adds noise.
+    const isAvg = /\b(average|avg)\b/i.test(l) || /\bavg\s*\(/i.test(hint || "");
+    const v = f(s, r), a = isAvg ? null : avg[k];
     let arrow = "";
     if (better && v != null && a != null && Math.round(v) !== Math.round(a)) {
       const good = (v > a) === (better > 0);
