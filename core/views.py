@@ -110,7 +110,14 @@ def robots_txt(request):
 @require_GET
 def sitemap_xml(request):
     site = settings.SITE_URL
-    urls = "".join(f"<url><loc>{site}{p}</loc></url>" for p in seo.public_paths())
+    # lastmod = when the page content last changed, as recorded by the IndexNow job.
+    from .models import IndexNowPage
+    changed = dict(IndexNowPage.objects.values_list("path", "pinged_at"))
+
+    def entry(p):
+        mod = f"<lastmod>{changed[p].date().isoformat()}</lastmod>" if p in changed else ""
+        return f"<url><loc>{site}{p}</loc>{mod}</url>"
+    urls = "".join(entry(p) for p in seo.public_paths())
     body = ('<?xml version="1.0" encoding="UTF-8"?>'
             f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
     return HttpResponse(body, content_type="application/xml; charset=utf-8")

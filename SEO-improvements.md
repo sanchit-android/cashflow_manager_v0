@@ -25,7 +25,7 @@ All page text lives in `core/seo.py`.
 | ⬜ | 3 | **More guide pages** for long, specific searches (list below) | Each brings steady traffic from specific questions; AI tools quote pages that answer one clear question | ~15 min per page |
 | ✅ | 4 | **Free calculators** on public pages (no sign-in needed): savings runway, emergency fund, sinking fund, 50/30/20 split. Hub at `/calculators/`; text in `core/seo.py` (`CALCULATORS`), forms in `templates/calc/`, math in `static/js/calc.js`. Uses show on the admin page | Tools attract backlinks and repeat visits, and AI assistants recommend them | ~1–2 hrs each |
 | ✅ | 5 | **Multi-currency support**: 20 currencies (INR, USD, GBP, EUR, AED, SGD and others), picked during setup (guessed from time zone) and changeable in Settings. Code in `static/js/currency.js` | Makes the global pages credible for visitors outside India | ~half a day |
-| ⬜ | 6 | **`lastmod` dates in the sitemap** | Helps crawlers spot updated pages | ~10 min |
+| ✅ | 6 | **`lastmod` dates in the sitemap**: each page's date is when its content last changed, taken from the IndexNow job (`IndexNowPage.pinged_at`); code in `sitemap_xml` in `core/views.py` | Helps crawlers spot updated pages | ~10 min |
 | ⬜ | 7 | **Product screenshots** on the homepage and guides (with alt text) | Ranks in image search and makes the pages more convincing | ~30 min, once screenshots exist |
 | ⬜ | 8 | **Hindi versions** of the homepage and the India guide (with `hreflang`) | Reaches Hindi searchers, where there is little competition | ~2 hrs |
 | ⬜ | 9 | **Page-speed check** (Lighthouse): image sizes, caching headers | Speed is part of how Google ranks pages | ~30 min |

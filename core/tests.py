@@ -84,6 +84,13 @@ class CalculatorTests(TestCase):
         self.assertContains(self.client.get("/sitemap.xml"), "/calculators/emergency-fund/")
         self.assertContains(self.client.get("/llms.txt"), "Sinking fund calculator")
 
+    def test_sitemap_lastmod_from_indexnow(self):
+        from .models import IndexNowPage
+        IndexNowPage.objects.create(path="/about/", digest="x")
+        body = self.client.get("/sitemap.xml").content.decode()
+        self.assertIn("/about/</loc><lastmod>", body)
+        self.assertIn("/contact/</loc></url>", body)
+
     def test_calc_use_counts_anonymously(self):
         _post(self.client, "/api/calc-use", {"calc": "emergency-fund"})
         _post(self.client, "/api/calc-use", {"calc": "emergency-fund"})
