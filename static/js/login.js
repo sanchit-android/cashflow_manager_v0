@@ -3,6 +3,10 @@ import { api } from "./store.js";
 const $ = (id) => document.getElementById(id);
 const err = (m) => { $("err").textContent = m || ""; };
 
+$("email-choice").addEventListener("click", () => {
+  $("email-choice").parentElement.hidden = true; $("email-form").hidden = false; $("email").focus();
+});
+
 $("email-form").addEventListener("submit", async (e) => {
   e.preventDefault(); err();
   try {
