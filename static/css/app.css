@@ -35,10 +35,11 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(
 a { color: var(--accent); }
 .wrap { max-width: 1040px; margin: 0 auto; padding: 16px; }
 .narrow { max-width: 460px; }
-header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 16px; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--border); background: var(--surface); }
 header.top .brand { font-weight: 700; margin-right: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
 header.top .brand img { width: 28px; height: 28px; display: block; }
 header.top .brand .tld { color: var(--accent); }
+header.top button.primary { padding-top: 6px; padding-bottom: 6px; line-height: 1.2; }
 nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 nav.tabs button { border: 0; background: transparent; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); }
 nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
@@ -297,7 +298,7 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
 @media (max-width: 640px) {
   body { font-size: 16px; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .wrap { padding: 12px; }
-  header.top { padding: 10px 12px; position: sticky; top: 0; z-index: 30; }
+  header.top { padding: 0 12px; min-height: 52px; position: sticky; top: 0; z-index: 30; }
   header.top nav.tabs { display: none; }
   header.top form:not(.signout) { display: none; }
   #bottomnav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--border);
