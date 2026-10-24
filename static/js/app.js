@@ -643,9 +643,12 @@ function monthSummary() {
     ${extraMetrics(s, r)}
     ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
   cardCategoryChart(d);
-  const saveMx = (on) => { try { localStorage.setItem("monthMetrics", JSON.stringify(on)); } catch (e) { /* ignore */ } monthSummary(); };
+  const saveMx = async (on) => { await saveMxLayout({ month_metrics: on }); monthSummary(); };
   const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
   $$("[data-mx-hide]").forEach((b) => (b.onclick = () => saveMx(curMx().filter((k) => k !== b.dataset.mxHide))));
+  mxDrag($(".mx-grid"), (rows) => {
+    saveMxLayout({ month_metric_rows: rows, month_metrics: rows.flat() }).catch((e) => alert(e.message));
+  });
   $$("[data-mx-show]").forEach((b) => (b.onclick = () => saveMx([...curMx(), b.dataset.mxShow])));
   $$("[data-mx-edit]").forEach((b) => (b.onclick = () => customMetricSheet(customMetrics().find((m) => m.id === b.dataset.mxEdit), s, r)));
   $$("[data-mx-del]").forEach((b) => (b.onclick = async () => {
@@ -810,7 +813,7 @@ function customMetricSheet(m, s, r) {
       await saveCustomMetrics(isNew ? [...list, next] : list.map((x) => (x.id === next.id ? next : x)));
     } catch (e2) { err.textContent = e2.message; return; }
     close();
-    if (isNew) try { localStorage.setItem("monthMetrics", JSON.stringify([...on, "c:" + next.id])); } catch (e2) { /* ignore */ }
+    if (isNew) await saveMxLayout({ month_metrics: [...on, "c:" + next.id] }).catch(() => {});
     monthSummary();
   };
   $f("#cm-label").focus();
@@ -831,15 +834,44 @@ function yearAverages(metrics) {
 }
 const PENCIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const BIN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+const MX_PER_ROW = 5;
+/** Which "Other numbers" are shown and how they're arranged live in the settings record; older layouts saved in this browser are still read. */
+function mxSetting(key, legacyKey) {
+  const v = settingsRec().data[key];
+  if (Array.isArray(v)) return v;
+  try { const old = JSON.parse(localStorage.getItem(legacyKey)); if (Array.isArray(old)) return old; } catch (e) { /* ignore */ }
+  return null;
+}
+async function saveMxLayout(patch) {
+  const rec = settingsRec();
+  await store.save({ id: rec.id, type: "settings", data: { ...rec.data, ...patch } });
+  saves++;
+}
+/** Split the shown metric keys into the rows the user arranged; new keys fill the last row. */
+function mxRows(keys) {
+  let saved = [];
+  const v = mxSetting("month_metric_rows", "monthMetricRows"); if (v) saved = v;
+  const left = new Set(keys), rows = [];
+  for (const r of saved) {
+    const row = (Array.isArray(r) ? r : []).filter((k) => left.has(k) && left.delete(k)).slice(0, MX_PER_ROW);
+    if (row.length) rows.push(row);
+  }
+  for (const k of keys) {
+    if (!left.has(k)) continue;
+    if (!rows.length || rows[rows.length - 1].length >= MX_PER_ROW) rows.push([]);
+    rows[rows.length - 1].push(k);
+  }
+  return rows;
+}
 function extraMetrics(s, r) {
   let on = ["regular_expense", "regular_net", "pending"];
-  try { const v = JSON.parse(localStorage.getItem("monthMetrics")); if (Array.isArray(v)) on = v; } catch (e) { /* ignore */ }
+  const v = mxSetting("month_metrics", "monthMetrics"); if (v) on = v;
   const all = allMetrics();
   const shown = on.map((k) => all.find(([x]) => x === k)).filter(Boolean);
   const hidden = all.filter(([k, , , , , , c]) => !c && !on.includes(k));
   const customs = all.filter(([, , , , , , c]) => c);
   const avg = yearAverages(shown);
-  const tiles = shown.map(([k, l, f, hint, better, fmt = inr]) => {
+  const tileHtml = shown.map(([k, l, f, hint, better, fmt = inr]) => {
     // An average already smooths months out, so comparing it to the year average adds noise.
     const isAvg = /\b(average|avg)\b/i.test(l) || /\bavg\s*\(/i.test(hint || "");
     const v = f(s, r), a = isAvg ? null : avg[k];
@@ -849,8 +881,8 @@ function extraMetrics(s, r) {
       arrow = `<span class="mx-trend ${good ? "good" : "bad"}" title="${good ? "Better" : "Worse"} than this year's average">${v > a ? "▲" : "▼"}</span>`;
     }
     const avgHtml = a != null ? `<div class="mx-avg"><span>${S.period.slice(0, 4)} avg</span>${fmtValue(fmt, a)}</div>` : "";
-    return `<div class="card metric mx-tile" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${esc(k)}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${esc(l)}</div><div class="value">${fmtValue(fmt, v)}${arrow}</div>${avgHtml}</div>`;
-  }).join("");
+    return `<div class="card metric mx-tile" data-mx-key="${esc(k)}" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${esc(k)}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${esc(l)}</div><div class="value">${fmtValue(fmt, v)}${arrow}</div>${avgHtml}</div>`;
+  });
   const customRows = customs.map(([k, l, , hint, , , c]) => {
     const isOn = on.includes(k);
     return `<div class="mx-crow"><button type="button" class="mx-opt" ${isOn ? "disabled" : `data-mx-show="${esc(k)}"`}><span>${esc(l)}${isOn ? ' <em class="mx-on">shown</em>' : ""}</span><small class="mx-code">${esc(hint)}</small></button>`
@@ -861,7 +893,67 @@ function extraMetrics(s, r) {
     <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}
       ${customs.length ? `<div class="mx-sec">Your numbers</div>${customRows}` : ""}
       <button type="button" class="mx-opt mx-new" id="mx-new"><span>+ Create a custom number</span><small>Your own formula on these numbers: a percent, average, difference…</small></button></div></div>`;
-  return `<h2 class="mx-head">Other numbers</h2><div class="grid mx-grid">${tiles}${add}</div>`;
+  const rows = mxRows(shown.map(([k]) => k)), byKey = Object.fromEntries(shown.map(([k], i) => [k, tileHtml[i]]));
+  if (rows.length && rows[rows.length - 1].length < MX_PER_ROW) rows[rows.length - 1].push(null); else rows.push([null]);
+  return `<h2 class="mx-head">Other numbers</h2><div class="mx-grid">${rows.map((r) => `<div class="mx-row">${r.map((k) => (k ? byKey[k] : add)).join("")}</div>`).join("")}<div class="mx-row mx-newrow">Drop here for a new row</div></div>`;
+}
+
+/** Drag tiles to reorder them or move them between rows (mouse and touch). "Add a number" stays last. */
+function mxDrag(grid, onSave) {
+  if (!grid) return;
+  const newRow = grid.querySelector(".mx-newrow"), addBox = grid.querySelector(".mx-add-wrap");
+  const place = (tile, x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el || !grid.contains(el)) return;
+    let row = el.closest(".mx-row");
+    if (!row) return;
+    if (row === newRow) {
+      row = document.createElement("div"); row.className = "mx-row";
+      grid.insertBefore(row, newRow);
+    }
+    const others = [...row.querySelectorAll(".mx-tile")].filter((t) => t !== tile);
+    if (tile.parentNode !== row && others.length >= MX_PER_ROW) return; // row is full
+    const over = el.closest(".mx-tile");
+    if (over === tile) return;
+    let before = null;
+    if (over) { const b = over.getBoundingClientRect(); before = x < b.left + b.width / 2 ? over : over.nextSibling; }
+    else before = others.find((t) => x < t.getBoundingClientRect().left + t.offsetWidth / 2) || null;
+    if (before === addBox || (!before && addBox.parentNode === row)) before = addBox;
+    if (tile.nextSibling === before && tile.parentNode === row) return;
+    row.insertBefore(tile, before);
+    tidy();
+  };
+  // Drop empty rows and keep "Add a number" at the end of the last row (or alone on a new row if that one is full).
+  const tidy = () => {
+    [...grid.querySelectorAll(".mx-row:not(.mx-newrow)")].forEach((r) => { if (!r.querySelector(".mx-tile, .mx-add-wrap") || (r.children.length === 1 && r.contains(addBox))) r.remove(); });
+    const rows = [...grid.querySelectorAll(".mx-row:not(.mx-newrow)")], last = rows[rows.length - 1];
+    if (last && last.querySelectorAll(".mx-tile").length < MX_PER_ROW) last.appendChild(addBox);
+    else { const r = document.createElement("div"); r.className = "mx-row"; r.appendChild(addBox); grid.insertBefore(r, newRow); }
+  };
+  grid.querySelectorAll(".mx-tile").forEach((tile) => tile.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("button")) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let dragging = false;
+    const move = (ev) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+        dragging = true; tile.classList.add("dragging"); grid.classList.add("mx-sorting");
+        try { tile.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      }
+      ev.preventDefault();
+      tile.style.pointerEvents = "none";
+      place(tile, ev.clientX, ev.clientY);
+      tile.style.pointerEvents = "";
+    };
+    const up = () => {
+      tile.removeEventListener("pointermove", move); tile.removeEventListener("pointerup", up); tile.removeEventListener("pointercancel", up);
+      if (!dragging) return;
+      tile.classList.remove("dragging"); grid.classList.remove("mx-sorting");
+      tidy();
+      onSave([...grid.querySelectorAll(".mx-row")].map((r) => [...r.querySelectorAll(".mx-tile")].map((t) => t.dataset.mxKey)).filter((r) => r.length));
+    };
+    tile.addEventListener("pointermove", move); tile.addEventListener("pointerup", up); tile.addEventListener("pointercancel", up);
+  }));
 }
 
 /** Card spending this month by category — only transactions on credit-card accounts. */
