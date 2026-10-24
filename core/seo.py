@@ -262,6 +262,11 @@ CONTACT_TOPICS = [
 CONTACT_TOPIC_VALUES = {f"{c} / {s}" for c, subs in CONTACT_TOPICS for s in subs}
 
 
+def public_paths():
+    """Every page we want search engines to index (used by the sitemap and IndexNow)."""
+    return ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in GUIDES]
+
+
 def _ld(*items):
     """JSON-LD script body. Escapes '<' so content can never close the script tag."""
     data = items[0] if len(items) == 1 else {"@context": "https://schema.org", "@graph": list(items)}

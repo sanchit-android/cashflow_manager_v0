@@ -14,6 +14,8 @@ CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("loca
 
 # Public address used for canonical links, sitemap and social previews.
 SITE_URL = os.environ.get("SITE_URL", "https://plannedout.in").rstrip("/")
+# IndexNow key. Optional: if unset, a stable key is derived from DJANGO_SECRET_KEY.
+INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY", "")
 
 if not DEBUG and SECRET_KEY == "dev-only-insecure-key":
     raise RuntimeError("Set DJANGO_SECRET_KEY in production")

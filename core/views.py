@@ -17,7 +17,7 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from . import seo
+from . import indexnow, seo
 from .monitor import is_admin, log_event
 from .models import LoginCode, Record, Vault, VaultKey
 
@@ -80,11 +80,16 @@ def robots_txt(request):
 @require_GET
 def sitemap_xml(request):
     site = settings.SITE_URL
-    paths = ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in seo.GUIDES]
-    urls = "".join(f"<url><loc>{site}{p}</loc></url>" for p in paths)
+    urls = "".join(f"<url><loc>{site}{p}</loc></url>" for p in seo.public_paths())
     body = ('<?xml version="1.0" encoding="UTF-8"?>'
             f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
     return HttpResponse(body, content_type="application/xml; charset=utf-8")
+
+
+@require_GET
+def indexnow_key(request):
+    """IndexNow key file: proves to search engines that we own this site."""
+    return HttpResponse(indexnow.key(), content_type="text/plain; charset=utf-8")
 
 
 @require_GET

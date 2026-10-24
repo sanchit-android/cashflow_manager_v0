@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import google_auth, monitor, seo, views
+from . import google_auth, indexnow, monitor, seo, views
 
 urlpatterns = [
     path("", views.landing),
@@ -10,6 +10,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt),
     path("sitemap.xml", views.sitemap_xml),
     path("llms.txt", views.llms_txt),
+    path(f"{indexnow.key()}.txt", views.indexnow_key),
     path("login/", views.login_page),
     path("logout/", views.logout_view),
     path("auth/google/start", google_auth.start),

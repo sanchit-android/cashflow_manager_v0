@@ -130,3 +130,10 @@ class UsageDaily(models.Model):
 class Boot(models.Model):
     """One row per app process start. On a free host that sleeps, these are cold starts."""
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class IndexNowPage(models.Model):
+    """Fingerprint of each public page as last sent to IndexNow, so only changed pages are pinged."""
+    path = models.CharField(max_length=200, primary_key=True)
+    digest = models.CharField(max_length=64)
+    pinged_at = models.DateTimeField(auto_now=True)
