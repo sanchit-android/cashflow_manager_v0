@@ -288,7 +288,7 @@ function renderTabs() {
 }
 // ================= motion =================
 // Screen transitions (fade / slide / none), saved per device and in settings.
-const MOTIONS = [["fade", "Fade"], ["slide", "Slide"], ["none", "None"]];
+const MOTIONS = [["fade", "Fade"], ["slide", "Slide"], ["zoom", "Zoom"], ["blur", "Blur"], ["cascade", "Cascade"], ["none", "None"]];
 const motion = () => document.documentElement.dataset.motion || "fade";
 function applyMotion(m) {
   if (!MOTIONS.some(([k]) => k === m)) return;
@@ -310,9 +310,22 @@ async function goTab(k, scroll = true) {
   if (!animate) return;
   void root.offsetWidth; // restart the animation
   root.classList.add("m-in", "m-fresh");
+  stagger(root.querySelectorAll(".card"));
   root.querySelectorAll("[data-count]").forEach((el) => countUp(el, +el.dataset.count, inr));
   setTimeout(() => { if (n === switching) root.classList.remove("m-in", "m-fwd", "m-back"); }, 260);
   setTimeout(() => { if (n === switching) root.classList.remove("m-fresh"); }, 1500);
+}
+// Give cards an index so Cascade can stagger them.
+function stagger(cards) { [...cards].slice(0, 12).forEach((c, i) => c.style.setProperty("--i", i)); }
+// Month or year changed: the picker stays put, the cards around it animate in from the direction of travel.
+function periodEnter(dir) {
+  if (motion() === "none") return;
+  const cards = [...root.querySelectorAll(".card")].filter((c) => !c.querySelector("#mpick, #prev, #py"));
+  stagger(cards);
+  cards.forEach((c) => { c.classList.remove("m-p-in", "m-fwd", "m-back"); void c.offsetWidth; c.classList.add("m-p-in", dir); });
+  root.classList.add("m-fresh"); setTimeout(() => root.classList.remove("m-fresh"), 1500);
+  setTimeout(() => cards.forEach((c) => c.classList.remove("m-p-in", "m-fwd", "m-back")), 900);
+  root.querySelectorAll("[data-count]").forEach((el) => countUp(el, +el.dataset.count, inr, 450));
 }
 // Numbers count up from zero to their value (Month summary headline).
 function countUp(el, value, fmt, ms = 600) {
@@ -400,7 +413,8 @@ function selectedAccount() {
 function goPeriod(p, anchor) {
   const id = anchor && anchor.id, top = anchor ? anchor.getBoundingClientRect().top : 0;
   root.style.minHeight = root.offsetHeight + "px"; // stop the page shrinking mid-render
-  S.period = p; render();
+  const dir = p >= S.period ? "m-fwd" : "m-back";
+  S.period = p; render(); periodEnter(dir);
   const fix = () => { const el = (id && document.getElementById(id)) || document.getElementById("mpick"); if (el) window.scrollBy(0, el.getBoundingClientRect().top - top); };
   fix(); requestAnimationFrame(() => { fix(); root.style.minHeight = ""; fix(); });
 }
@@ -1192,8 +1206,8 @@ function viewYear() {
         const x = v(m, k); return `<td class="${x == null ? "nodata" : x < 0 && (k === "net_burn" || k === "total_out") ? "neg" : ""}">${x == null ? "–" : money(x)}</td>`; }).join("")}<td>${totalCol(k)}</td></tr>`).join("")}
       <tr><th class="rowh">Notes</th>${ms.map((m) => `<td class="note"><textarea data-note="${m.period}" aria-label="Note for ${m.label}">${esc(m.note)}</textarea></td>`).join("")}<td></td></tr>
       </tbody></table></div></div>`);
-  $("#py").onclick = () => { S.year = year - 1; render(); };
-  $("#ny").onclick = () => { S.year = year + 1; render(); };
+  $("#py").onclick = () => { S.year = year - 1; render(); periodEnter("m-back"); };
+  $("#ny").onclick = () => { S.year = year + 1; render(); periodEnter("m-fwd"); };
   $$("[data-goto]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.period = a.dataset.goto; S.tab = "month"; renderTabs(); render(); }));
   const timers = {};
   $$("[data-note]").forEach((ta) => (ta.oninput = () => {

@@ -623,3 +623,21 @@ body { overflow-x: clip; }
 [data-motion="none"] #root { animation: none !important; transition: none !important; }
 .motion-pick { display: flex; gap: 8px; flex-wrap: wrap; }
 .motion-pick button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* More transition styles */
+[data-motion="zoom"] #root.m-out { opacity: 0; transform: scale(.97); }
+[data-motion="zoom"] #root.m-in { animation: m-zoom-in .2s cubic-bezier(.2, .8, .2, 1); }
+[data-motion="blur"] #root.m-out { opacity: 0; filter: blur(6px); transition: opacity .12s ease, filter .12s ease; }
+[data-motion="blur"] #root.m-in { animation: m-blur-in .22s ease-out; }
+[data-motion="cascade"] #root.m-out { opacity: 0; }
+[data-motion="cascade"] #root.m-in .card { animation: m-fade-in .28s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes m-zoom-in { from { opacity: 0; transform: scale(.96); } }
+@keyframes m-blur-in { from { opacity: 0; filter: blur(6px); } }
+/* Month / year change: cards animate, the picker stays still */
+[data-motion="fade"] .card.m-p-in { animation: m-fade-in .2s ease-out; }
+[data-motion="slide"] .card.m-p-in.m-fwd { animation: m-slide-l .24s cubic-bezier(.2, .8, .2, 1); }
+[data-motion="slide"] .card.m-p-in.m-back { animation: m-slide-r .24s cubic-bezier(.2, .8, .2, 1); }
+[data-motion="zoom"] .card.m-p-in { animation: m-zoom-in .22s cubic-bezier(.2, .8, .2, 1); }
+[data-motion="blur"] .card.m-p-in { animation: m-blur-in .24s ease-out; }
+[data-motion="cascade"] .card.m-p-in.m-fwd { animation: m-slide-l .26s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+[data-motion="cascade"] .card.m-p-in.m-back { animation: m-slide-r .26s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+[data-motion="none"] .card { animation: none !important; }

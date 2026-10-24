@@ -99,7 +99,7 @@ function business(box, d) {
     </div>
     ${card("Other numbers (Month screen)", table(["Action", "Count", "Users"], (d.metrics || []).map((r) => [esc({ reorder: "Dragged a box (one row)", rows: "Dragged a box (several rows)", custom_create: "Created a custom number", custom_edit: "Edited a custom number" }[r.event] || r.event), num(r.count), num(r.users)])),
       "Showing, hiding and deleting numbers are under Buttons used (month : mxShow, mxHide, mxDel).")}
-    ${card("Screen transitions", table(["Picked", "Times", "Users"], (d.motion || []).map((r) => [esc({ fade: "Fade", slide: "Slide", none: "None" }[r.event] || r.event), num(r.count), num(r.users)])),
+    ${card("Screen transitions", table(["Picked", "Times", "Users"], (d.motion || []).map((r) => [esc({ fade: "Fade", slide: "Slide", zoom: "Zoom", blur: "Blur", cascade: "Cascade", none: "None" }[r.event] || r.event), num(r.count), num(r.users)])),
       "Changes to the transition setting. Users who never change it see Fade (or None with reduced motion on).")}
     ${card("Free calculators (public pages)", table(["Calculator", "Uses"], (d.calcs || []).map((r) => [esc({ "savings-runway": "Savings runway", "emergency-fund": "Emergency fund", "sinking-fund": "Sinking fund", "50-30-20-budget": "50/30/20 budget" }[r.event] || r.event), num(r.count)])),
       "Counted once per page view, after the visitor changes a number. Most visitors aren't signed in, so there is no user count.")}
