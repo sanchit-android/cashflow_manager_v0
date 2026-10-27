@@ -14,8 +14,11 @@
 
   <section aria-labelledby="inside">
     <h2 id="inside">What a month looks like inside PlannedOut</h2>
-    <p class="lead">One screen tells you whether the month added to your savings or drew them down, how long your money lasts at your current burn, how your balance moved from opening to closing, and the custom numbers you care about.</p>
-    {% include "illus/shot_month.html" with eager=True %}
+    <p class="lead">One screen tells you whether the month added to your savings or drew them down, how your balance moved from opening to closing, and lets you enter or paste transactions in an Excel-like sheet across bank accounts, credit cards and investments.</p>
+    <div class="shots-grid">
+      {% include "illus/shot_month.html" with eager=True %}
+      {% include "illus/shot_sheet.html" %}
+    </div>
   </section>
 
   <section aria-labelledby="why">

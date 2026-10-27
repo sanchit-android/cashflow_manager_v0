@@ -90,7 +90,11 @@ class CalculatorTests(TestCase):
         self.assertContains(self.client.get("/llms.txt"), "Sinking fund calculator")
         self.assertContains(self.client.get("/llms.txt"), "Private YNAB & Mint alternative")
         self.assertContains(self.client.get("/"), "month-overview.webp")
+        self.assertContains(self.client.get("/"), "transactions-sheet.webp")
         self.assertContains(self.client.get("/budget-planner-india/"), "month-overview.webp")
+        self.assertContains(self.client.get("/budget-planner-india/"), "transactions-sheet.webp")
+        self.assertContains(self.client.get("/excel-budget-alternative/"), "transactions-sheet.webp")
+        self.assertContains(self.client.get("/budget-app-without-sms-india/"), "transactions-sheet.webp")
 
     def test_sitemap_lastmod_from_indexnow(self):
         from .models import IndexNowPage

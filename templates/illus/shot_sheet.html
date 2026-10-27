@@ -1,0 +1,5 @@
+{% load static %}<figure class="shot"><picture>
+  <source srcset="{% static 'img/screenshots/transactions-sheet.webp' %}" type="image/webp">
+  <img src="{% static 'img/screenshots/transactions-sheet.png' %}" alt="{% if alt %}{{ alt }}{% else %}PlannedOut spreadsheet-style transactions grid showing bank accounts, Indian credit cards (HDFC, ICICI, SBI, Axis), savings &amp; investments chips, account balance bar, formula bar, and Excel-like columns for Date, Description, Type, To/from, Category, Kind and Amount{% endif %}" width="1024" height="713" loading="{% if eager %}eager{% else %}lazy{% endif %}" decoding="async">
+</picture>{% if caption != "" %}<figcaption>{% if caption %}{{ caption }}{% else %}Spreadsheet-style transactions grid: switch between bank accounts, credit cards (HDFC, ICICI, SBI, Axis) and investments, see the live account summary bar, and type or paste into an Excel-like sheet with a formula bar and column filters.{% endif %}</figcaption>{% endif %}</figure>
+

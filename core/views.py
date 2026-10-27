@@ -65,8 +65,8 @@ def guide(request, slug):
         raise Http404
     others = {k: v for k, v in seo.GUIDES.items() if k != slug}
     sections = [(h, items, ill) for (h, items), ill in zip(g["sections"], seo.GUIDE_ILLUS.get(slug, []) + [None] * 9)]
-    shot = seo.GUIDE_SHOTS.get(slug)
-    return render(request, "guide.html", {"g": g, "slug": slug, "others": others, "sections": sections, "shot": shot,
+    shots = seo.GUIDE_SHOTS.get(slug, [])
+    return render(request, "guide.html", {"g": g, "slug": slug, "others": others, "sections": sections, "shots": shots,
                                           "jsonld": seo.guide_jsonld(settings.SITE_URL, slug, g)})
 
 

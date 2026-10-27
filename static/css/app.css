@@ -473,6 +473,9 @@ table.compare td:last-child { font-weight: 600; color: var(--good); }
 .shot { margin: 16px 0; }
 .shot img { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
 .gsec .shot { margin: 0; }
+.shots-grid { display: grid; gap: 20px; align-items: start; }
+@media (min-width: 820px) { .shots-grid { grid-template-columns: 1fr 1fr; } }
+.shots-grid .shot { margin: 0; }
 svg.d .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
 svg.d .box2 { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
 svg.d .acc { fill: var(--accent); }

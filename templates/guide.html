@@ -14,7 +14,7 @@
     <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %} <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
   </section>
   {% if slug == "savings-runway-calculator" or slug == "fire-retirement-runway-planner" %}<p class="card">Just want a quick number? <a href="/calculators/savings-runway/">Try the free savings runway calculator →</a> No sign-in needed.</p>{% elif slug == "annual-expenses-planner" %}<p class="card">Want a quick monthly number for your yearly bills? <a href="/calculators/sinking-fund/">Try the free sinking fund calculator →</a></p>{% elif slug == "emi-budget-planner-india" %}<p class="card">Want to check your income split right now? <a href="/calculators/50-30-20-budget/">Try the free 50/30/20 budget calculator →</a> No sign-in needed.</p>{% endif %}
-  {% if shot %}{% include shot.tpl with alt=shot.alt caption=shot.caption %}{% endif %}
+  {% if shots %}<div class="{% if shots|length > 1 %}shots-grid{% endif %}">{% for s in shots %}{% include s.tpl with alt=s.alt caption=s.caption %}{% endfor %}</div>{% endif %}
   {% for heading, items, ill in sections %}
   <section class="card gsec"><div><h2>{{ heading }}</h2><ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></div>{% if ill %}{% include "illus/"|add:ill|add:".html" %}{% endif %}</section>
   {% endfor %}
