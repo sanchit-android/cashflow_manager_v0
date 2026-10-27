@@ -28,6 +28,10 @@ const THEMES = {
   excel: ["Excel", "#ffffff", "#217346"], paper: ["Paper", "#f7f6f2", "#2457c5"], sky: ["Sky", "#f3f7fc", "#1f6feb"],
   lavender: ["Lavender", "#f7f5fc", "#6b4fbb"], sand: ["Sand", "#faf6ee", "#a0612a"], rose: ["Rose", "#fdf6f7", "#b4325b"],
   mint: ["Mint", "#eef6f3", "#0f7a5c"], chai: ["Chai", "#f6efe4", "#9a4a12"], ink: ["Ink", "#ffffff", "#000000"], night: ["Night", "#121417", "#7aa7ff"],
+  "metro-dark": ["Metro Dark", "#000000", "conic-gradient(#1ba1e2 0 90deg,#d80073 90deg 180deg,#fa6800 180deg 270deg,#60a917 270deg)"],
+  "metro-light": ["Metro Light", "#ffffff", "conic-gradient(#1ba1e2 0 90deg,#d80073 90deg 180deg,#fa6800 180deg 270deg,#60a917 270deg)"],
+  glass: ["Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "linear-gradient(135deg,rgba(255,255,255,.95),#007aff)"],
+  "glass-dark": ["Glass Dark", "linear-gradient(135deg,#0f172a,#3b0764,#042f2e)", "linear-gradient(135deg,#e0f2fe,#38bdf8)"],
 };
 // Tokens a custom theme can set, with labels for the editor.
 const THEME_VARS = [["--bg", "Page background"], ["--surface", "Cards and cells"], ["--surface-2", "Panels"], ["--text", "Text"], ["--muted", "Secondary text"],
