@@ -213,7 +213,7 @@ class MonitorMiddleware:
     def __call__(self, request):
         global _booted
         path = request.path
-        if path.startswith(("/static/", "/favicon")):
+        if path.startswith(("/static/", "/favicon", "/manifest.webmanifest")):
             return self.get_response(request)
         t0 = time.monotonic()
         response = self.get_response(request)

@@ -66,14 +66,23 @@ def guide(request, slug):
     others = {k: v for k, v in seo.GUIDES.items() if k != slug}
     sections = [(h, items, ill) for (h, items), ill in zip(g["sections"], seo.GUIDE_ILLUS.get(slug, []) + [None] * 9)]
     shots = seo.GUIDE_SHOTS.get(slug, [])
-    return render(request, "guide.html", {"g": g, "slug": slug, "others": others, "sections": sections, "shots": shots,
-                                          "jsonld": seo.guide_jsonld(settings.SITE_URL, slug, g)})
+    in_india = slug in seo.INDIA_GUIDES
+    return render(request, "guide.html", {
+        "g": g, "slug": slug, "others": others, "sections": sections, "shots": shots,
+        "calc_cta": seo.GUIDE_CALCS.get(slug),
+        "page_lang": "en-IN" if in_india else "en",
+        "og_locale": "en_IN" if in_india else "en_US",
+        "jsonld": seo.guide_jsonld(settings.SITE_URL, slug, g),
+    })
 
 
 @require_GET
 def calculators(request):
-    return render(request, "calculators.html", {"calcs": seo.CALCULATORS, "hub": seo.CALC_HUB,
-                                                "jsonld": seo.calc_hub_jsonld(settings.SITE_URL)})
+    return render(request, "calculators.html", {
+        "calcs": seo.CALCULATORS, "hub": seo.CALC_HUB,
+        "page_lang": "en", "og_locale": "en_US",
+        "jsonld": seo.calc_hub_jsonld(settings.SITE_URL),
+    })
 
 
 @require_GET
@@ -83,8 +92,13 @@ def calculator(request, slug):
     if not c:
         raise Http404
     others = {k: v for k, v in seo.CALCULATORS.items() if k != slug}
-    return render(request, "calculator.html", {"c": c, "slug": slug, "others": others, "form": f"calc/{slug}.html",
-                                               "jsonld": seo.calc_jsonld(settings.SITE_URL, slug, c)})
+    related_guides = [(gs, seo.GUIDES[gs]) for gs in seo.CALC_GUIDES.get(slug, []) if gs in seo.GUIDES]
+    return render(request, "calculator.html", {
+        "c": c, "slug": slug, "others": others, "form": f"calc/{slug}.html",
+        "related_guides": related_guides,
+        "page_lang": "en", "og_locale": "en_US",
+        "jsonld": seo.calc_jsonld(settings.SITE_URL, slug, c),
+    })
 
 
 @require_POST
@@ -151,13 +165,31 @@ def llms_txt(request):
 
 
 @require_GET
+def manifest_json(request):
+    """Web App Manifest for mobile home-screen install and browser identity."""
+    return JsonResponse({
+        "name": f"{seo.NAME} — Private Cash-Flow & Budget Planner",
+        "short_name": seo.NAME,
+        "description": seo.TAGLINE,
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#f6f7f9",
+        "theme_color": "#1c1e24",
+        "icons": [
+            {"src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/img/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    }, content_type="application/manifest+json; charset=utf-8")
+
+
+@require_GET
 def privacy(request):
-    return render(request, "privacy.html")
+    return render(request, "privacy.html", {"jsonld": seo.privacy_jsonld(settings.SITE_URL)})
 
 
 @require_GET
 def about(request):
-    return render(request, "about.html")
+    return render(request, "about.html", {"jsonld": seo.about_jsonld(settings.SITE_URL)})
 
 
 def _client_ip(request):
@@ -168,7 +200,8 @@ def _client_ip(request):
 @require_http_methods(["GET", "POST"])
 @ensure_csrf_cookie
 def contact(request):
-    ctx = {"topics": seo.CONTACT_TOPICS, "contact_email": seo.CONTACT_EMAIL, "form": {}}
+    ctx = {"topics": seo.CONTACT_TOPICS, "contact_email": seo.CONTACT_EMAIL, "form": {},
+           "jsonld": seo.contact_jsonld(settings.SITE_URL)}
     if request.method == "GET":
         ctx["sent"] = request.GET.get("sent") == "1"
         return render(request, "contact.html", ctx)

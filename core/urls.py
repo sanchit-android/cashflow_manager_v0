@@ -10,6 +10,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt),
     path("sitemap.xml", views.sitemap_xml),
     path("llms.txt", views.llms_txt),
+    path("manifest.webmanifest", views.manifest_json),
     path(f"{indexnow.key()}.txt", views.indexnow_key),
     path("login/", views.login_page),
     path("logout/", views.logout_view),

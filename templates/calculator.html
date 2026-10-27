@@ -32,6 +32,12 @@
     <h2>Questions</h2>
     {% for q, a in c.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
   </section>
+  {% if related_guides %}
+  <section>
+    <h2>Related guides</h2>
+    <ul>{% for gs, g in related_guides %}<li><a href="/{{ gs }}/">{{ g.nav }}</a>: {{ g.description }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
   <section>
     <h2>More free calculators</h2>
     <ul>{% for s, o in others.items %}<li><a href="/calculators/{{ s }}/">{{ o.h1 }}</a>: {{ o.description }}</li>{% endfor %}</ul>

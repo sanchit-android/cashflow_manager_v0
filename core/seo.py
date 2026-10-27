@@ -486,6 +486,29 @@ GUIDE_ILLUS = {
     "fire-retirement-runway-planner": ["burn", "runway", "control"],
 }
 
+# India-specific guides use en-IN; global guides use generic English (en) so global searchers match cleanly.
+INDIA_GUIDES = {"budget-planner-india", "budget-app-without-sms-india", "emi-budget-planner-india"}
+
+# Bidirectional cross-links between guides and interactive calculators.
+GUIDE_CALCS = {
+    "budget-planner-india": ("50-30-20-budget", "Want to check your income split right now?", "Try the free 50/30/20 budget calculator →"),
+    "savings-runway-calculator": ("savings-runway", "Just want a quick number?", "Try the free savings runway calculator →"),
+    "annual-expenses-planner": ("sinking-fund", "Want a quick monthly number for your yearly bills?", "Try the free sinking fund calculator →"),
+    "emi-budget-planner-india": ("50-30-20-budget", "Want to check your income split right now?", "Try the free 50/30/20 budget calculator →"),
+    "fire-retirement-runway-planner": ("savings-runway", "Just want a quick number?", "Try the free savings runway calculator →"),
+    "private-ynab-mint-alternative": ("sinking-fund", "Planning yearly bills & sinking funds?", "Try the free sinking fund calculator →"),
+    "excel-budget-alternative": ("50-30-20-budget", "Want a quick check on your needs, wants and savings?", "Try the free 50/30/20 budget calculator →"),
+    "private-expense-tracker": ("emergency-fund", "Building your safety net privately?", "Try the free emergency fund calculator →"),
+    "budget-app-without-sms-india": ("emergency-fund", "Checking how many months of safety net you need?", "Try the free emergency fund calculator →"),
+}
+
+CALC_GUIDES = {
+    "savings-runway": ["savings-runway-calculator", "fire-retirement-runway-planner", "private-ynab-mint-alternative"],
+    "emergency-fund": ["savings-runway-calculator", "budget-planner-india", "private-expense-tracker"],
+    "sinking-fund": ["annual-expenses-planner", "budget-planner-india", "emi-budget-planner-india"],
+    "50-30-20-budget": ["budget-planner-india", "emi-budget-planner-india", "excel-budget-alternative"],
+}
+
 # Free calculators on public pages (no sign-in). The math runs in the browser (static/js/calc.js);
 # each form lives in templates/calc/<slug>.html.
 _PRIVATE = ("Is anything I type saved or sent to you?",
@@ -630,31 +653,53 @@ def _faq(pairs):
         {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in pairs]}
 
 
+def _org_ld(site):
+    return {"@type": "Organization", "@id": site + "/#org", "name": NAME,
+            "url": site + "/", "logo": site + "/static/img/icon-512.png", "email": CONTACT_EMAIL,
+            "parentOrganization": {"@type": "Organization", "name": COMPANY, "email": CONTACT_EMAIL,
+                                   "address": {"@type": "PostalAddress", "addressCountry": "IN"}}}
+
+
+def _free_offers():
+    return [
+        {"@type": "Offer", "price": "0", "priceCurrency": "INR"},
+        {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+    ]
+
+
 def home_jsonld(site):
     return _ld(
-        {"@context": "https://schema.org", "@type": "Organization", "@id": site + "/#org", "name": NAME,
-         "url": site + "/", "logo": site + "/static/img/icon-512.png", "email": CONTACT_EMAIL,
-         "parentOrganization": {"@type": "Organization", "name": COMPANY, "email": CONTACT_EMAIL,
-                                "address": {"@type": "PostalAddress", "addressCountry": "IN"}}},
+        {"@context": "https://schema.org", **_org_ld(site)},
         {"@type": "WebSite", "@id": site + "/#website", "name": NAME, "url": site + "/", "publisher": {"@id": site + "/#org"},
-         "inLanguage": "en-IN"},
+         "inLanguage": ["en-IN", "en"]},
         {"@type": "WebApplication", "name": NAME, "url": site + "/", "applicationCategory": "FinanceApplication",
          "operatingSystem": "Any (web browser)", "browserRequirements": "Requires a modern browser with JavaScript",
+         "isAccessibleForFree": True,
          "description": TAGLINE, "featureList": [b[0] + ": " + b[1] for b in BENEFITS],
          "screenshot": [
              site + "/static/img/screenshots/month-overview.png",
              site + "/static/img/screenshots/transactions-sheet.png",
          ],
-         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "publisher": {"@id": site + "/#org"}},
+         "offers": _free_offers(), "publisher": {"@id": site + "/#org"}},
         _faq(HOME_FAQ),
     )
 
 
 def guide_jsonld(site, slug, g):
     url = f"{site}/{slug}/"
+    lang = "en-IN" if slug in INDIA_GUIDES else "en"
+    shots = GUIDE_SHOTS.get(slug, [])
+    images = [
+        site + ("/static/img/screenshots/month-overview.png" if "month" in s["tpl"] else "/static/img/screenshots/transactions-sheet.png")
+        for s in shots
+    ] or [site + "/static/img/og-image.png"]
     return _ld(
-        {"@context": "https://schema.org", "@type": "WebPage", "name": g["title"], "url": url,
-         "description": g["description"], "isPartOf": {"@id": site + "/#website"}},
+        {"@context": "https://schema.org", "@type": "WebPage", "@id": url + "#webpage", "name": g["title"], "url": url,
+         "description": g["description"], "inLanguage": lang, "isPartOf": {"@id": site + "/#website"}},
+        {"@type": "Article", "headline": g["h1"], "name": g["title"], "description": g["description"],
+         "url": url, "inLanguage": lang, "image": images,
+         "mainEntityOfPage": {"@id": url + "#webpage"},
+         "author": {"@id": site + "/#org"}, "publisher": _org_ld(site)},
         {"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
             {"@type": "ListItem", "position": 2, "name": g["nav"], "item": url}]},
@@ -667,8 +712,8 @@ def calc_jsonld(site, slug, c):
     return _ld(
         {"@context": "https://schema.org", "@type": "WebApplication", "name": c["h1"], "url": url,
          "description": c["description"], "applicationCategory": "FinanceApplication",
-         "operatingSystem": "Any (web browser)", "isAccessibleForFree": True,
-         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"},
+         "operatingSystem": "Any (web browser)", "isAccessibleForFree": True, "inLanguage": "en",
+         "offers": _free_offers(),
          "isPartOf": {"@id": site + "/#website"}, "publisher": {"@id": site + "/#org"}},
         {"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
@@ -682,7 +727,60 @@ def calc_hub_jsonld(site):
     return _ld(
         {"@context": "https://schema.org", "@type": "CollectionPage", "name": CALC_HUB["title"],
          "url": site + "/calculators/", "description": CALC_HUB["description"], "isPartOf": {"@id": site + "/#website"}},
+        {"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+            {"@type": "ListItem", "position": 2, "name": "Calculators", "item": site + "/calculators/"}]},
         {"@type": "ItemList", "itemListElement": [
             {"@type": "ListItem", "position": i, "name": c["h1"], "url": f"{site}/calculators/{slug}/"}
             for i, (slug, c) in enumerate(CALCULATORS.items(), 1)]},
+    )
+
+
+def about_jsonld(site):
+    url = site + "/about/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "AboutPage", "name": f"About {NAME} | A private cash-flow planner by {COMPANY}",
+         "url": url, "description": f"{NAME} is a free, private cash-flow planner made in India by {COMPANY}.",
+         "isPartOf": {"@id": site + "/#website"}, "mainEntity": _org_ld(site)},
+        {"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+            {"@type": "ListItem", "position": 2, "name": "About us", "item": url}]},
+    )
+
+
+def contact_jsonld(site):
+    url = site + "/contact/"
+    org = _org_ld(site)
+    org["contactPoint"] = {"@type": "ContactPoint", "email": CONTACT_EMAIL, "contactType": "customer support",
+                           "availableLanguage": ["en", "hi"]}
+    return _ld(
+        {"@context": "https://schema.org", "@type": "ContactPage", "name": f"Contact {NAME}",
+         "url": url, "description": f"Get in touch with the {NAME} team at {COMPANY} for support, feedback or privacy requests.",
+         "isPartOf": {"@id": site + "/#website"}, "mainEntity": org},
+        {"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+            {"@type": "ListItem", "position": 2, "name": "Contact", "item": url}]},
+    )
+
+
+PRIVACY_FAQ = [
+    ("Can PlannedOut read my financial transactions or balances?",
+     "No. Every amount, description, category and balance is encrypted in your browser using AES-256-GCM before it is sent to our servers. Your key is derived from your vault passphrase using PBKDF2-SHA256 (600,000 iterations) and never leaves your device."),
+    ("What metadata can PlannedOut see?",
+     "Only what is needed to run the service and sync across devices: your email address, sign-in timestamps, record counts, record type (e.g. transaction), month period, and update timestamps."),
+    ("How do I delete my account and all encrypted records?",
+     "Open Settings and click Delete account. Your user account, vault keys and all encrypted records are permanently deleted immediately."),
+]
+
+
+def privacy_jsonld(site):
+    url = site + "/privacy/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "WebPage", "name": "Privacy: what PlannedOut can and can't see about your money",
+         "url": url, "description": "PlannedOut encrypts your budget and expense data in your browser with AES-256-GCM. See exactly what we can and cannot see.",
+         "isPartOf": {"@id": site + "/#website"}, "publisher": {"@id": site + "/#org"}},
+        {"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+            {"@type": "ListItem", "position": 2, "name": "Privacy", "item": url}]},
+        _faq(PRIVACY_FAQ),
     )

@@ -1,7 +1,7 @@
 {% load static %}{# Brand banner. Pass slim=True for the compact version used on inner pages. #}
 <div class="banner{% if slim %} banner-slim{% endif %}" role="presentation">
   <div class="banner-in">
-    <img class="banner-logo" src="{% static 'img/logo-banner.webp' %}" alt="PlannedOut" width="640" height="238"{% if not slim %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>
+    <img class="banner-logo" src="{% static 'img/logo-banner.webp' %}" alt="PlannedOut" width="640" height="237"{% if not slim %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>
     <div class="banner-copy">
       <p class="banner-tag">{% if tag %}{{ tag }}{% else %}Plan it. See it ahead. Keep it private.{% endif %}</p>
       {% if not slim %}<ul class="banner-pills"><li>Spreadsheet-style entry</li><li>Savings projections</li><li>Encrypted in your browser</li><li>Free, no ads</li></ul>{% endif %}
