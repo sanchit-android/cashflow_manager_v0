@@ -80,9 +80,15 @@ class CalculatorTests(TestCase):
             r = self.client.get(f"/calculators/{slug}/")
             self.assertContains(r, f'data-calc="{slug}"')
             self.assertContains(r, "FAQPage")
+        for slug, g in seo.GUIDES.items():
+            r = self.client.get(f"/{slug}/")
+            self.assertContains(r, "<h1>")
+            self.assertContains(r, "FAQPage")
         self.assertEqual(self.client.get("/calculators/nope/").status_code, 404)
         self.assertContains(self.client.get("/sitemap.xml"), "/calculators/emergency-fund/")
+        self.assertContains(self.client.get("/sitemap.xml"), "/budget-app-without-sms-india/")
         self.assertContains(self.client.get("/llms.txt"), "Sinking fund calculator")
+        self.assertContains(self.client.get("/llms.txt"), "Private YNAB & Mint alternative")
 
     def test_sitemap_lastmod_from_indexnow(self):
         from .models import IndexNowPage

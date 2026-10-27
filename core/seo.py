@@ -236,6 +236,155 @@ GUIDES = {
              "too good. Separating them shows your true monthly trend."),
         ],
     },
+    "budget-app-without-sms-india": {
+        "title": "Budget App in India Without SMS Access or Bank Linking (Private & Encrypted)",
+        "h1": "A budget app for India that never reads your SMS inbox",
+        "description": "Free budget and expense planner for India that works without SMS permissions, bank logins or "
+                       "Account Aggregator consent. Enter, paste or import statements with browser-side encryption.",
+        "nav": "Budget app without SMS (India)",
+        "intro": "Many Indian expense trackers ask for permission to read your SMS inbox or link your bank accounts "
+                 "through an Account Aggregator. That exposes OTPs, bank balances and personal messages. PlannedOut "
+                 "gives you a full household budget and cash-flow planner without touching your phone permissions or bank login.",
+        "sections": [
+            ("What we never ask for",
+             ["No SMS reading permission — your OTPs and personal messages stay private",
+              "No net-banking login, UPI link or Account Aggregator consent",
+              "No phone number, contacts or location access",
+              "No credit score checks or loan spam"]),
+            ("Fast ways to add your spending without SMS scraping",
+             ["Type into an Excel-like monthly grid with formulas like =1200+340",
+              "Copy and paste rows straight from Excel, Google Sheets or a bank table",
+              "Import .xlsx workbooks or CSV bank statement exports right in your browser",
+              "Repeat fixed monthly items (rent, EMIs, SIPs, staff salaries) in seconds"]),
+            ("Encrypted before it leaves your device",
+             ["Every amount, description and balance is encrypted in your browser with AES-256-GCM",
+              "Your key comes from your vault passphrase and is never sent to our servers",
+              "Built for Indian households: ₹1,00,000 formatting, EMIs, SIPs and annual bills like school fees"]),
+        ],
+        "faq": [
+            ("Which budget app in India works without SMS permission?",
+             "PlannedOut works in your browser on phone or laptop and never asks for SMS, contacts or bank access. "
+             "You enter, paste or import your own CSV or Excel statements, and everything is encrypted on your device."),
+            ("Why do many Indian money apps ask to read SMS?",
+             "They parse bank alert messages to auto-log transactions, and many use that financial profile to cross-sell "
+             "personal loans, credit cards or insurance. If you prefer not to share your inbox, manual or file-import "
+             "budgeting keeps you in control."),
+            ("How long does it take to update without auto-sync?",
+             "Usually 5 to 10 minutes once a week or at the end of the month, especially if you copy-paste or import a "
+             "bank CSV and let fixed items repeat."),
+        ],
+    },
+    "emi-budget-planner-india": {
+        "title": "EMI Budget Planner India: Manage Home, Car & Personal Loan EMIs",
+        "h1": "Plan your EMIs before they plan your month",
+        "description": "See what share of your take-home salary goes to EMIs, separate fixed loan commitments from "
+                       "day-to-day spending, and test how finishing or prepaying a loan changes your future savings.",
+        "nav": "EMI & debt-free planner",
+        "intro": "Between a home loan, a car loan and credit card EMIs, fixed repayments can quietly eat half your "
+                 "in-hand salary before the 5th of the month. PlannedOut separates fixed commitments from flexible "
+                 "spending and lets you see what happens to your savings when an EMI ends or a new one starts.",
+        "sections": [
+            ("See your real fixed burden every month",
+             ["Track home loan, car loan, education loan and personal loan EMIs under fixed commitments",
+              "Keep EMIs separate from groceries, dining out and yearly bills like insurance",
+              "See immediately whether a month added to your savings or ate into them after all EMIs",
+              "Spot creeping credit card or buy-now-pay-later spending before it becomes another EMI"]),
+            ("Test what-ifs before taking or closing a loan",
+             ["Use what-if controls in Projections to see the effect of dropping a fixed commitment",
+              "Check how many months your savings would cover your EMIs and essentials if income paused",
+              "Project your savings year by year to plan prepayments or your debt-free year",
+              "Keep investments (SIPs, PPF, EPF) distinct from loan repayments"]),
+        ],
+        "faq": [
+            ("How much of my salary should go towards EMIs?",
+             "A safe thumb rule is to keep all EMIs combined under 30–35% of your monthly take-home pay (and below 40% "
+             "even with a home loan), so you still have room for essentials, annual bills and at least 20% savings."),
+            ("Should I prepay my loan or invest in a SIP?",
+             "Compare the loan's interest rate with the after-tax return you can safely earn, and check your emergency "
+             "fund first. High-interest personal or credit card loans should almost always be cleared first. PlannedOut "
+             "lets you see how dropping an EMI changes your monthly surplus and multi-year savings."),
+            ("How do I stop taking new EMIs for annual expenses?",
+             "List predictable yearly costs — insurance premiums, school fees, festivals, travel — as annual items and "
+             "set aside a twelfth each month in a sinking fund instead of putting them on no-cost EMIs."),
+        ],
+    },
+    "private-ynab-mint-alternative": {
+        "title": "Private Alternative to YNAB, Mint & Monarch: No Plaid, Encrypted, Free",
+        "h1": "A private alternative to YNAB and Mint — no bank linking, no subscription",
+        "description": "Looking for a budget planner that doesn't use Plaid or charge $100+ a year? PlannedOut gives "
+                       "you spreadsheet-speed entry, cash-flow analytics, future projections and end-to-end encryption.",
+        "nav": "Private YNAB & Mint alternative",
+        "intro": "Most popular budget apps require connecting your bank through Plaid or Finicity, store your "
+                 "transactions in plaintext on their servers, and charge $90–$120 a year. PlannedOut is a free, "
+                 "end-to-end encrypted cash-flow planner for people who want spreadsheet control without giving up analytics.",
+        "sections": [
+            ("How PlannedOut compares to YNAB, Mint and Monarch",
+             ["Zero-knowledge encryption: entries are encrypted in your browser (AES-256-GCM) with your passphrase",
+              "No Plaid, Finicity or open-banking credentials required — import CSV or .xlsx files locally in your browser",
+              "Spreadsheet-fast entry with formulas, copy-paste, fill-down and undo",
+              "20 currencies supported ($ USD, £ GBP, € EUR, ₹ INR, C$ CAD, A$ AUD, AED, SGD and more)",
+              "Free to use, with no ads and no upsells"]),
+            ("Cash-flow clarity without rigid envelope micromanagement",
+             ["Clear monthly verdict: did this month add to your savings or draw them down?",
+              "Separates fixed commitments, day-to-day spending, annual bills (sinking funds) and one-offs",
+              "Category trends against your 6-month average and top merchants",
+              "Year-by-year savings projections and a savings runway calculator built right in"]),
+            ("Bring your existing history",
+             ["Import CSV exports from your bank or previous budget app",
+              "Import multi-tab Excel (.xlsx) budget workbooks",
+              "Files are parsed inside your browser; raw files are never uploaded to our server"]),
+        ],
+        "faq": [
+            ("Is there a budget app that doesn't require Plaid or bank linking?",
+             "Yes. PlannedOut never connects to your bank. You type, paste from a spreadsheet, or import CSV / Excel "
+             "files directly in your browser."),
+            ("Can PlannedOut read my financial data?",
+             "No. Your records are encrypted in your browser before they are sent to our server, using a key derived "
+             "from your vault passphrase. We never receive your passphrase or key."),
+            ("Does it support multiple currencies?",
+             "Yes. You can pick from 20 currencies including USD, EUR, GBP, CAD, AUD, SGD, AED and INR during setup "
+             "or in Settings."),
+        ],
+    },
+    "fire-retirement-runway-planner": {
+        "title": "FIRE & Retirement Runway Planner: How Long Will My Savings Last?",
+        "h1": "Plan your FIRE number, retirement cash flow and savings runway",
+        "description": "Go beyond the generic 4% rule. Model your early retirement (FIRE), Coast FIRE or retirement "
+                       "runway using your actual monthly burn, lumpy annual bills, inflation and what-if scenarios.",
+        "nav": "FIRE & retirement planner",
+        "intro": "Rules of thumb like '25× annual expenses' hide the details that actually make or break early "
+                 "retirement: inflation, big yearly bills like health insurance and property tax, and part-time or "
+                 "pension income. PlannedOut models your future year by year from your real spending.",
+        "sections": [
+            ("Why real cash flow beats a static 4% rule",
+             ["Separates baseline monthly living costs from fixed commitments that may end (like a mortgage or EMI)",
+              "Includes annual and irregular costs — insurance premiums, property taxes, travel, car replacement",
+              "Applies annual inflation to your spending and holiday budgets",
+              "Factors in ongoing income such as rent, dividends, pensions or Barista / Coast FIRE work"]),
+            ("Test every retirement what-if in seconds",
+             ["Project your nest egg to any horizon year (e.g. age 60, 75 or 90)",
+              "See your exact runway in months and years if you stopped working today",
+              "Use interactive sliders to cut discretionary spending by 10–30%, drop a fixed cost or add side income",
+              "Compare which single change adds the most years to your runway"]),
+            ("Private by design for high-net-worth & FIRE savers",
+             ["Your net worth, balances and spending are encrypted in your browser with AES-256-GCM",
+              "No bank account linking or wealth-management sales calls",
+              "Works in 20 currencies for domestic or expat / geographic-arbitrage planning"]),
+        ],
+        "faq": [
+            ("How do I calculate my FIRE number from my real spending?",
+             "Start with your true annual burn: 12 × monthly spending plus all yearly bills (insurance, taxes, travel). "
+             "A 4% withdrawal rate corresponds to 25× that annual burn, while a more conservative 3–3.5% rate (often "
+             "used for longer early retirements or high-inflation countries) is 28–33×. PlannedOut projects your actual "
+             "balances year by year with inflation so you don't have to rely on a single multiplier."),
+            ("Can I model Coast FIRE, Barista FIRE or a mini-retirement?",
+             "Yes. Add your expected part-time, freelance or rental income alongside your spending and see whether "
+             "your savings grow or how slowly they draw down over your chosen time horizon."),
+            ("How do I account for health insurance and big yearly bills in retirement?",
+             "Mark them as annual items in PlannedOut. They are tracked separately from monthly spending and included "
+             "automatically in your annual burn and multi-year runway projections."),
+        ],
+    },
 }
 
 
@@ -246,6 +395,10 @@ GUIDE_ILLUS = {
     "private-expense-tracker": ["flow", "never_ask", "control"],
     "savings-runway-calculator": ["burn", "runway", "personas"],
     "annual-expenses-planner": ["annual_cal", "sinking"],
+    "budget-app-without-sms-india": ["never_ask", "grid", "flow"],
+    "emi-budget-planner-india": ["india_month", "runway"],
+    "private-ynab-mint-alternative": ["flow", "verdict", "import"],
+    "fire-retirement-runway-planner": ["burn", "runway", "control"],
 }
 
 # Free calculators on public pages (no sign-in). The math runs in the browser (static/js/calc.js);
