@@ -385,6 +385,244 @@ GUIDES = {
              "automatically in your annual burn and multi-year runway projections."),
         ],
     },
+    "first-salary-budget-planner-india": {
+        "title": "First Salary Budget Planner for India: How to Split Your In-Hand Pay (Free)",
+        "h1": "Just started earning? Plan your first salary before lifestyle creep sets in",
+        "description": "Free first-salary budget planner for freshers and young earners in India. Split in-hand pay "
+                       "across rent or PG, family support, SIPs and fun, and see how much you actually save each month.",
+        "nav": "First-salary planner (India)",
+        "intro": "Your offer letter shows CTC, but your bank account sees in-hand pay after PF, tax and deductions. "
+                 "Add PG or flat rent, food delivery, sending money home, a first credit card and a starter SIP, and it "
+                 "is easy to reach the 25th wondering where the salary went. PlannedOut gives you a clean monthly sheet "
+                 "to split your paycheck and see whether each month builds your savings.",
+        "sections": [
+            ("Budget from in-hand salary, not CTC",
+             ["Start with the exact salary credited to your bank after EPF, professional tax and TDS",
+              "Keep fixed monthly costs clear: PG or flat rent, Wi-Fi, commute, education loan EMI and money sent home",
+              "Track UPI, dining out, shopping and credit card spending without handing over SMS permissions",
+              "Separate investments (first mutual fund SIP, PPF, RD or emergency fund transfer) from expenses"]),
+            ("Set up your starter buckets in ten minutes",
+             ["Build a 3–6 month emergency fund before locking money into long-term products",
+              "Set aside a small monthly sinking fund for annual costs: health or term insurance, travel home for Diwali, a new phone or laptop",
+              "Spot creeping subscriptions and weekend spending against your 6-month average",
+              "Use an Excel-like grid with formulas like =1200+340 and copy-paste from your bank statement"]),
+            ("See your first year of wealth build up",
+             ["Every month gets a clear verdict in ₹: how much you added to savings",
+              "Project how your savings and SIPs grow over the next 3, 5 or 10 years",
+              "Test what-ifs: see how a rent hike, switching jobs or saving 10% more changes your future corpus",
+              "Encrypted in your browser (AES-256-GCM) so your salary and savings stay completely private"]),
+        ],
+        "faq": [
+            ("How should I split my first salary in India?",
+             "A practical starting split is the 50/30/20 rule on your in-hand pay: up to 50% on needs (rent/PG, food, "
+             "utilities, commute, education loan EMI, family support), 20–30% into savings (emergency fund first, then "
+             "SIPs), and the rest on wants. In high-rent cities like Mumbai or Bengaluru, aim to keep savings at 20%+ "
+             "even if rent pushes needs higher."),
+            ("Why is my in-hand salary lower than my CTC?",
+             "CTC (Cost to Company) includes employer PF contributions, gratuity, insurance premiums and variable "
+             "bonuses that don't land in your monthly bank credit. Always build your monthly budget from the actual "
+             "in-hand amount credited each month."),
+            ("How much emergency fund should a fresher build before investing?",
+             "Start by parking 3 to 6 months of basic living expenses (rent, food, EMI and family support) in a safe "
+             "savings account or liquid fund before committing heavily to equity SIPs."),
+        ],
+    },
+    "festival-wedding-budget-planner-india": {
+        "title": "Diwali, Festival & Wedding Budget Planner for India (Sinking Funds in ₹)",
+        "h1": "Enjoy Diwali, weddings and family functions without breaking your monthly budget",
+        "description": "Plan ahead for Diwali gifts, gold, travel, Rakhi, Eid, Onam and Indian wedding expenses in "
+                       "rupees. Keep festival and wedding spending separate from regular monthly bills.",
+        "nav": "Festival & wedding planner (India)",
+        "intro": "In Indian households, October to February can wipe out six months of careful saving: Diwali gifts and "
+                 "staff bonuses, home decor, gold or electronics, travel home, and two or three family weddings. When "
+                 "all of that lands inside your regular monthly budget, your numbers look broken and credit card bills "
+                 "spike. PlannedOut keeps annual festivals and one-off wedding costs separate so you can plan for them calmly.",
+        "sections": [
+            ("Every festive and wedding expense, planned in advance",
+             ["Diwali shopping, sweets, clothes, home renovation, gold and househelp bonuses",
+              "Durga Puja, Eid, Onam, Pongal, Ganesh Chaturthi, Christmas and Rakhi travel and gifting",
+              "Attending family weddings: flights, hotels, outfits and cash/shagun gifts",
+              "Saving for your own or a child's wedding across jewellery, venue, catering and photography"]),
+            ("Turn a big October or wedding bill into a calm monthly amount",
+             ["Mark predictable festive budgets as annual items so they sit on your yearly calendar",
+              "See the total yearly festive & annual cost and the 1/12th monthly sinking fund to set aside",
+              "Log big one-off wedding milestones separately so they don't distort your everyday grocery and utility averages",
+              "Track HDFC, ICICI, SBI, Axis or other credit card bills so festive offers never turn into revolving debt"]),
+            ("Keep your regular monthly trend honest",
+             ["Your month view clearly separates regular expenses, annual items and one-off spending",
+              "See whether your year as a whole added to savings even when the Diwali month ran a shortfall",
+              "Include yearly festive and travel budgets in your multi-year savings projections"]),
+        ],
+        "faq": [
+            ("How do I budget for Diwali and annual festivals without using credit card EMIs?",
+             "Add up what you spent last year on gifts, clothes, bonuses, travel and big purchases, then divide by 12. "
+             "Transfer that monthly amount into a separate savings pot (a sinking fund) from April onwards so the cash "
+             "is waiting before the festive sales begin."),
+            ("How should I track a wedding budget alongside my household expenses?",
+             "Mark wedding payments as one-off or annual items in PlannedOut. That way you see every rupee leaving "
+             "your bank or card balances, while your regular monthly burn and category averages stay clean."),
+            ("Why keep festival and wedding spending separate from monthly expenses?",
+             "Because lumping a ₹1,50,000 festive or wedding month into regular spending makes your 6-month average "
+             "useless. Separating them shows both your true everyday living cost and your true annual commitments."),
+        ],
+    },
+    "child-education-savings-planner-india": {
+        "title": "Child Education Expense & Savings Planner for India: School & College Fees",
+        "h1": "Plan for yearly school fees today and college costs tomorrow",
+        "description": "Plan child education costs in India: separate annual school admission and tuition fees from "
+                       "monthly spending, and project your family savings to your child's college year with inflation.",
+        "nav": "Child education planner (India)",
+        "intro": "Education is often the fastest-growing cost for an Indian family: monthly tuition and bus fees, big "
+                 "April admission and annual charges, coaching classes, and a college corpus waiting ten or fifteen "
+                 "years ahead. PlannedOut handles both halves — keeping this year's school bills organised and "
+                 "projecting your total savings to the exact year your child starts college.",
+        "sections": [
+            ("Handle this year's school and coaching costs without April stress",
+             ["Track monthly tuition, school bus, hobby classes and tutors under fixed monthly commitments",
+              "Mark annual school charges, admission fees, books, uniforms and laptops as annual items",
+              "See the full yearly education bill and how much to set aside each month before April arrives",
+              "Keep education costs clearly visible in ₹ alongside rent, EMIs and household spending"]),
+            ("Project your savings to the year college begins",
+             ["Pick your target horizon year (for example 2032 or 2038) in Projections",
+              "Model annual inflation on your household and education spending",
+              "Test what-ifs: see how increasing your monthly savings rate or finishing a loan EMI builds your college buffer",
+              "Track education investments — mutual fund SIPs, PPF, Sukanya Samriddhi or fixed deposits — in dedicated investment tabs"]),
+            ("Private family planning in your browser",
+             ["All family balances, school fees and investment totals are encrypted in your browser with AES-256-GCM",
+              "No bank login, no SMS scraping and no distributor sales calls",
+              "Import existing Excel fee trackers or bank CSVs in seconds"]),
+        ],
+        "faq": [
+            ("What education inflation rate should I plan for in India?",
+             "School and college fees in India have historically grown at 8–10% a year, often higher than headline CPI "
+             "inflation. When projecting future costs, testing an 8–10% annual growth rate gives a safer buffer."),
+            ("How do I stop annual school fees from wrecking April's budget?",
+             "Record the annual fee, books and uniform bill as an annual item. Divide that total by 12 and set it aside "
+             "every month in a sinking fund so the April payment comes from earmarked savings, not that month's salary."),
+            ("Can I track Sukanya Samriddhi, PPF or mutual fund SIPs for my child's education?",
+             "Yes. PlannedOut lets you keep investment accounts (ETF/MF, Fixed Savings, PPF/SSY) separate from spending "
+             "so transfers into your child's education corpus are counted as savings, not expenses."),
+        ],
+    },
+    "indian-household-budget-template": {
+        "title": "Monthly Household Budget Template for India (Excel-Style, in ₹ Rupees)",
+        "h1": "An Indian household budget template that updates its own charts",
+        "description": "Free Excel-style monthly household budget template for Indian families. Track salary, rent, "
+                       "EMIs, groceries, househelp, SIPs and annual bills in ₹1,00,000 format, or import your .xlsx sheet.",
+        "nav": "Household budget template (India)",
+        "intro": "If you searched for a monthly household budget Excel template in rupees, you probably want a clean "
+                 "table for salary, rent, groceries, househelp, EMIs and SIPs — without spending every Sunday fixing "
+                 "broken formulas or copying tabs for the new month. PlannedOut gives you that exact spreadsheet grid "
+                 "in ₹1,00,000 format, and builds the monthly summary, yearly table and future projections automatically.",
+        "sections": [
+            ("A ready-made Indian family budget format",
+             ["Pre-built structure for Regular income, Monthly fixed commitments, Regular expenses, Annual items and Investments",
+              "Indian rupee formatting with lakhs and crores (₹1,00,000) across every table and chart",
+              "Dedicated tabs for your main bank account, Indian credit cards (HDFC, ICICI, SBI, Axis) and investments (ETF/MF, FDs)",
+              "Fits Indian household categories: rent, society maintenance, househelp & cook salaries, tuitions, groceries, fuel, parents' medical and insurance"]),
+            ("Spreadsheet speed, zero formula maintenance",
+             ["Type formulas directly in amount cells like =1200+340 or =450*3",
+              "Navigate with arrow keys, Tab and Enter; copy-paste rows from Excel or Google Sheets; fill-down and undo",
+              "Automatic monthly verdict showing whether the month added to your family savings or drew them down",
+              "Automatic 12-month year view, 6-month category trends and multi-year savings projections"]),
+            ("Import your existing Excel family budget",
+             ["Already have a multi-tab .xlsx household budget or bank CSV? Import it directly in your browser",
+              "Raw files never leave your device; every row is encrypted with AES-256-GCM before saving",
+              "Switch to the Excel green theme anytime if you love the classic spreadsheet look"]),
+        ],
+        "faq": [
+            ("What categories should an Indian household budget template have?",
+             "A practical Indian household sheet separates: (1) In-hand income, (2) Fixed monthly commitments (rent, "
+             "EMIs, society maintenance, househelp salaries, school tuition), (3) Day-to-day living (groceries, "
+             "utilities, fuel, medical, dining out), (4) Annual bills (insurance premiums, annual school fees, Diwali, "
+             "travel), and (5) Investments (SIPs, PPF, EPF, RD). PlannedOut is structured around these exact buckets."),
+            ("Can I import my existing Excel household budget sheet?",
+             "Yes. You can import .xlsx workbooks (including one sheet per month) or CSV files right in your browser."),
+            ("Does it format numbers in lakhs and crores (₹1,00,000)?",
+             "Yes. When your currency is set to INR (₹), all amounts, summaries and projections use Indian digit grouping."),
+        ],
+    },
+    "freelance-irregular-income-budget": {
+        "title": "How to Budget with Irregular or Freelance Income: Cash-Flow & Runway Planner",
+        "h1": "A cash-flow planner for freelancers, consultants and uneven paychecks",
+        "description": "Budgeting with variable, freelance, commission or business income? Track good and lean months, "
+                       "separate fixed baseline costs, and always know how many months your cash buffer lasts.",
+        "nav": "Freelance & irregular income",
+        "intro": "Standard budget apps assume the same paycheck lands on the 1st of every month. When you freelance, "
+                 "consult, run a small studio or earn commissions, one month brings three client invoices at once and "
+                 "the next brings none. PlannedOut focuses on cash flow and runway: what your baseline month actually "
+                 "costs, whether the year as a whole is adding to your reserves, and how many months your buffer lasts "
+                 "if client work slows down.",
+        "sections": [
+            ("Know your true baseline burn",
+             ["Separate non-negotiable fixed costs (rent, mortgage, utilities, software, insurance) from flexible spending",
+              "See your 3-month and 6-month average monthly burn so one lean or bumper month doesn't mislead you",
+              "Keep annual bills — advance/quarterly taxes, professional insurance, domain & software renewals — in their own bucket",
+              "Log client payouts quickly in a spreadsheet-style grid or paste from invoices and bank CSVs"]),
+            ("Judge your finances across the year, not one lumpy month",
+             ["Each month shows clearly how much it added to your cash buffer or drew from it",
+              "The Year view shows all 12 months side by side so you can see your real annual surplus and savings rate",
+              "Track credit cards and tax / reserve accounts alongside your main checking account"]),
+            ("See your runway and test lean-month scenarios",
+             ["Live savings runway in months based on your actual bank balances and real average spending",
+              "Use what-if sliders to test a 30% dip in income, cutting discretionary spend, or taking a two-month break",
+              "Supports 20 currencies (USD, EUR, GBP, INR, CAD, AUD, SGD, AED and more) and encrypts everything in your browser"]),
+        ],
+        "faq": [
+            ("How do you budget when your income changes every month?",
+             "Start from your expenses, not your peak month's income. Calculate your baseline monthly cost (fixed "
+             "commitments + essential living + 1/12th of annual bills and taxes). In high-earning months, park the "
+             "surplus in a cash buffer; in lean months, draw from that buffer to cover your baseline. PlannedOut shows "
+             "that exact monthly surplus or drawdown automatically."),
+            ("How many months of emergency buffer should a freelancer keep?",
+             "Most freelancers and self-employed earners aim for 6 to 12 months of essential expenses plus upcoming "
+             "tax bills, since client pipelines and payment cycles take longer to replace than a salaried job."),
+            ("How do I plan for quarterly or advance taxes?",
+             "Record expected tax payments as annual or irregular items in PlannedOut so they are factored into your "
+             "yearly cash-flow commitments and never mistaken for spendable profit."),
+        ],
+    },
+    "sinking-funds-guide": {
+        "title": "Sinking Funds Explained: Examples, Categories List & How to Track Them",
+        "h1": "Sinking funds explained: turn big predictable bills into calm monthly savings",
+        "description": "What is a sinking fund, which categories should you set up, and how is it different from an "
+                       "emergency fund? Practical examples plus a free planner to track annual and irregular bills.",
+        "nav": "Sinking funds guide",
+        "intro": "An annual insurance renewal, property tax bill, holiday flight or car service isn't an emergency — "
+                 "you knew it was coming, just not which month it would hurt. A sinking fund is the simple habit of "
+                 "turning those predictable future bills into small monthly set-asides, and PlannedOut has them built "
+                 "right into how your monthly budget works.",
+        "sections": [
+            ("Sinking fund vs emergency fund: the simple difference",
+             ["A sinking fund is for known, planned future expenses (insurance premiums, school fees, holidays, car servicing)",
+              "An emergency fund is for true surprises you cannot schedule (job loss, urgent medical bills, sudden repairs)",
+              "Keeping them separate stops predictable yearly bills from draining your emergency safety net",
+              "Monthly set-aside = total upcoming bill ÷ months left until it is due"]),
+            ("Common sinking fund categories (with examples)",
+             ["Insurance & taxes: health, term life, car/home insurance premiums, property tax, annual accounting fees",
+              "Family & education: annual school or college fees, uniforms, books, summer camps",
+              "Celebrations & travel: holidays, festivals (Diwali, Christmas, Eid), birthdays, weddings and gifts",
+              "Home, car & tech: car servicing and tyres, appliance or roof repairs, phone/laptop replacement, annual software subscriptions"]),
+            ("How PlannedOut tracks annual bills without 15 separate bank accounts",
+             ["Mark any yearly or irregular bill as an Annual item inside your sheet",
+              "See all of them on an annual calendar with the full yearly total and monthly equivalent",
+              "Your monthly balance bridge keeps Annual items separate from Regular monthly expenses so your spending average stays accurate",
+              "Annual items are automatically included in your multi-year savings and runway projections"]),
+        ],
+        "faq": [
+            ("What is a sinking fund with an example?",
+             "If your car insurance and annual servicing cost $1,200 (or ₹36,000) once a year, a sinking fund means "
+             "setting aside $100 (or ₹3,000) every month for 12 months. When the bill arrives, the cash is ready and "
+             "your monthly budget doesn't feel a shock."),
+            ("How many sinking funds should I have?",
+             "Most households do best with 4 to 8 broad categories — such as Insurance & Taxes, Education, Holidays & "
+             "Festivals, Vehicle & Home Maintenance, and Gifts — or one combined 'Annual Bills' savings bucket tracked "
+             "item by item in a planner like PlannedOut."),
+            ("Where should I keep my sinking fund money?",
+             "In a high-yield savings account, sweep-in deposit or liquid fund where it earns interest safely and can "
+             "be withdrawn without penalty the month the bill falls due."),
+        ],
+    },
 }
 
 
@@ -473,6 +711,73 @@ GUIDE_SHOTS = {
             "caption": "Inside PlannedOut: live drawdown tracking with your 3-month average burn, separate annual bills, and exact runway based on your real bank and savings balances.",
         },
     ],
+    "first-salary-budget-planner-india": [
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut monthly summary in rupees showing in-hand salary vs monthly fixed costs, regular expenses, investments and net savings",
+            "caption": "Know where your paycheck went: see your in-hand salary, fixed commitments, everyday spending and how much you added to savings in ₹.",
+        },
+        {
+            "tpl": "illus/shot_sheet.html",
+            "alt": "PlannedOut transactions sheet for Indian earners with bank account, credit cards, ETF/MF investment tabs and monthly fixed expenses",
+            "caption": "Split your paycheck in an Excel-like sheet: track bank accounts, credit cards and starter SIPs (ETF/MF, Fixed Savings) without giving any app SMS access.",
+        },
+    ],
+    "festival-wedding-budget-planner-india": [
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut balance movement card separating annual festival and wedding items from regular monthly household expenses in rupees",
+            "caption": "Keep Diwali and wedding costs separate: 'How your balance moved' isolates Annual items (−₹34,635) from Regular expense (−₹1,67,358) so one festive month doesn't skew your average.",
+        },
+        {
+            "tpl": "illus/shot_sheet.html",
+            "alt": "PlannedOut sheet showing HDFC, ICICI, SBI and Axis credit card bills alongside main account and fixed household commitments",
+            "caption": "Watch festive card spend in one place: see HDFC, ICICI, SBI and Axis credit card totals alongside your bank balance before the statement date arrives.",
+        },
+    ],
+    "child-education-savings-planner-india": [
+        {
+            "tpl": "illus/shot_sheet.html",
+            "alt": "PlannedOut Indian family sheet showing monthly fixed Tuitions, ETF/MF and Fixed Savings investment tabs, and bank account rows in rupees",
+            "caption": "School fees & education investments together: track monthly tuitions in your sheet and monitor ETF/MF and Fixed Savings tabs for your child's future corpus.",
+        },
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut monthly overview showing regular expenses, separate annual school fee items and savings balance in rupees",
+            "caption": "Separate April school fees from monthly living costs: annual items sit in their own bucket and feed straight into your multi-year projections.",
+        },
+    ],
+    "indian-household-budget-template": [
+        {
+            "tpl": "illus/shot_sheet.html",
+            "alt": "PlannedOut Indian household budget spreadsheet template showing Rent, Househelps, Tuitions, Family and credit card totals in rupees",
+            "caption": "Ready-made Indian household sheet: cell reference (A1), formula bar (fx), tabs for Main account, HDFC/ICICI/SBI/Axis cards and Investments, plus rows for Rent, Househelps and Tuitions.",
+        },
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut automatic monthly summary generated from the household budget sheet in Indian rupees",
+            "caption": "No manual chart upkeep: your monthly savings verdict, opening-to-closing balance bridge and yearly averages update automatically as you type.",
+        },
+    ],
+    "freelance-irregular-income-budget": [
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut monthly cash-flow view showing 3-month average burn, savings drawdown or surplus, and months of runway remaining",
+            "caption": "Built for uneven months: see your 3-month average burn and exact months of runway across your bank and savings balances when client payouts fluctuate.",
+        },
+        {
+            "tpl": "illus/shot_sheet.html",
+            "alt": "PlannedOut spreadsheet-style cash-flow grid for logging client income, fixed baseline expenses and tax reserves",
+            "caption": "Log client invoices and baseline costs fast: use formulas, paste from bank CSVs, and keep tax or reserve accounts in separate tabs.",
+        },
+    ],
+    "sinking-funds-guide": [
+        {
+            "tpl": "illus/shot_month.html",
+            "alt": "PlannedOut monthly balance bridge showing annual sinking fund items kept separate from regular monthly spending",
+            "caption": "Sinking funds built in: Annual items are tracked separately from Regular monthly expenses so predictable yearly bills never look like a surprise.",
+        },
+    ],
 }
 GUIDE_ILLUS = {
     "budget-planner-india": ["india_month", "annual_cal", "verdict"],
@@ -484,10 +789,24 @@ GUIDE_ILLUS = {
     "emi-budget-planner-india": ["india_month", "runway"],
     "private-ynab-mint-alternative": ["flow", "verdict", "import"],
     "fire-retirement-runway-planner": ["burn", "runway", "control"],
+    "first-salary-budget-planner-india": ["india_month", "sinking", "verdict"],
+    "festival-wedding-budget-planner-india": ["annual_cal", "sinking", "verdict"],
+    "child-education-savings-planner-india": ["annual_cal", "runway", "control"],
+    "indian-household-budget-template": ["grid", "year_bars", "import"],
+    "freelance-irregular-income-budget": ["burn", "year_bars", "runway"],
+    "sinking-funds-guide": ["sinking", "annual_cal", "verdict"],
 }
 
 # India-specific guides use en-IN; global guides use generic English (en) so global searchers match cleanly.
-INDIA_GUIDES = {"budget-planner-india", "budget-app-without-sms-india", "emi-budget-planner-india"}
+INDIA_GUIDES = {
+    "budget-planner-india",
+    "budget-app-without-sms-india",
+    "emi-budget-planner-india",
+    "first-salary-budget-planner-india",
+    "festival-wedding-budget-planner-india",
+    "child-education-savings-planner-india",
+    "indian-household-budget-template",
+}
 
 # Bidirectional cross-links between guides and interactive calculators.
 GUIDE_CALCS = {
@@ -500,13 +819,19 @@ GUIDE_CALCS = {
     "excel-budget-alternative": ("50-30-20-budget", "Want a quick check on your needs, wants and savings?", "Try the free 50/30/20 budget calculator →"),
     "private-expense-tracker": ("emergency-fund", "Building your safety net privately?", "Try the free emergency fund calculator →"),
     "budget-app-without-sms-india": ("emergency-fund", "Checking how many months of safety net you need?", "Try the free emergency fund calculator →"),
+    "first-salary-budget-planner-india": ("50-30-20-budget", "Want to split your in-hand salary right now?", "Try the free 50/30/20 budget calculator →"),
+    "festival-wedding-budget-planner-india": ("sinking-fund", "Want to see how much to set aside each month for Diwali or a wedding?", "Try the free sinking fund calculator →"),
+    "child-education-savings-planner-india": ("sinking-fund", "Planning next April's school fees or annual charges?", "Try the free sinking fund calculator →"),
+    "indian-household-budget-template": ("50-30-20-budget", "Want a quick benchmark for your family's needs, wants and savings?", "Try the free 50/30/20 budget calculator →"),
+    "freelance-irregular-income-budget": ("emergency-fund", "Working out how many months of buffer you need for variable income?", "Try the free emergency fund calculator →"),
+    "sinking-funds-guide": ("sinking-fund", "Ready to add up your own yearly bills right now?", "Try the free sinking fund calculator →"),
 }
 
 CALC_GUIDES = {
-    "savings-runway": ["savings-runway-calculator", "fire-retirement-runway-planner", "private-ynab-mint-alternative"],
-    "emergency-fund": ["savings-runway-calculator", "budget-planner-india", "private-expense-tracker"],
-    "sinking-fund": ["annual-expenses-planner", "budget-planner-india", "emi-budget-planner-india"],
-    "50-30-20-budget": ["budget-planner-india", "emi-budget-planner-india", "excel-budget-alternative"],
+    "savings-runway": ["savings-runway-calculator", "fire-retirement-runway-planner", "freelance-irregular-income-budget", "private-ynab-mint-alternative"],
+    "emergency-fund": ["freelance-irregular-income-budget", "savings-runway-calculator", "budget-planner-india", "private-expense-tracker"],
+    "sinking-fund": ["sinking-funds-guide", "annual-expenses-planner", "festival-wedding-budget-planner-india", "child-education-savings-planner-india"],
+    "50-30-20-budget": ["first-salary-budget-planner-india", "indian-household-budget-template", "budget-planner-india", "emi-budget-planner-india"],
 }
 
 # Free calculators on public pages (no sign-in). The math runs in the browser (static/js/calc.js);
