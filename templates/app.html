@@ -4,7 +4,7 @@
 {% block theme %}<script src="{% static JS_DIR|add:'/theme.js' %}"></script>{% endblock %}
 {% block body %}
 <header class="top">
-  <a class="brand" href="/" style="color:inherit;text-decoration:none"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>
+  <a class="brand" href="/" aria-label="PlannedOut home"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>
   <nav class="tabs" id="tabs" hidden></nav>
   <form method="post" action="/logout/">{% csrf_token %}<button class="link" type="submit">Sign out</button></form>
 </header>

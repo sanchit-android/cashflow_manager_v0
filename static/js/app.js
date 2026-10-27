@@ -59,6 +59,7 @@ function applyTheme(t, custom) {
     de.dataset.theme = t;
     try { localStorage.setItem("theme", t); localStorage.removeItem("themeVars"); } catch (e) { /* ignore */ }
   }
+  syncAllTabs();
 }
 const themePicker = (current, custom) => `<div class="themes">${Object.entries(THEMES).map(([k, [name, bg, ac]]) =>
   `<button type="button" class="theme-swatch ${k === current ? "on" : ""}" data-theme-pick="${k}">
@@ -291,17 +292,41 @@ const tabList = () => (store.isAdmin ? [...BASE_TABS, ["admin", "Admin"]] : BASE
 const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
   ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
   ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
+function syncTabIndicator(nav) {
+  if (!nav || nav.hidden) return;
+  const b = nav.querySelector("button.on");
+  if (!b || !b.offsetWidth) return;
+  nav.style.setProperty("--tab-x", b.offsetLeft + "px");
+  nav.style.setProperty("--tab-y", b.offsetTop + "px");
+  nav.style.setProperty("--tab-w", b.offsetWidth + "px");
+  nav.style.setProperty("--tab-h", b.offsetHeight + "px");
+  if (!nav.classList.contains("ready")) { void nav.offsetWidth; nav.classList.add("ready"); }
+}
+function syncAllTabs() {
+  syncTabIndicator(tabsEl);
+  syncTabIndicator(document.getElementById("bottomnav"));
+}
+window.addEventListener("resize", syncAllTabs);
 function renderBottomNav() {
   let nav = document.getElementById("bottomnav");
   if (!isPhone()) { if (nav) nav.remove(); return; }
-  if (!nav) { nav = document.createElement("nav"); nav.id = "bottomnav"; nav.setAttribute("aria-label", "Main"); document.body.appendChild(nav); }
+  if (!nav) {
+    nav = document.createElement("nav"); nav.id = "bottomnav"; nav.setAttribute("aria-label", "Main");
+    nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
+    nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
+      if (b.dataset.ptab === "more") return moreSheet();
+      goTab(b.dataset.ptab);
+    }));
+    document.body.appendChild(nav);
+  }
   const inMore = !["month", "year", "insights", "savings"].includes(S.tab);
-  nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}" class="${(k === S.tab || (k === "more" && inMore)) ? "on" : ""}" aria-current="${k === S.tab ? "page" : "false"}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
-  nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
-    if (b.dataset.ptab === "more") return moreSheet();
-    goTab(b.dataset.ptab);
-  }));
+  nav.querySelectorAll("[data-ptab]").forEach((b) => {
+    const k = b.dataset.ptab, on = k === S.tab || (k === "more" && inMore);
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-current", k === S.tab ? "page" : "false");
+  });
+  syncTabIndicator(nav);
 }
 function moreSheet() {
   const back = document.createElement("div");
@@ -324,8 +349,19 @@ window.matchMedia("(max-width: 640px)").addEventListener("change", () => { if (s
 function renderTabs() {
   renderBottomNav();
   tabsEl.hidden = false;
-  tabsEl.innerHTML = tabList().map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}</button>`).join("");
-  tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => goTab(b.dataset.tab, false)));
+  const list = tabList(), keys = list.map(([k]) => k).join(",");
+  if (tabsEl.dataset.keys !== keys) {
+    tabsEl.dataset.keys = keys;
+    tabsEl.classList.remove("ready");
+    tabsEl.innerHTML = list.map(([k, l]) => `<button type="button" data-tab="${k}" data-label="${l}">${l}</button>`).join("");
+    tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => goTab(b.dataset.tab, false)));
+  }
+  tabsEl.querySelectorAll("button").forEach((b) => {
+    const on = b.dataset.tab === S.tab;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-current", on ? "page" : "false");
+  });
+  syncTabIndicator(tabsEl);
 }
 // ================= motion =================
 // Screen transitions (fade / slide / none), saved per device and in settings.
