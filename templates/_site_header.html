@@ -5,11 +5,11 @@
     <nav class="site-nav" aria-label="Main">
       <a href="/#why">Features</a>
       <a href="/#how">How it works</a>
-      <details class="dd">
+      <details class="dd" name="nav-dd">
         <summary>Guides</summary>
         <div class="dd-panel">{% for slug, item in guides_nav %}<a href="/{{ slug }}/"{% if request.path == "/"|add:slug|add:"/" %} aria-current="page"{% endif %}>{{ item.nav }}</a>{% endfor %}</div>
       </details>
-      <details class="dd">
+      <details class="dd" name="nav-dd">
         <summary>Calculators</summary>
         <div class="dd-panel"><a href="/calculators/"{% if request.path == "/calculators/" %} aria-current="page"{% endif %}>All calculators</a>{% for slug, item in calcs_nav %}<a href="/calculators/{{ slug }}/"{% if request.path == "/calculators/"|add:slug|add:"/" %} aria-current="page"{% endif %}>{{ item.nav }}</a>{% endfor %}</div>
       </details>
@@ -20,11 +20,4 @@
     </nav>
   </details>
 </header>
-<script>
-(function(){var h=document.currentScript.previousElementSibling,m=h.querySelector("details.menu"),mq=matchMedia("(min-width: 861px)");
-function sync(){m.open=mq.matches;}
-function closeAll(){h.querySelectorAll("details[open]").forEach(function(d){if(d!==m||!mq.matches)d.open=false;});}
-document.addEventListener("click",function(e){if(!h.contains(e.target)||e.target.closest("a"))closeAll();});
-document.addEventListener("keydown",function(e){if(e.key==="Escape")closeAll();});
-sync();mq.addEventListener("change",sync);})();
-</script>
+<script src="{% static JS_DIR|add:'/nav.js' %}" defer></script>
