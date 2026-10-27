@@ -388,7 +388,44 @@ GUIDES = {
 }
 
 
-# One illustration per guide section, in section order (templates/illus/<name>.html).
+# Optional product screenshot shown on each guide page (alt text and caption tailored to the topic).
+GUIDE_SHOTS = {
+    "budget-planner-india": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut monthly budget overview in Indian rupees showing ₹1,54,743 drawn from savings, 3-month average burn and runway, opening to closing balance movement across regular income, regular expenses and annual items, and card bills paid",
+        "caption": "Actual month view in PlannedOut (₹ formatting): plain monthly verdict, how your bank and savings balance moved across regular income, regular expenses and annual items, plus custom tiles like card bills paid.",
+    },
+    "excel-budget-alternative": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut automatic monthly summary showing savings verdict, balance movement from opening to closing, 2026 averages and custom formula tiles",
+        "caption": "What PlannedOut builds for you automatically on top of your spreadsheet entries: monthly verdict, opening-to-closing balance bridge, yearly averages and custom tiles.",
+    },
+    "savings-runway-calculator": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut month view showing ₹1,54,743 from savings and a 3-month average burn of ₹2,64,141 with savings runway in months",
+        "caption": "Inside PlannedOut: when a month spends more than comes in, the top card immediately shows your 3-month average burn and how many months your bank and savings balances will last.",
+    },
+    "annual-expenses-planner": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut balance movement card separating annual items from regular monthly expenses between opening and closing balance",
+        "caption": "Inside PlannedOut: 'How your balance moved' keeps Annual items (−₹34,635) separate from Regular expense (−₹1,67,358), so yearly bills never distort your monthly spending average.",
+    },
+    "emi-budget-planner-india": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut month summary showing regular income minus regular expense, card bills paid with 2026 average, and opening to closing balance movement",
+        "caption": "Inside PlannedOut: track regular expenses, card bills paid against your yearly average, and see right away whether the month added to savings or drew them down.",
+    },
+    "private-ynab-mint-alternative": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut cash-flow dashboard showing monthly savings verdict, opening-to-closing balance movement, and customizable metric tiles",
+        "caption": "Inside PlannedOut: clear cash-flow verdict, opening-to-closing balance bridge, and custom metric tiles — all computed in your browser from end-to-end encrypted data.",
+    },
+    "fire-retirement-runway-planner": {
+        "tpl": "illus/shot_month.html",
+        "alt": "PlannedOut monthly drawdown and runway view showing 3-month average burn, bank and savings balance, and months of runway remaining",
+        "caption": "Inside PlannedOut: live drawdown tracking with your 3-month average burn, separate annual bills, and exact runway based on your real bank and savings balances.",
+    },
+}
 GUIDE_ILLUS = {
     "budget-planner-india": ["india_month", "annual_cal", "verdict"],
     "excel-budget-alternative": ["grid", "year_bars", "import"],
@@ -556,6 +593,7 @@ def home_jsonld(site):
         {"@type": "WebApplication", "name": NAME, "url": site + "/", "applicationCategory": "FinanceApplication",
          "operatingSystem": "Any (web browser)", "browserRequirements": "Requires a modern browser with JavaScript",
          "description": TAGLINE, "featureList": [b[0] + ": " + b[1] for b in BENEFITS],
+         "screenshot": site + "/static/img/screenshots/month-overview.png",
          "offers": {"@type": "Offer", "price": "0", "priceCurrency": "INR"}, "publisher": {"@id": site + "/#org"}},
         _faq(HOME_FAQ),
     )

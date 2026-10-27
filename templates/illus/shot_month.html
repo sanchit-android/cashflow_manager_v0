@@ -1,0 +1,5 @@
+{% load static %}<figure class="shot"><picture>
+  <source srcset="{% static 'img/screenshots/month-overview.webp' %}" type="image/webp">
+  <img src="{% static 'img/screenshots/month-overview.png' %}" alt="{% if alt %}{{ alt }}{% else %}PlannedOut monthly overview screenshot showing the monthly savings verdict, 3-month burn and savings runway, how opening balance moved through regular income, regular expense and annual items to closing balance, and custom summary tiles{% endif %}" width="1024" height="404" loading="{% if eager %}eager{% else %}lazy{% endif %}" decoding="async">
+</picture>{% if caption != "" %}<figcaption>{% if caption %}{{ caption }}{% else %}Inside PlannedOut: every month gets a plain verdict, a balance-movement breakdown (opening, regular income, regular expenses, annual items and closing balance), your savings runway, and custom tiles you can add yourself.{% endif %}</figcaption>{% endif %}</figure>
+

@@ -12,6 +12,12 @@
     <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %} <span class="muted small">No bank login · No SMS access · No ads</span></p>
   </div>{% include "illus/hero.html" %}</section>
 
+  <section aria-labelledby="inside">
+    <h2 id="inside">What a month looks like inside PlannedOut</h2>
+    <p class="lead">One screen tells you whether the month added to your savings or drew them down, how long your money lasts at your current burn, how your balance moved from opening to closing, and the custom numbers you care about.</p>
+    {% include "illus/shot_month.html" with eager=True %}
+  </section>
+
   <section aria-labelledby="why">
     <h2 id="why">Why people switch to PlannedOut</h2>
     <div class="points">

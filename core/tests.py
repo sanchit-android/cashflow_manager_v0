@@ -89,6 +89,8 @@ class CalculatorTests(TestCase):
         self.assertContains(self.client.get("/sitemap.xml"), "/budget-app-without-sms-india/")
         self.assertContains(self.client.get("/llms.txt"), "Sinking fund calculator")
         self.assertContains(self.client.get("/llms.txt"), "Private YNAB & Mint alternative")
+        self.assertContains(self.client.get("/"), "month-overview.webp")
+        self.assertContains(self.client.get("/budget-planner-india/"), "month-overview.webp")
 
     def test_sitemap_lastmod_from_indexnow(self):
         from .models import IndexNowPage
