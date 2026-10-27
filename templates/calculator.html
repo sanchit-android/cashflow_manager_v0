@@ -26,7 +26,7 @@
   <section class="card">
     <h2>Want this from your real numbers?</h2>
     <p>PlannedOut is a free, private cash-flow planner. Enter income and spending like a spreadsheet, and it works out your runway, savings rate, yearly bills and future savings for you. Everything is encrypted in your browser.</p>
-    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %}</p>
+    <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %}</p>
   </section>
   <section class="faq">
     <h2>Questions</h2>

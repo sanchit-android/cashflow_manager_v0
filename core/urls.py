@@ -18,6 +18,7 @@ urlpatterns = [
     path("auth/google/callback", google_auth.callback),
     path("auth/google/link", google_auth.link),
     path("app", views.app_page),
+    path("demo/", views.demo_page),
     path("api/auth/request-code", views.request_code),
     path("api/auth/verify-code", views.verify_code),
     path("api/vault", views.vault),

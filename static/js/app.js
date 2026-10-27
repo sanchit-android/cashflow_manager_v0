@@ -80,6 +80,11 @@ async function start() {
   track("app:open");
   try {
     await store.load();
+    if (store.isDemo) {
+      const resetBtn = document.getElementById("demo-reset");
+      if (resetBtn) resetBtn.onclick = () => { store.resetDemo(); afterUnlock(); };
+      return afterUnlock();
+    }
     if (!store.vault) return setupVault();
     const remembered = await device.load(store.email);
     if (remembered) {
@@ -149,6 +154,7 @@ function unlockScreen(mode = "pass") {
   const recovery = mode === "recovery";
   html(`<div class="narrow card">
     <h1>Unlock your data</h1>
+    ${store.isDemo ? '<p class="notice"><strong>Demo mode:</strong> Click Unlock (with any passphrase) to return to the sample data.</p>' : ""}
     <label for="secret">${recovery ? "Recovery key" : "Vault passphrase"}</label>
     <input id="secret" type="${recovery ? "text" : "password"}" autocomplete="${recovery ? "off" : "current-password"}" spellcheck="false">
     ${recovery ? `<label for="np">New passphrase (at least 10 characters)</label><input id="np" type="password" autocomplete="new-password">` : ""}
@@ -161,6 +167,10 @@ function unlockScreen(mode = "pass") {
   const go = async () => {
     $("#go").disabled = true; $("#go").textContent = "Unlocking…";
     try {
+      if (store.isDemo) {
+        await store.unlock("demo-key");
+        return afterUnlock();
+      }
       let key;
       if (recovery) {
         const np = $("#np").value;
@@ -333,13 +343,13 @@ function moreSheet() {
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
     ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? [["admin", "Admin"]] : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
-    <button type="button" class="more-item" data-go="signout">Sign out</button></div>`;
+    <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : "Sign out"}</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
   back.addEventListener("click", (e) => { if (e.target === back) close(); });
   back.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
     close();
-    if (b.dataset.go === "signout") return document.querySelector("header form").requestSubmit();
+    if (b.dataset.go === "signout") { if (store.isDemo) { location.href = "/"; return; } return document.querySelector("header form").requestSubmit(); }
     goTab(b.dataset.go);
   }));
 }
@@ -1674,10 +1684,18 @@ function viewSettings() {
   };
   $$("[data-revoke]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Revoke this recovery key? It will stop working.")) return;
+    if (store.isDemo) { store.vault.keys = store.vault.keys.filter((k) => String(k.id) !== String(b.dataset.revoke)); render(); return; }
     try { store.vault = (await api(`/api/vault/keys/${b.dataset.revoke}`, { method: "DELETE" })).vault; render(); } catch (e) { showError(e); }
   }));
   if ($("#addkey")) $("#addkey").onclick = async () => {
     try {
+      if (store.isDemo) {
+        const id = Date.now();
+        store.vault.keys.push({ id, kind: "recovery", label: `Recovery key ${store.vault.keys.length + 1}`, created_at: new Date().toISOString() });
+        render();
+        $("#newkey").innerHTML = `<p class="notice">New key (demo mode):</p><div class="keys">DEMO-${id.toString(36).toUpperCase()}-RECOVERY-KEY</div>`;
+        return;
+      }
       const raw = await C.rawFromPassphrase(store.vault, $("#kp").value).catch(() => { throw new Error("That passphrase isn't right."); });
       const slot = await C.newRecoverySlot(store.vault, raw);
       store.vault = (await api("/api/vault/keys", { method: "POST", body: { label: `Recovery key ${store.vault.keys.length + 1}`, wrapped_key: slot.wrapped_key } })).vault;
@@ -1688,6 +1706,7 @@ function viewSettings() {
   $("#chpass").onclick = async () => {
     try {
       if ($("#np").value.length < 10) throw new Error("Use at least 10 characters.");
+      if (store.isDemo) { $("#op").value = $("#np").value = ""; alert("Passphrase changed (demo mode)."); return; }
       const raw = await C.rawFromPassphrase(store.vault, $("#op").value).catch(() => { throw new Error("Current passphrase isn't right."); });
       store.vault = (await api("/api/vault", { method: "PUT", body: await C.rewrapPassphrase(store.vault, raw, $("#np").value) })).vault;
       $("#op").value = $("#np").value = ""; alert("Passphrase changed.");
@@ -1701,6 +1720,11 @@ function viewSettings() {
   $("#lock").onclick = () => { store.lock(); tabsEl.hidden = true; unlockScreen(); };
   $("#forget").onclick = async () => { await device.forget(store.email); store.lock(); tabsEl.hidden = true; unlockScreen(); };
   $("#delacct").onclick = async () => {
+    if (store.isDemo) {
+      if (!confirm("Exit demo mode and return to the homepage?")) return;
+      location.href = "/";
+      return;
+    }
     if (prompt('This deletes your account and every record for good. Type "delete" to confirm.') !== "delete") return;
     await device.forget(store.email);
     await api("/api/account/delete", { method: "POST" });
@@ -1766,9 +1790,20 @@ function viewImport() {
     <div class="card"><h2>Import</h2>
       <p class="muted">Your file is read on this device and never uploaded. Only the encrypted results are saved.</p>
       <input type="file" id="file" accept=".csv,.xlsx,text/csv">
+      <p class="muted" style="margin:10px 0 0;font-size:13px">Want a ready-made template or sample file? <button type="button" class="link" id="imp-sample">Load sample household .xlsx in 1 click</button> · <a href="/static/templates/indian-household-budget-template.xlsx" download>Download .xlsx template</a> · <a href="/static/templates/monthly-budget-template.csv" download>Download .csv template</a></p>
       <div id="imp"></div><p class="error" id="err" role="alert"></p></div>
     ${batches.length ? `<div class="card"><h2>Past imports</h2>${batches.map((b) => `<div class="row" style="padding:4px 0"><span>${esc(b.label)}</span><span class="muted">${esc(b.when)} · ${b.ids.length} records</span><span class="spacer"></span><button data-undo="${esc(b.batch)}">Undo import</button></div>`).join("")}</div>` : ""}`);
   $("#file").onchange = (e) => loadFile(e.target.files[0]).catch(showError);
+  $("#imp-sample").onclick = async () => {
+    try {
+      const res = await fetch("/static/templates/indian-household-budget-template.xlsx");
+      if (!res.ok) throw new Error("Couldn't fetch sample template.");
+      const blob = await res.blob();
+      const file = new File([blob], "indian-household-budget-template.xlsx", { type: blob.type });
+      await loadFile(file);
+      if ($("#usesheet")) { $("#usesheet").click(); setTimeout(() => { if ($("#prev")) $("#prev").click(); }, 50); }
+    } catch (e) { showError(e); }
+  };
   $$("[data-undo]").forEach((b) => (b.onclick = async () => {
     const batch = importBatches().find((x) => x.batch === b.dataset.undo);
     if (!confirm(`Remove all ${batch.ids.length} records from this import?`)) return;

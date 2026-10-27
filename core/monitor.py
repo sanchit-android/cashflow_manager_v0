@@ -703,6 +703,6 @@ def business(request):
         "clicks": feature_rows("click:")[:40],
         "changes": feature_rows("change:")[:40],
         "lifecycle": [r for r in feature_rows("", strip=False)
-                      if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account")],
+                      if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account", "demo")],
         "top_users": top_users,
     })

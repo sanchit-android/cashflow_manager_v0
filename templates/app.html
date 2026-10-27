@@ -6,8 +6,18 @@
 <header class="top">
   <a class="brand" href="/" aria-label="PlannedOut home"><img src="{% static 'img/logo-icon.png' %}" alt="" width="28" height="28">PlannedOut<span class="tld">.in</span></a>
   <nav class="tabs" id="tabs" hidden></nav>
+  {% if demo %}
+  <span class="demo-head-cta"><a href="/login/"><button class="primary" type="button">Sign up free</button></a><a class="link" href="/">Exit demo</a></span>
+  {% else %}
   <form method="post" action="/logout/">{% csrf_token %}<button class="link" type="submit">Sign out</button></form>
+  {% endif %}
 </header>
+{% if demo %}
+<div class="demo-bar" role="region" aria-label="Interactive demo">
+  <span><strong>Live demo</strong> — loaded with 9 months of sample household data. Edit cells, switch themes in Settings, or test projections. Changes stay in your browser tab.</span>
+  <span class="demo-bar-actions"><button type="button" class="link-btn" id="demo-reset">Reset sample data</button><a href="/login/"><button class="primary" type="button">Create your free account →</button></a></span>
+</div>
+{% endif %}
 <main class="wrap" id="root"><p class="muted">Loading…</p></main>
 {% include "_app_footer.html" %}
 <script type="module" src="{% static JS_DIR|add:'/app.js' %}"></script>

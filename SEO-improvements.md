@@ -18,6 +18,9 @@ Goal: get PlannedOut found on Google and Bing, and recommended by AI assistants 
 - ✅ Context-aware language & locale tags (`lang="en-IN"` / `og:locale="en_IN"` on India pages, `lang="en"` / `og:locale="en_US"` on global pages, plus `hreflang="en-IN"`, `hreflang="en"`, and `hreflang="x-default"`)
 - ✅ Page descriptions, canonical URLs and link-preview tags on every page; login and app pages hidden from search (`noindex, nofollow`, `Cache-Control: no-store`)
 - ✅ Fast public page delivery: `Cache-Control: public, max-age=300, stale-while-revalidate=3600` (`Vary: Cookie`) for anonymous visitors and resized header icon (`73 KB` → `7.5 KB`)
+- ✅ Worked numerical example & comparison tables (`<table class="compare">`) on all 15 guide pages for Google Featured Snippets and AI Overviews
+- ✅ Free downloadable `.xlsx` and `.csv` household budget templates (`/static/templates/indian-household-budget-template.xlsx` and `/static/templates/monthly-budget-template.csv`) on `/indian-household-budget-template/` and `/excel-budget-alternative/`, plus 1-click sample `.xlsx` import in the app
+- ✅ 1-click Interactive Demo Mode (`/app?demo=1` and `/demo/`): pre-loaded with 9 months of realistic household data, unlocking Month, Year, Insights, Projections, Accounts, Savings, Import and Settings (including all themes, custom theme builder, screen motion, currency, recovery keys and lock/unlock) without sign-in
 - ✅ Site verified in Google Search Console and Bing Webmaster Tools; sitemap submitted
 
 All page text lives in `core/seo.py`.
@@ -38,10 +41,10 @@ All page text lives in `core/seo.py`.
 | ⬜ | 8 | **Hindi versions** of the homepage and the India guide (`/hi/`, `/hi/budget-planner-india/` with `hreflang="hi-IN"`) | Reaches Hindi searchers, where there is very little quality competition | ~2 hrs |
 | ✅ | 9 | **Page-speed & Technical SEO polish**: resized header icon (`73 KB` → `7.5 KB`), public page caching (`Cache-Control` + `Vary: Cookie`), `manifest.webmanifest`, context-aware `en-IN` vs `en` locale/`hreflang` tags, `Article` + `AboutPage` + `ContactPage` + `Privacy` FAQ JSON-LD schemas, and bidirectional guide ↔ calculator internal links | Faster loads, richer Google snippets, and stronger internal link equity | ~30 min |
 | ⬜ | 10 | **Free calculators (Batch 2)**: FIRE number & Coast FIRE calculator, EMI affordability & prepayment calculator, First-salary / in-hand paycheck splitter (details below) | Captures high-volume "calculator" searches in India and globally with high dwell time | ~1 hr each |
-| ⬜ | 11 | **Worked numerical example tables & comparison tables on guides** (details below) | Google pulls structured HTML `<table>` rows directly into Featured Snippets and AI Overviews | ~1–2 hrs |
-| ⬜ | 12 | **Downloadable `.xlsx` & `.csv` budget templates** on `/indian-household-budget-template/` and `/excel-budget-alternative/` (plus 1-click import into PlannedOut) | Ranks for high-volume "budget template excel download" searches and converts spreadsheet users | ~1 hr |
+| ✅ | 11 | **Worked numerical example tables & comparison tables on guides** (live on all 15 guides in `core/seo.py` and rendered in `templates/guide.html`) | Google pulls structured HTML `<table>` rows directly into Featured Snippets and AI Overviews | ~1–2 hrs |
+| ✅ | 12 | **Downloadable `.xlsx` & `.csv` budget templates** on `/indian-household-budget-template/` and `/excel-budget-alternative/` (`static/templates/indian-household-budget-template.xlsx` & `monthly-budget-template.csv`, plus 1-click sample import in Import tab) | Ranks for high-volume "budget template excel download" searches and converts spreadsheet users | ~1 hr |
 | ⬜ | 13 | **Batch 2 guide pages** targeting competitor comparisons & life events (list below) | Captures high-intent "vs" and life-stage searches | ~15 min per page |
-| ⬜ | 14 | **Interactive "Try Sample Month (No Sign-In)" demo** | Lets search visitors explore a pre-filled household budget before signing up; lowers bounce rate and increases conversion | ~2–3 hrs |
+| ✅ | 14 | **Interactive "Try Live Demo (No Sign-In)" mode** (`/app?demo=1` and `/demo/` with 9 months of sample data across all tabs, themes and settings; code in `static/js/demo.js`, `store.js`, `app.js`) | Lets search visitors explore a pre-filled household budget before signing up; lowers bounce rate and increases conversion | ~2–3 hrs |
 
 ---
 
@@ -82,19 +85,19 @@ Interactive calculators have some of the highest organic click-through rates, lo
    - **What it does**: Takes monthly in-hand pay + city tier / living setup (living with parents, PG/shared flat, family rent/EMI) and outputs a realistic rupee/dollar breakdown across Fixed Needs, Annual Sinking Funds, Emergency Fund, SIPs, and Guilt-Free Wants.
    - **Cross-links**: `/first-salary-budget-planner-india/` and `/indian-household-budget-template/`.
 
-#### B. Worked Example Tables & Comparison Tables on Guides (Task #11)
+#### B. Worked Example Tables & Comparison Tables on Guides (Task #11 — Done ✅)
 Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages that include clean HTML `<table>` summaries and concrete numerical examples:
-1. ⬜ **Add a "Sample Monthly Split" HTML table to key guides** (optional `"table"` field in `GUIDES` in `core/seo.py` rendered by `templates/guide.html`):
-   - `/budget-planner-india/` & `/indian-household-budget-template/`: Sample ₹1,00,000/month family budget table (Fixed commitments, Day-to-day living, Monthly share of annual bills, SIPs/Investments, Net surplus).
-   - `/first-salary-budget-planner-india/`: Sample splits for ₹35,000, ₹60,000 and ₹1,00,000 in-hand monthly salaries.
-   - `/emi-budget-planner-india/`: Safe EMI ceiling table by take-home salary bracket + prepayment impact table.
-   - `/sinking-funds-guide/` & `/annual-expenses-planner/`: Sample 6-category annual sinking fund table showing Yearly Bill vs Monthly Set-Aside (`÷ 12`).
-   - `/private-ynab-mint-alternative/`: Feature & price comparison table (PlannedOut vs YNAB vs Monarch vs Excel/Sheets: Price, Bank/Plaid required, End-to-end encryption, Multi-currency, Multi-year runway).
-   - `/fire-retirement-runway-planner/`: 4% rule (25×) vs 3.5% (29×) vs 3% (33×) withdrawal table including annual bills.
+1. ✅ **Added structured HTML `<table class="compare">` to all 15 guides** (`"table"` field in `GUIDES` in `core/seo.py` rendered by `templates/guide.html`):
+   - `/budget-planner-india/` & `/indian-household-budget-template/`: Worked ₹1,20,000 and ₹1,50,000/month family budget tables (Fixed commitments, Day-to-day living, Monthly share of annual bills, SIPs/Investments, Net surplus).
+   - `/first-salary-budget-planner-india/`: Sample splits for ₹50,000 and ₹80,000 in-hand monthly salaries.
+   - `/emi-budget-planner-india/`: Worked ₹1,50,000 salary EMI burden table (before vs after closing car & card EMIs).
+   - `/sinking-funds-guide/`, `/annual-expenses-planner/` & `/festival-wedding-budget-planner-india/`: Worked annual sinking fund schedules showing Yearly Bill vs Monthly Set-Aside (`÷ 12`).
+   - `/private-ynab-mint-alternative/`, `/excel-budget-alternative/`, `/private-expense-tracker/` & `/budget-app-without-sms-india/`: Side-by-side feature, privacy & price comparison tables.
+   - `/fire-retirement-runway-planner/`, `/savings-runway-calculator/`, `/child-education-savings-planner-india/` & `/freelance-irregular-income-budget/`: Worked multi-scenario runway, college-inflation, and uneven-cash-flow tables.
 
-#### C. Downloadable `.xlsx` & `.csv` Household Budget Templates (Task #12)
-1. ⬜ **Free downloadable spreadsheet templates** (`/static/templates/indian-household-budget-template.xlsx` and `monthly-budget-template.csv`)
-   - **Why it helps**: Thousands of people search *"monthly household budget template excel free download"* or *"family budget format in rupees excel"*. Giving them a clean, zero-email-gate `.xlsx` / `.csv` download on `/indian-household-budget-template/` and `/excel-budget-alternative/` wins top rankings, and the file itself is formatted to import into PlannedOut in one click when they get tired of maintaining formulas.
+#### C. Downloadable `.xlsx` & `.csv` Household Budget Templates (Task #12 — Done ✅)
+1. ✅ **Free downloadable spreadsheet templates** (`/static/templates/indian-household-budget-template.xlsx` and `/static/templates/monthly-budget-template.csv`, generated by `scripts/make_templates.py`)
+   - **Why it helps**: Thousands of people search *"monthly household budget template excel free download"* or *"family budget format in rupees excel"*. Giving them a clean, zero-email-gate `.xlsx` / `.csv` download on `/indian-household-budget-template/` and `/excel-budget-alternative/` wins top rankings, and the file itself imports into PlannedOut in one click from the Import tab (`#imp-sample`).
 
 #### D. Batch 2 Guide Page Ideas (Task #13)
 1. ⬜ **Walnut / Axio & Fold Alternative in India** (`/walnut-axio-fold-alternative-india/`) — targets "Walnut app alternative India", "Axio expense tracker alternative without SMS", "Fold money alternative without Account Aggregator".
@@ -102,9 +105,9 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
 3. ⬜ **Career Break, Layoff & Sabbatical Money Planner** (`/layoff-sabbatical-money-planner/`) — targets "how to plan finances for a sabbatical", "layoff survival budget calculator", "how much money do I need to take a 6 month break".
 4. ⬜ **Zero-Based Budgeting vs 50/30/20 vs Cash-Flow Planning** (`/zero-based-budget-vs-cash-flow-planner/`) — targets "zero based budgeting alternative", "why envelope budgeting feels too strict", "cash flow budgeting method".
 
-#### E. Interactive "Try Sample Month" Without Signing In (Task #14)
-1. ⬜ **1-click sample mode from the homepage & guides** (`/app?demo=1` or interactive preview)
-   - **Why it helps**: Visitors arriving from Google Search often want to see the actual spreadsheet grid, year view and projections before creating an account. Letting them click around a realistic pre-loaded household month in browser memory increases time-on-site (a key Google user-satisfaction signal) and sign-up conversion.
+#### E. Interactive "Try Live Demo" Without Signing In (Task #14 — Done ✅)
+1. ✅ **1-click interactive demo mode from the homepage, header, login page, calculators & guides** (`/app?demo=1` and `/demo/`)
+   - **Why it helps**: Visitors arriving from Google Search can immediately explore a realistic 9-month pre-loaded household budget across every screen (Month, Year, Insights, Projections, Accounts, Savings, Import, and Settings including all themes, custom theme editor, screen transitions, currency, recovery keys, and lock/unlock — without the Admin tab). All edits work in browser memory with a 1-click "Reset sample data" button and "Sign up free" CTA.
 
 ---
 

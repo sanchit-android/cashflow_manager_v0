@@ -14,7 +14,7 @@
   <div class="points">
     {% for slug, c in calcs.items %}<a class="card calc-link" href="/calculators/{{ slug }}/"><h2>{{ c.h1 }}</h2><p>{{ c.description }}</p></a>{% endfor %}
   </div>
-  <section class="hero cta"><h2>Want these numbers from your real spending?</h2><p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Try PlannedOut free</button></a>{% endif %}</p></section>
+  <section class="hero cta"><h2>Want these numbers from your real spending?</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Try PlannedOut free</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %}</p></section>
 </main>
 {% include "_footer.html" %}
 {% endblock %}

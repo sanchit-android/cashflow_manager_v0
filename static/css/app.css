@@ -473,7 +473,18 @@ table.ins-t tr.flag-down th, table.ins-t tr.flag-down td { background: color-mix
 .table-scroll { overflow-x: auto; }
 table.compare { width: 100%; border-collapse: collapse; min-width: 560px; background: var(--surface); }
 table.compare th, table.compare td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+table.compare thead th { background: var(--surface-2); }
 table.compare td:last-child { font-weight: 600; color: var(--good); }
+table.compare tfoot th, table.compare tfoot td { background: var(--surface-2); font-weight: 700; }
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.landing .cta .hero-actions { justify-content: center; }
+.tpl-box { border-left: 4px solid var(--accent); }
+.tpl-dl { text-decoration: none; }
+.demo-head-cta { display: inline-flex; align-items: center; gap: 8px; }
+.demo-head-cta a { text-decoration: none; }
+.demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; max-width: 1120px; margin: 10px auto 0; padding: 10px 16px; background: var(--warn-bg); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); font-size: 13px; box-sizing: border-box; }
+.demo-bar-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.demo-bar-actions a { text-decoration: none; }
 .site-foot { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 16px; line-height: 1.8; }
 @media (max-width: 600px) { .landing .hero h1 { font-size: 26px; } }
 

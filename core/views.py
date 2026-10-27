@@ -157,7 +157,10 @@ def llms_txt(request):
     lines += [f"- [{c['h1']}]({site}/calculators/{slug}/): {c['description']}" for slug, c in seo.CALCULATORS.items()]
     lines += ["", "## FAQ", ""]
     lines += [f"### {q}\n{a}\n" for q, a in seo.HOME_FAQ]
-    lines += ["## Links", "", f"- [Home]({site}/)", f"- [Privacy: what we can and can't see]({site}/privacy/)",
+    lines += ["## Links", "", f"- [Home]({site}/)", f"- [Live interactive demo (no sign-in)]({site}/app?demo=1)",
+              f"- [Download Indian household budget Excel template (.xlsx)]({site}/static/templates/indian-household-budget-template.xlsx)",
+              f"- [Download monthly budget CSV template (.csv)]({site}/static/templates/monthly-budget-template.csv)",
+              f"- [Privacy: what we can and can't see]({site}/privacy/)",
               f"- [About]({site}/about/)", f"- [Contact]({site}/contact/)",
               f"- [Sign up free]({site}/login/)", "",
               f"{seo.NAME} is a product of {seo.COMPANY}, a privately owned business based in India. Contact: {seo.CONTACT_EMAIL}", ""]
@@ -252,9 +255,17 @@ def login_page(request):
 @require_GET
 @ensure_csrf_cookie
 def app_page(request):
-    if not request.user.is_authenticated:
+    demo = request.GET.get("demo") == "1"
+    if not request.user.is_authenticated and not demo:
         return redirect(settings.LOGIN_URL)
-    return render(request, "app.html")
+    if demo:
+        log_event(request.user.id if request.user.is_authenticated else None, "demo:open")
+    return render(request, "app.html", {"demo": demo})
+
+
+@require_GET
+def demo_page(request):
+    return redirect("/app?demo=1")
 
 
 @require_POST

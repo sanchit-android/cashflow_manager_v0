@@ -16,7 +16,7 @@
       <a href="/#faq-h">FAQ</a>
       <a href="/privacy/"{% if request.path == "/privacy/" %} aria-current="page"{% endif %}>Privacy</a>
       <a href="/about/"{% if request.path == "/about/" %} aria-current="page"{% endif %}>About</a>
-      <span class="nav-cta">{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/">Sign in</a><a href="/login/"><button class="primary">Start free</button></a>{% endif %}</span>
+      <span class="nav-cta">{% if user.is_authenticated %}<form method="post" action="/logout/" class="signout">{% csrf_token %}<button class="link" type="submit">Sign out</button></form><a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/app?demo=1">Live demo</a><a href="/login/">Sign in</a><a href="/login/"><button class="primary">Start free</button></a>{% endif %}</span>
     </nav>
   </details>
 </header>

@@ -23,6 +23,9 @@ function csrf() {
 export function flush() {
   clearTimeout(timer); timer = null;
   if (!queue.size && !errors.length) return;
+  if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") {
+    queue.clear(); errors = []; return;
+  }
   const body = JSON.stringify({ events: Object.fromEntries(queue), errors });
   queue.clear(); errors = [];
   fetch("/api/telemetry", { method: "POST", credentials: "same-origin", keepalive: true,

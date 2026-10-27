@@ -4,8 +4,13 @@ import { readFileSync } from "node:fs";
 import { readXlsx } from "../static/js/xlsx.js";
 import * as I from "../static/js/importer.js";
 import * as E from "../static/js/engine.js";
+import * as P from "../static/js/plan.js";
+import * as N from "../static/js/insights.js";
+import { buildDemoRecords } from "../static/js/demo.js";
 
 const fixture = () => readFileSync(new URL("./fixtures/finances-sample.xlsx", import.meta.url));
+const publicXlsx = () => readFileSync(new URL("../static/templates/indian-household-budget-template.xlsx", import.meta.url));
+const publicCsv = () => readFileSync(new URL("../static/templates/monthly-budget-template.csv", import.meta.url), "utf8");
 
 test("csv parsing handles quotes, commas, semicolons", () => {
   assert.deepEqual(I.parseCSV('Date,Desc,Amount\n01/10/2026,"Swiggy, dinner",450\n'), [["Date", "Desc", "Amount"], ["01/10/2026", "Swiggy, dinner", "450"]]);
@@ -64,4 +69,38 @@ test("existing accounts are reused by name", async () => {
   const r = await I.importFinancesWorkbook(book, { mainAccount: { id: "main", data: {} }, accounts: [{ id: "x", data: { name: "Test Bank Card" } }], batch: "b" });
   assert.equal(r.items.filter((i) => i.type === "account" && i.data.name === "Test Bank Card").length, 0);
   assert.ok(r.items.some((i) => i.type === "transaction" && i.data.account_id === "x"));
+});
+
+test("downloadable public .xlsx and .csv templates parse and import cleanly", async () => {
+  const book = await readXlsx(publicXlsx());
+  assert.equal(book.sheetNames.length, 3);
+  const rows = (await book.sheet(book.sheetNames[0])).rows();
+  const m = I.guessMapping(rows[0]);
+  const r = I.importTable(rows, m, { account_id: "main", sign: "direction_col", settings: {}, batch: "tpl" });
+  assert.equal(r.items.length, 17);
+  assert.equal(r.report.skippedRows.length, 0);
+
+  const csvRows = I.parseCSV(publicCsv());
+  const cm = I.guessMapping(csvRows[0]);
+  const cr = I.importTable(csvRows, cm, { account_id: "main", sign: "direction_col", settings: {}, batch: "csv" });
+  assert.equal(cr.items.length, 17);
+  assert.equal(cr.report.skippedRows.length, 0);
+});
+
+test("interactive demo dataset populates month, year, insights, and projections", () => {
+  const recs = buildDemoRecords("2026-10-15");
+  const db = E.index(recs);
+  const now = "2026-10";
+  const s = E.summarize(db, now);
+  assert.equal(s.regular_inflow, 169500);
+  assert.ok(s.monthly_expense > 0);
+  assert.ok(s.investments > 0);
+  assert.ok(s.commitments_pending > 0);
+  const liq = P.currentLiquid(db, now);
+  assert.ok(liq.amount > 1000000);
+  const proj = P.project(db, { horizon_year: 2034, burn: 60000, burn_growth_pct: 6, annual_base: 189000, annual_growth_pct: 7, holiday_per_year: 60000 }, now, liq.amount);
+  assert.ok(proj.years.length >= 8);
+  const trends = N.categoryTrends(db, now, 3, 6);
+  assert.ok(trends.length >= 5);
+  assert.ok(trends.some((t) => t.flag === "up"));
 });

@@ -1,5 +1,6 @@
 // Talks to Django, keeps decrypted records in memory, remembers the data key on this device if asked.
 import * as C from "./crypto.js";
+import { buildDemoRecords } from "./demo.js";
 import { track } from "./track.js";
 
 function csrf() {
@@ -47,24 +48,51 @@ export const device = {
 // ---- the store ----
 export const store = {
   email: null, vault: null, key: null, isAdmin: false,
+  isDemo: typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1",
   rows: new Map(), // id -> { id, type, period, version, deleted, data }
   lastSync: null,
 
+  resetDemo() {
+    this.key = "demo-key";
+    this.rows.clear();
+    for (const r of buildDemoRecords()) this.rows.set(r.id, r);
+    this.lastSync = new Date().toISOString();
+  },
+
   async load() {
+    if (this.isDemo) {
+      this.email = "demo@plannedout.in";
+      this.isAdmin = false;
+      this.vault = {
+        kdf: "demo", salt: "demo", wrapped_key: "demo",
+        keys: [
+          { id: 1, kind: "recovery", label: "Recovery key 1 (Home safe)", created_at: "2026-01-15T10:00:00Z" },
+          { id: 2, kind: "recovery", label: "Recovery key 2 (Password manager)", created_at: "2026-01-15T10:00:00Z" },
+        ],
+      };
+      this.resetDemo();
+      return { vault: this.vault, email: this.email, is_admin: false };
+    }
     const r = await api("/api/vault");
     this.email = r.email; this.vault = r.vault; this.isAdmin = !!r.is_admin;
     return r;
   },
 
   async unlock(key) {
+    if (this.isDemo) {
+      this.key = key || "demo-key";
+      if (!this.rows.size) this.resetDemo();
+      return;
+    }
     this.key = key;
     this.rows.clear(); this.lastSync = null;
     await this.pull();
   },
 
-  lock() { this.key = null; this.rows.clear(); this.lastSync = null; },
+  lock() { this.key = null; if (!this.isDemo) { this.rows.clear(); this.lastSync = null; } },
 
   async pull() {
+    if (this.isDemo) return;
     const q = this.lastSync ? `?since=${encodeURIComponent(this.lastSync)}` : "";
     const r = await api("/api/records" + q);
     for (const row of r.records) {
@@ -81,6 +109,19 @@ export const store = {
   /** Save one or more { id?, type, period?, data, deleted? }. Returns saved ids. */
   async save(items) {
     items = Array.isArray(items) ? items : [items];
+    if (this.isDemo) {
+      for (const it of items) {
+        const id = it.id || crypto.randomUUID();
+        const prev = this.rows.get(id);
+        it.id = id;
+        this.rows.set(id, {
+          id, type: it.type, period: it.period || "",
+          version: (prev ? prev.version : 0) + 1,
+          deleted: !!it.deleted, data: it.deleted ? null : it.data,
+        });
+      }
+      return items.map((x) => x.id);
+    }
     const payload = [], prevVersion = new Map();
     for (const it of items) {
       const id = it.id || crypto.randomUUID();

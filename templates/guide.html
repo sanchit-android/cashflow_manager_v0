@@ -11,13 +11,45 @@
   <section class="hero">
     <h1>{{ g.h1 }}</h1>
     <p class="lead">{{ g.intro }}</p>
-    <p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %} <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
+    <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %} <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
   </section>
+  {% if g.templates %}
+  <section class="card tpl-box" aria-labelledby="tpl-h">
+    <h2 id="tpl-h">Download free household budget templates (.xlsx &amp; .csv) — no email required</h2>
+    <p>Start in Excel or Google Sheets right away, or import either file into PlannedOut in one click. Pre-filled with Indian household categories (Salary, Rent, EMIs, Househelps, Tuitions, Groceries, Credit Cards, SIPs and Annual Sinking Funds):</p>
+    <p class="row">
+      <a class="tpl-dl" href="{% static 'templates/indian-household-budget-template.xlsx' %}" download><button type="button" class="primary">⬇ Download Excel template (.xlsx)</button></a>
+      <a class="tpl-dl" href="{% static 'templates/monthly-budget-template.csv' %}" download><button type="button">⬇ Download CSV template (.csv)</button></a>
+      <a href="/app?demo=1"><button type="button">Open interactive demo in browser →</button></a>
+    </p>
+  </section>
+  {% endif %}
   {% if calc_cta %}<p class="card">{{ calc_cta.1 }} <a href="/calculators/{{ calc_cta.0 }}/">{{ calc_cta.2 }}</a> No sign-in needed.</p>{% endif %}
   {% if shots %}<div class="{% if shots|length > 1 %}shots-grid{% endif %}">{% for s in shots %}{% include s.tpl with alt=s.alt caption=s.caption %}{% endfor %}</div>{% endif %}
   {% for heading, items, ill in sections %}
   <section class="card gsec"><div><h2>{{ heading }}</h2><ul>{% for i in items %}<li>{{ i }}</li>{% endfor %}</ul></div>{% if ill %}{% include "illus/"|add:ill|add:".html" %}{% endif %}</section>
   {% endfor %}
+  {% if g.table %}
+  <section aria-labelledby="guide-table-h">
+    <h2 id="guide-table-h">{{ g.table.heading }}</h2>
+    {% if g.table.intro %}<p>{{ g.table.intro }}</p>{% endif %}
+    <div class="table-scroll">
+      <table class="compare">
+        <thead><tr>{% for h in g.table.headers %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in g.table.rows %}
+          <tr>{% for cell in row %}{% if forloop.first %}<th scope="row">{{ cell }}</th>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+        {% if g.table.foot %}
+        <tfoot>
+          <tr>{% for cell in g.table.foot %}{% if forloop.first %}<th scope="row">{{ cell }}</th>{% else %}<td><strong>{{ cell }}</strong></td>{% endif %}{% endfor %}</tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </section>
+  {% endif %}
   <section class="faq">
     <h2>Questions</h2>
     {% for q, a in g.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
@@ -26,7 +58,7 @@
     <h2>More guides</h2>
     <ul>{% for slug, o in others.items %}<li><a href="/{{ slug }}/">{{ o.nav }}</a>: {{ o.description }}</li>{% endfor %}</ul>
   </section>
-  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p>{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a>{% endif %}</p></section>
+  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo (no sign-in)</button></a>{% endif %}</p></section>
 </main>
 {% include "_footer.html" %}
 {% endblock %}

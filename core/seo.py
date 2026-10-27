@@ -91,6 +91,19 @@ GUIDES = {
               "Savings rate and a year-at-a-glance view",
               "How your savings grow by the year you plan for, like a child's education or retirement"]),
         ],
+        "table": {
+            "heading": "Worked example: monthly budget for a ₹1,20,000 in-hand salary household",
+            "intro": "Here is how a salaried family in a metro city splits ₹1,20,000 of monthly take-home pay across fixed commitments, everyday living, a sinking fund for yearly bills, and investments:",
+            "headers": ["Bucket", "Monthly (₹)", "Share", "What goes inside"],
+            "rows": [
+                ["In-hand salary", "₹1,20,000", "100%", "Net bank credit after EPF, professional tax and TDS"],
+                ["Fixed monthly commitments", "₹42,000", "35%", "Rent or home EMI (₹28,000), society maintenance (₹3,500), househelp & cook (₹5,500), broadband & mobile (₹2,000), parents' support (₹3,000)"],
+                ["Day-to-day expenses", "₹28,000", "23%", "Groceries & milk (₹12,000), electricity & gas (₹3,500), fuel & metro (₹4,500), dining out & shopping (₹5,000), medical & pharmacy (₹3,000)"],
+                ["Annual bills set-aside (1/12th)", "₹14,000", "12%", "Health & term insurance (₹36,000/yr), school annual fees (₹60,000/yr), Diwali & travel (₹72,000/yr) = ₹1,68,000/yr"],
+                ["Investments (SIPs & PPF)", "₹25,000", "21%", "Equity mutual fund SIPs (₹18,000), PPF / Sukanya Samriddhi (₹7,000)"],
+            ],
+            "foot": ["Net monthly cash surplus", "+₹11,000", "9% (+21% invested = 30% total savings rate)", "Stays in bank / emergency buffer; full wealth added = ₹36,000/mo"],
+        },
         "faq": [
             ("What is a good monthly budget for a family in India?",
              "There is no single number. A useful check is your savings rate: what share of take-home pay is "
@@ -128,6 +141,20 @@ GUIDES = {
               "Import CSV files and bank statement exports",
               "Files are read in your browser; the raw file is never uploaded"]),
         ],
+        "templates": True,
+        "table": {
+            "heading": "Excel / Google Sheets vs PlannedOut",
+            "intro": "Keep the speed of keyboard cells and formulas while dropping the monthly copy-paste maintenance:",
+            "headers": ["Task", "Manual Excel / Sheets template", "PlannedOut"],
+            "rows": [
+                ["Starting a new month", "Duplicate tab, clear old rows, fix broken SUM references", "Automatic — fixed items repeat in one click"],
+                ["Formulas & copy-paste", "Full spreadsheet formulas", "Type =1200+340 or =450*3, paste blocks from Excel, fill-down & undo"],
+                ["Credit card vs bank cash flow", "Easy to double-count card spend and bill payments", "Separate card tabs with billed/unbilled tracking"],
+                ["Annual bills (insurance, fees)", "Distorts one month's chart unless manually amortised", "Dedicated Annual items bucket & yearly calendar"],
+                ["Savings runway & projections", "Requires custom multi-year compound formulas", "Built-in year-by-year projection and what-if sliders"],
+                ["Privacy", "Plaintext in cloud drive unless self-hosted", "End-to-end encrypted in your browser (AES-256-GCM)"],
+            ],
+        },
         "faq": [
             ("Can I import my Excel budget template?",
              "Yes. Import .xlsx or CSV. PlannedOut guesses which columns are date, description and amount, and you can adjust before saving."),
@@ -162,6 +189,18 @@ GUIDES = {
               "Delete your account and every record instantly from Settings",
               "No ads and no selling of data"]),
         ],
+        "table": {
+            "heading": "What PlannedOut can and cannot see vs typical expense apps",
+            "intro": "Because encryption happens in your browser before any network request is made, our server never receives plaintext financial data:",
+            "headers": ["Data point", "Typical bank-linked / SMS app", "PlannedOut"],
+            "rows": [
+                ["Transaction descriptions & merchants", "Readable on server (used for categorization & ads)", "Encrypted in browser (AES-256-GCM) — unreadable to us"],
+                ["Income, expense amounts & account balances", "Stored in plaintext database", "Encrypted in browser — unreadable to us"],
+                ["Bank credentials or SMS inbox", "Requires Plaid / Account Aggregator or SMS permission", "Never requested"],
+                ["Vault passphrase & encryption key", "Server-managed keys", "Derived in browser via PBKDF2 (600,000 iterations) — never sent"],
+                ["Account metadata on server", "Full profile, phone number, device ID, credit offers", "Email address, record count, record type/month, and timestamps only"],
+            ],
+        },
         "faq": [
             ("Is there a budget app that doesn't read SMS?",
              "Yes. PlannedOut never asks for SMS access. You enter or import transactions yourself."),
@@ -199,6 +238,17 @@ GUIDES = {
               "FIRE and early retirement planners",
               "Retirees living on savings, pension or SWP withdrawals"]),
         ],
+        "table": {
+            "heading": "Worked example: how ₹18,00,000 of savings lasts under different what-ifs",
+            "intro": "Suppose you have ₹18,00,000 in accessible savings, ₹55,000/month in regular expenses, and ₹72,000/year in annual insurance and school/tax bills (₹6,000/month equivalent) with 6% annual inflation:",
+            "headers": ["Scenario", "Monthly burn (incl. annual bills)", "Part-time / side income", "Net monthly drawdown", "Approximate runway"],
+            "rows": [
+                ["Baseline career break", "₹61,000/mo", "₹0", "₹61,000/mo", "~27 months (2.2 years)"],
+                ["Cut discretionary spend by 20%", "₹50,000/mo", "₹0", "₹50,000/mo", "~33 months (2.7 years)"],
+                ["Cut spend 20% + drop ₹10,000 fixed commitment", "₹40,000/mo", "₹0", "₹40,000/mo", "~41 months (3.4 years)"],
+                ["Add ₹25,000/mo consulting or rental income", "₹50,000/mo", "₹25,000/mo", "₹25,000/mo", "~62 months (5.1 years)"],
+            ],
+        },
         "faq": [
             ("How do I calculate how long my savings will last?",
              "Divide your savings by your monthly burn (spending minus regular income), then adjust for "
@@ -227,6 +277,21 @@ GUIDES = {
               "Know the yearly total and the monthly share to set aside (a sinking fund)",
               "Grow the annual amount with inflation in your projections"]),
         ],
+        "table": {
+            "heading": "Worked example: turning ₹2,40,000 of yearly bills into a ₹20,000/month sinking fund",
+            "intro": "Instead of letting April school fees or October festive expenses wreck those months, break every predictable annual bill into a calm monthly set-aside:",
+            "headers": ["Annual expense", "Due month", "Yearly bill", "Monthly set-aside (1/12th)"],
+            "rows": [
+                ["School annual admission, books & uniforms", "April", "₹60,000", "₹5,000/mo"],
+                ["Family floater health insurance premium", "June", "₹30,000", "₹2,500/mo"],
+                ["Term life insurance premium", "September", "₹18,000", "₹1,500/mo"],
+                ["Property tax & annual society sinking charge", "October", "₹18,000", "₹1,500/mo"],
+                ["Diwali gifts, bonuses & festive shopping", "October / November", "₹48,000", "₹4,000/mo"],
+                ["Car insurance renewal & annual servicing", "December", "₹24,000", "₹2,000/mo"],
+                ["Annual family holiday & flights", "May", "₹42,000", "₹3,500/mo"],
+            ],
+            "foot": ["Total annual bills", "All year", "₹2,40,000/yr", "₹20,000/mo"],
+        },
         "faq": [
             ("What is a sinking fund?",
              "Money you set aside every month for a known future expense, like a yearly premium. Dividing the "
@@ -261,6 +326,18 @@ GUIDES = {
               "Your key comes from your vault passphrase and is never sent to our servers",
               "Built for Indian households: ₹1,00,000 formatting, EMIs, SIPs and annual bills like school fees"]),
         ],
+        "table": {
+            "heading": "Comparison: SMS-reading trackers vs Account Aggregator apps vs PlannedOut",
+            "intro": "See what access you hand over with each type of Indian money app:",
+            "headers": ["Feature / Privacy check", "SMS-scraping expense apps", "Account Aggregator (AA) apps", "PlannedOut"],
+            "rows": [
+                ["Phone SMS inbox permission", "Required (reads bank alerts & messages)", "Often requested alongside AA", "Never requested"],
+                ["Bank login / OTP consent", "Sometimes", "Required to link accounts", "Never requested"],
+                ["How transactions are added", "Auto-parsed from SMS alerts", "Pulled from linked bank feeds", "Type, copy-paste from Excel, or import CSV / .xlsx in browser"],
+                ["Can the company read your spending?", "Yes — stored in plaintext on server", "Yes — decrypted by the FIU app", "No — encrypted in browser (AES-256-GCM)"],
+                ["Personal loan & credit card spam", "Common revenue model", "Common cross-selling", "Zero ads, zero cross-selling"],
+            ],
+        },
         "faq": [
             ("Which budget app in India works without SMS permission?",
              "PlannedOut works in your browser on phone or laptop and never asks for SMS, contacts or bank access. "
@@ -295,6 +372,20 @@ GUIDES = {
               "Project your savings year by year to plan prepayments or your debt-free year",
               "Keep investments (SIPs, PPF, EPF) distinct from loan repayments"]),
         ],
+        "table": {
+            "heading": "Worked example: EMI burden on a ₹1,50,000 in-hand salary (before vs after closing a loan)",
+            "intro": "Keeping total EMIs below 30–35% of take-home pay leaves breathing room for annual bills and wealth building. Here is how clearing a ₹16,000 car/personal loan transforms monthly cash flow:",
+            "headers": ["Monthly cash-flow line", "With home + car + card EMIs", "After closing car & card EMIs"],
+            "rows": [
+                ["In-hand salary", "₹1,50,000 (100%)", "₹1,50,000 (100%)"],
+                ["Home loan EMI", "₹42,000 (28%)", "₹42,000 (28%)"],
+                ["Car loan + credit card EMIs", "₹18,000 (12%)", "₹0 (0%)"],
+                ["Total EMI burden (% of take-home)", "₹60,000 (40% — stretched)", "₹42,000 (28% — healthy)"],
+                ["Rent/maintenance, groceries, utilities & help", "₹48,000 (32%)", "₹48,000 (32%)"],
+                ["Annual bills sinking fund (insurance, school, Diwali)", "₹15,000 (10%)", "₹15,000 (10%)"],
+                ["Available for SIPs, prepayment & emergency buffer", "₹27,000/mo (18%)", "₹45,000/mo (30%)"],
+            ],
+        },
         "faq": [
             ("How much of my salary should go towards EMIs?",
              "A safe thumb rule is to keep all EMIs combined under 30–35% of your monthly take-home pay (and below 40% "
@@ -334,6 +425,20 @@ GUIDES = {
               "Import multi-tab Excel (.xlsx) budget workbooks",
               "Files are parsed inside your browser; raw files are never uploaded to our server"]),
         ],
+        "table": {
+            "heading": "Side-by-side comparison: YNAB vs Monarch Money vs Spreadsheets vs PlannedOut",
+            "intro": "How PlannedOut compares to popular subscription budget apps and manual spreadsheets:",
+            "headers": ["Feature", "YNAB", "Monarch Money", "Excel / Sheets", "PlannedOut"],
+            "rows": [
+                ["Annual price", "~$109/year", "~$99/year", "Free – $99/year", "Free"],
+                ["Bank linking / Plaid required?", "Encouraged (or manual entry)", "Built around Plaid / Finicity", "No", "Never — zero bank credentials"],
+                ["End-to-end encryption (zero-knowledge)", "No — server can read plaintext", "No — server can read plaintext", "No (cloud plaintext)", "Yes — AES-256-GCM in browser"],
+                ["Spreadsheet grid with formulas & paste", "No (form-based entry)", "No (feed-based)", "Yes", "Yes (=1200+340, paste, fill-down)"],
+                ["Annual bills & sinking funds built in", "Manual category targets", "Rollover budgets", "Manual formulas", "Dedicated Annual bucket & calendar"],
+                ["Multi-year projections & runway", "No", "Basic net-worth chart", "Manual formulas", "Built-in projections + what-if sliders"],
+                ["Currencies supported", "Single per budget", "Primarily USD / CAD", "Manual formatting", "20 currencies ($, £, €, ₹, C$, A$, etc.)"],
+            ],
+        },
         "faq": [
             ("Is there a budget app that doesn't require Plaid or bank linking?",
              "Yes. PlannedOut never connects to your bank. You type, paste from a spreadsheet, or import CSV / Excel "
@@ -371,6 +476,17 @@ GUIDES = {
               "No bank account linking or wealth-management sales calls",
               "Works in 20 currencies for domestic or expat / geographic-arbitrage planning"]),
         ],
+        "table": {
+            "heading": "Worked example: static 4% rule vs real cash-flow runway across FIRE styles",
+            "intro": "Why modelling monthly living costs, lumpy annual bills, and side/rental income separately gives a much clearer retirement picture:",
+            "headers": ["FIRE Scenario", "Monthly living burn", "Annual bills (insurance, tax, travel)", "Ongoing / Barista income", "Net annual drawdown", "25× (4% rule) vs 30× (3.3% safe) target"],
+            "rows": [
+                ["Lean FIRE (India)", "₹45,000/mo", "₹1,20,000/yr", "₹0", "₹6,60,000/yr", "₹1.65 Cr (25×) · ₹1.98 Cr (30×)"],
+                ["Standard Family FIRE (India)", "₹85,000/mo", "₹2,40,000/yr", "₹0", "₹12,60,000/yr", "₹3.15 Cr (25×) · ₹3.78 Cr (30×)"],
+                ["Barista / Coast FIRE (India)", "₹85,000/mo", "₹2,40,000/yr", "₹40,000/mo (consulting/rent)", "₹7,80,000/yr", "₹1.95 Cr (25×) · ₹2.34 Cr (30×)"],
+                ["Global / US Household FIRE", "$4,500/mo", "$12,000/yr", "$1,500/mo (part-time/rental)", "$48,000/yr", "$1.20M (25×) · $1.44M (30×)"],
+            ],
+        },
         "faq": [
             ("How do I calculate my FIRE number from my real spending?",
              "Start with your true annual burn: 12 × monthly spending plus all yearly bills (insurance, taxes, travel). "
@@ -412,6 +528,20 @@ GUIDES = {
               "Test what-ifs: see how a rent hike, switching jobs or saving 10% more changes your future corpus",
               "Encrypted in your browser (AES-256-GCM) so your salary and savings stay completely private"]),
         ],
+        "table": {
+            "heading": "Worked example: how to split a ₹50,000 or ₹80,000 in-hand first salary in India",
+            "intro": "Always budget from the actual in-hand salary credited to your bank account after EPF and tax:",
+            "headers": ["Monthly bucket", "₹50,000 in-hand pay", "₹80,000 in-hand pay", "What it covers"],
+            "rows": [
+                ["Fixed needs (rent/PG, bills, commute)", "₹20,000 (40%)", "₹28,000 (35%)", "Shared flat or PG rent, electricity, Wi-Fi, metro/fuel, mobile"],
+                ["Food, groceries & essentials", "₹6,000 (12%)", "₹9,000 (11%)", "Groceries, cook/tiffin, toiletries, basic medical"],
+                ["Family support / education loan EMI", "₹5,000 (10%)", "₹10,000 (13%)", "Sending money home or paying student loan EMI"],
+                ["Annual sinking fund (1/12th)", "₹3,000 (6%)", "₹5,000 (6%)", "Health/term insurance, Diwali travel home, phone/laptop upgrade"],
+                ["Wants (dining out, shopping, trips)", "₹6,000 (12%)", "₹10,000 (12%)", "Weekend outings, OTT subscriptions, clothes, hobbies"],
+                ["Savings & investments (Emergency + SIP)", "₹10,000 (20%)", "₹18,000 (23%)", "Build 3–6 mo liquid emergency fund first, then Nifty 50 / Flexi-cap SIP"],
+            ],
+            "foot": ["First-year wealth built (12 months)", "₹1,20,000 + interest", "₹2,16,000 + returns", "Plus ₹36,000–₹60,000 ready for annual bills without credit card debt"],
+        },
         "faq": [
             ("How should I split my first salary in India?",
              "A practical starting split is the 50/30/20 rule on your in-hand pay: up to 50% on needs (rent/PG, food, "
@@ -453,6 +583,19 @@ GUIDES = {
               "See whether your year as a whole added to savings even when the Diwali month ran a shortfall",
               "Include yearly festive and travel budgets in your multi-year savings projections"]),
         ],
+        "table": {
+            "heading": "Worked example: annual festival & family wedding sinking fund in ₹",
+            "intro": "Instead of swiping a credit card in October and paying EMIs till March, turn your predictable festive calendar into a monthly sinking fund:",
+            "headers": ["Festive / Wedding item", "Typical season", "Planned yearly budget", "Monthly set-aside (1/12th)"],
+            "rows": [
+                ["Diwali gifts, sweets, clothes & home decor", "October / November", "₹30,000", "₹2,500/mo"],
+                ["Househelp, cook, driver & society Diwali bonus", "October / November", "₹12,000", "₹1,000/mo"],
+                ["Dhanteras gold coin or Festive electronics upgrade", "October / November", "₹36,000", "₹3,000/mo"],
+                ["Rakhi, Eid, Onam, Pongal or Durga Puja travel & gifts", "Aug – Jan", "₹24,000", "₹2,000/mo"],
+                ["Attending 2 family weddings (travel, outfits & shagun)", "Nov – Feb", "₹42,000", "₹3,500/mo"],
+            ],
+            "foot": ["Total festive & wedding sinking fund", "Full year", "₹1,44,000/yr", "₹12,000/mo"],
+        },
         "faq": [
             ("How do I budget for Diwali and annual festivals without using credit card EMIs?",
              "Add up what you spent last year on gifts, clothes, bonuses, travel and big purchases, then divide by 12. "
@@ -492,6 +635,17 @@ GUIDES = {
               "No bank login, no SMS scraping and no distributor sales calls",
               "Import existing Excel fee trackers or bank CSVs in seconds"]),
         ],
+        "table": {
+            "heading": "Worked example: planning this year's school fees and a 10-year college corpus",
+            "intro": "Separate what is due every month, what lands once a year in April, and what needs compounding for college at 9% education inflation:",
+            "headers": ["Education goal", "Timeline", "Cost today", "Projected future cost", "Monthly action in PlannedOut"],
+            "rows": [
+                ["Monthly school tuition, bus & activity classes", "Every month", "₹10,000/mo", "Grows ~8–9%/yr", "Track under Monthly fixed commitments"],
+                ["Annual April school re-admission, books & uniforms", "Due every April", "₹60,000/yr", "₹65,400 next April", "Mark as Annual item → set aside ₹5,000/mo sinking fund"],
+                ["Class 11–12 coaching / test prep", "5 years away", "₹2,50,000 total", "~₹3,85,000 in 5 yrs", "Save ₹5,000/mo in conservative hybrid / RD"],
+                ["4-year undergraduate degree (India)", "10 years away", "₹15,00,000 today", "~₹35,50,000 in 10 yrs (at 9% inflation)", "Invest ₹15,500/mo via equity MF SIP + PPF/SSY"],
+            ],
+        },
         "faq": [
             ("What education inflation rate should I plan for in India?",
              "School and college fees in India have historically grown at 8–10% a year, often higher than headline CPI "
@@ -530,6 +684,22 @@ GUIDES = {
               "Raw files never leave your device; every row is encrypted with AES-256-GCM before saving",
               "Switch to the Excel green theme anytime if you love the classic spreadsheet look"]),
         ],
+        "templates": True,
+        "table": {
+            "heading": "Sample Indian household budget template (₹1,50,000 monthly family income)",
+            "intro": "Download this exact structure as an .xlsx or .csv file above, or open it directly in the live demo:",
+            "headers": ["Kind (PlannedOut column)", "Category", "Sample rows", "Monthly amount (₹)"],
+            "rows": [
+                ["Regular income", "Salary", "Primary salary (₹1,15,000) + Spouse / secondary income (₹35,000)", "₹1,50,000"],
+                ["Monthly fixed", "Rent / Home EMI & Maintenance", "Apartment rent / EMI (₹32,000) + Society maintenance (₹4,000)", "₹36,000"],
+                ["Monthly fixed", "Househelps & Utilities", "Cook & maid salary (₹6,000) + Electricity, gas & broadband (₹4,500)", "₹10,500"],
+                ["Monthly fixed", "Tuitions & Family", "Child tuition & bus (₹7,500) + Parents' medical/support (₹5,000)", "₹12,500"],
+                ["Regular expense", "Groceries, Fuel & Living", "Groceries & milk (₹14,000), Fuel & metro (₹5,000), Dining & pharmacy (₹7,000)", "₹26,000"],
+                ["Annual item (1/12th set-aside)", "Insurance, School & Diwali", "Health/Term insurance, April school fees & Diwali (₹1,80,000/yr ÷ 12)", "₹15,000"],
+                ["Investment", "SIPs, PPF & Emergency Fund", "Nifty 50 / Flexi-cap SIPs (₹25,000) + PPF (₹10,000)", "₹35,000"],
+            ],
+            "foot": ["Net monthly cash surplus", "Added to bank buffer", "Total savings + investments = ₹50,000/mo (33% savings rate)", "+₹15,000"],
+        },
         "faq": [
             ("What categories should an Indian household budget template have?",
              "A practical Indian household sheet separates: (1) In-hand income, (2) Fixed monthly commitments (rent, "
@@ -568,6 +738,20 @@ GUIDES = {
               "Use what-if sliders to test a 30% dip in income, cutting discretionary spend, or taking a two-month break",
               "Supports 20 currencies (USD, EUR, GBP, INR, CAD, AUD, SGD, AED and more) and encrypts everything in your browser"]),
         ],
+        "table": {
+            "heading": "Worked example: 6-month freelance cash-flow & runway across bumper and lean months",
+            "intro": "Suppose your baseline living + fixed cost is ₹65,000/month and you set aside ₹15,000/month for advance tax and annual renewals (₹80,000/month total baseline), starting with a ₹4,00,000 buffer:",
+            "headers": ["Month", "Client payouts received", "Baseline + tax reserve", "Monthly verdict (surplus / drawdown)", "Closing cash buffer (Runway)"],
+            "rows": [
+                ["April (Bumper)", "₹1,60,000", "₹80,000", "+₹80,000 added to buffer", "₹4,80,000 (6.0 months)"],
+                ["May (Normal)", "₹95,000", "₹80,000", "+₹15,000 added to buffer", "₹4,95,000 (6.2 months)"],
+                ["June (Lean — no invoice paid)", "₹15,000", "₹80,000", "−₹65,000 drawn from buffer", "₹4,30,000 (5.4 months)"],
+                ["July (Milestone payout)", "₹1,85,000", "₹80,000", "+₹1,05,000 added to buffer", "₹5,35,000 (6.7 months)"],
+                ["August (Quiet)", "₹45,000", "₹80,000", "−₹35,000 drawn from buffer", "₹5,00,000 (6.3 months)"],
+                ["September (Normal)", "₹1,10,000", "₹80,000", "+₹30,000 added to buffer", "₹5,30,000 (6.6 months)"],
+            ],
+            "foot": ["6-month total", "₹6,10,000 earned (₹1,01,667/mo avg)", "₹4,80,000 total burn", "+₹1,30,000 net surplus across half-year", "Buffer grew by +32.5%"],
+        },
         "faq": [
             ("How do you budget when your income changes every month?",
              "Start from your expenses, not your peak month's income. Calculate your baseline monthly cost (fixed "
@@ -609,6 +793,20 @@ GUIDES = {
               "Your monthly balance bridge keeps Annual items separate from Regular monthly expenses so your spending average stays accurate",
               "Annual items are automatically included in your multi-year savings and runway projections"]),
         ],
+        "table": {
+            "heading": "Sample sinking fund schedule: 6 predictable bills turned into monthly savings",
+            "intro": "Formula: Monthly set-aside = Upcoming bill ÷ Months until due. Here is a complete household sinking fund table in both USD ($) and INR (₹):",
+            "headers": ["Sinking fund category", "Frequency", "Example bill ($ USD)", "Monthly ($)", "Example bill (₹ INR)", "Monthly (₹)"],
+            "rows": [
+                ["Health & term life insurance", "Annual", "$1,800", "$150/mo", "₹48,000", "₹4,000/mo"],
+                ["Auto insurance & annual service", "Annual", "$1,200", "$100/mo", "₹24,000", "₹2,000/mo"],
+                ["Property tax / annual home maintenance", "Annual", "$2,400", "$200/mo", "₹24,000", "₹2,000/mo"],
+                ["School / education annual fees", "Annual", "$1,200", "$100/mo", "₹60,000", "₹5,000/mo"],
+                ["Holidays, festivals & gifts (Diwali / Christmas)", "Annual", "$1,800", "$150/mo", "₹48,000", "₹4,000/mo"],
+                ["Laptop / phone replacement cycle", "Every 24 months", "$1,440", "$60/mo", "₹72,000", "₹3,000/mo"],
+            ],
+            "foot": ["Total monthly sinking fund transfer", "All 6 buckets", "$9,840/2yr", "$760/mo", "₹2,76,000", "₹20,000/mo"],
+        },
         "faq": [
             ("What is a sinking fund with an example?",
              "If your car insurance and annual servicing cost $1,200 (or ₹36,000) once a year, a sinking fund means "

@@ -91,8 +91,14 @@ class CalculatorTests(TestCase):
             self.assertContains(r, "FAQPage")
             self.assertContains(r, '"@type": "Article"')
             self.assertContains(r, "/calculators/")
+            self.assertContains(r, '<table class="compare">')
+            self.assertContains(r, 'href="/app?demo=1"')
             expected_lang = "en-IN" if slug in seo.INDIA_GUIDES else "en"
             self.assertContains(r, f'<html lang="{expected_lang}">')
+        for tpl_slug in ("indian-household-budget-template", "excel-budget-alternative"):
+            tr = self.client.get(f"/{tpl_slug}/")
+            self.assertContains(tr, "indian-household-budget-template.xlsx")
+            self.assertContains(tr, "monthly-budget-template.csv")
         self.assertContains(self.client.get("/about/"), "AboutPage")
         self.assertContains(self.client.get("/contact/"), "ContactPage")
         self.assertContains(self.client.get("/privacy/"), "FAQPage")
@@ -136,3 +142,14 @@ class CalculatorTests(TestCase):
         self.assertEqual(_post(self.client, "/api/calc-use", {"calc": "x"}).status_code, 400)
         row = UsageDaily.objects.get(event="calc:emergency-fund")
         self.assertEqual((row.count, row.user_id), (2, None))
+
+    def test_demo_mode_works_without_login(self):
+        self.assertEqual(self.client.get("/app").status_code, 302)
+        redir = self.client.get("/demo/")
+        self.assertEqual(redir.status_code, 302)
+        self.assertEqual(redir["Location"], "/app?demo=1")
+        demo = self.client.get("/app?demo=1")
+        self.assertEqual(demo.status_code, 200)
+        self.assertContains(demo, 'id="demo-reset"')
+        self.assertContains(demo, "Live demo")
+        self.assertTrue(UsageDaily.objects.filter(event="demo:open").exists())
