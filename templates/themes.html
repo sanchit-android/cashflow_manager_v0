@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title }} | PlannedOut{% endblock %}
+{% block description %}{{ page.description }}{% endblock %}
+{% block og_title %}{{ page.title }}{% endblock %}
+{% block og_description %}{{ page.description }}{% endblock %}
+{% block body %}
+{% include "_site_header.html" %}
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › <a href="/features/">Features</a> › Themes</nav>
+  <section class="hero">
+    <h1>{{ page.h1 }}</h1>
+    <p class="lead">PlannedOut comes with {{ themes|length }} themes, from a classic Excel look to dark mode and Liquid Glass. Or build your own in a minute.</p>
+    <p class="hero-actions"><a href="/app?demo=1"><button class="primary">Try the themes in the live demo</button></a></p>
+  </section>
+  <section aria-labelledby="themes-h">
+    <h2 id="themes-h">All {{ themes|length }} themes</h2>
+    <div class="theme-gallery">
+      {% for key, name, bg, accent, note in themes %}
+      <figure class="card theme-card">
+        <div class="theme-mock" style="background:{{ bg }}" role="img" aria-label="{{ name }} theme colours">
+          <span style="background:{{ accent }}"></span><span></span><span></span>
+        </div>
+        <figcaption><strong>{{ name }}</strong><br><span class="small muted">{{ note }}</span></figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="card">
+    <h2>Build your own theme</h2>
+    <p>Open <strong>Settings → My theme</strong>, start from any theme above, and change:</p>
+    <ul>
+      <li><strong>{{ tokens|length }} colours:</strong> {{ tokens|join:", " }}</li>
+      <li><strong>Font:</strong> {{ fonts|join:", " }}</li>
+      <li><strong>Corner roundness:</strong> square to fully rounded</li>
+    </ul>
+    <p>Every change previews live, and your theme is saved with your encrypted settings, so it follows you to other devices.</p>
+  </section>
+  <section class="card">
+    <h2>Screen motion</h2>
+    <p>Choose how screens change: <strong>fade</strong>, <strong>slide</strong> or <strong>none</strong>. If your device asks for reduced motion, animations stay off unless you turn them on.</p>
+  </section>
+  <section class="faq">
+    <h2>Questions</h2>
+    {% for q, a in page.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
+  </section>
+  <section class="hero cta"><h2>Pick a look, then plan your money</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/features/"><button type="button">All features</button></a>{% endif %}</p></section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}

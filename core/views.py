@@ -14,6 +14,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -95,10 +96,56 @@ def calculator(request, slug):
     related_guides = [(gs, seo.GUIDES[gs]) for gs in seo.CALC_GUIDES.get(slug, []) if gs in seo.GUIDES]
     return render(request, "calculator.html", {
         "c": c, "slug": slug, "others": others, "form": f"calc/{slug}.html",
-        "related_guides": related_guides,
+        "related_guides": related_guides, "updated": seo.CALC_UPDATED,
+        "example_rows": _example_rows(c.get("examples")),
+        "embed_code": f'<iframe src="{settings.SITE_URL}/embed/{slug}/" title="{c["h1"]} by PlannedOut" '
+                      f'width="100%" height="640" style="border:0;max-width:720px" loading="lazy"></iframe>'
+                      f'<p><a href="{settings.SITE_URL}/calculators/{slug}/">{c["h1"]}</a> by PlannedOut</p>',
         "page_lang": "en", "og_locale": "en_US",
         "jsonld": seo.calc_jsonld(settings.SITE_URL, slug, c),
     })
+
+
+def _example_rows(ex):
+    """Pairs each example row with its prefill query string (or None) for the template."""
+    if not ex:
+        return []
+    params = ex.get("params") or []
+    return [(row, params[i] if i < len(params) else None) for i, row in enumerate(ex["rows"])]
+
+
+@require_GET
+@xframe_options_exempt
+@ensure_csrf_cookie
+def calculator_embed(request, slug):
+    """Bare calculator for other sites to embed in an iframe. Not indexed; canonical points at the full page."""
+    c = seo.CALCULATORS.get(slug)
+    if not c:
+        raise Http404
+    from .middleware import SecurityHeadersMiddleware
+    r = render(request, "calc_embed.html", {"c": c, "slug": slug, "form": f"calc/{slug}.html",
+                                            "CANONICAL_URL": f"{settings.SITE_URL}/calculators/{slug}/"})
+    # Any site may frame this page (and only this page); everything else keeps frame-ancestors 'none'.
+    r["Content-Security-Policy"] = SecurityHeadersMiddleware.CSP.replace("frame-ancestors 'none'", "frame-ancestors *")
+    return r
+
+
+@require_GET
+def features(request):
+    return render(request, "features.html", {"page": seo.FEATURES_PAGE, "features": seo.FEATURES,
+                                             "jsonld": seo.features_jsonld(settings.SITE_URL)})
+
+
+@require_GET
+def themes(request):
+    return render(request, "themes.html", {"page": seo.THEMES_PAGE, "themes": seo.THEMES, "fonts": seo.THEME_FONTS,
+                                           "tokens": seo.THEME_TOKENS, "jsonld": seo.themes_jsonld(settings.SITE_URL)})
+
+
+@require_GET
+def changelog(request):
+    return render(request, "changelog.html", {"page": seo.CHANGELOG_PAGE, "entries": seo.CHANGELOG,
+                                              "jsonld": seo.changelog_jsonld(settings.SITE_URL)})
 
 
 @require_POST
@@ -155,11 +202,16 @@ def llms_txt(request):
     lines += [f"- [{g['nav']}]({site}/{slug}/): {g['description']}" for slug, g in seo.GUIDES.items()]
     lines += ["", "## Free calculators (no sign-in, run in the browser)", ""]
     lines += [f"- [{c['h1']}]({site}/calculators/{slug}/): {c['description']}" for slug, c in seo.CALCULATORS.items()]
+    lines += ["", "## Features", ""]
+    lines += [f"- **{h}**: {summary} " + "; ".join(points) for _, h, summary, points in seo.FEATURES]
+    lines += ["", "## Themes", "", "- " + ", ".join(t[1] for t in seo.THEMES) + ", plus a custom theme builder "
+              "(12 colours, 4 fonts, corner roundness)"]
     lines += ["", "## FAQ", ""]
     lines += [f"### {q}\n{a}\n" for q, a in seo.HOME_FAQ]
     lines += ["## Links", "", f"- [Home]({site}/)", f"- [Live interactive demo (no sign-in)]({site}/app?demo=1)",
               f"- [Download Indian household budget Excel template (.xlsx)]({site}/static/templates/indian-household-budget-template.xlsx)",
               f"- [Download monthly budget CSV template (.csv)]({site}/static/templates/monthly-budget-template.csv)",
+              f"- [All features]({site}/features/)", f"- [Themes]({site}/themes/)", f"- [What's new]({site}/changelog/)",
               f"- [Privacy: what we can and can't see]({site}/privacy/)",
               f"- [About]({site}/about/)", f"- [Contact]({site}/contact/)",
               f"- [Sign up free]({site}/login/)", "",

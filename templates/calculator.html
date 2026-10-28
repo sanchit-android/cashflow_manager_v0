@@ -10,19 +10,42 @@
   <section class="hero">
     <h1>{{ c.h1 }}</h1>
     <p class="lead">{{ c.intro }}</p>
-    <p class="muted small">Free · No sign-in · Runs in your browser, nothing you type is sent anywhere</p>
+    <p class="muted small">Free · No sign-in · Runs in your browser, nothing you type is sent anywhere · Last updated <time datetime="{{ updated }}">{{ updated }}</time> by the {{ COMPANY }} team</p>
   </section>
-  <section class="card calc" aria-label="Calculator">
+  <section class="card calc" id="calc" aria-label="Calculator">
     <form class="calc-form" data-calc="{{ slug }}" novalidate>
       <label class="calc-cur">Currency <select name="currency" data-currency></select></label>
       {% include form %}
     </form>
     <div class="calc-out" aria-live="polite"></div>
+    <p class="calc-share small"><button type="button" class="link" data-share>Copy a link to these results</button> <span class="muted" data-share-msg aria-live="polite"></span></p>
   </section>
+  {% if c.examples %}
+  <section aria-labelledby="calc-ex-h">
+    <h2 id="calc-ex-h">{{ c.examples.heading }}</h2>
+    {% if c.examples.intro %}<p>{{ c.examples.intro }}</p>{% endif %}
+    <div class="table-scroll">
+      <table class="compare">
+        <thead><tr>{% for h in c.examples.headers %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row, q in example_rows %}<tr>{% for cell in row %}{% if forloop.first %}<th scope="row">{% if q %}<a href="?{{ q }}#calc">{{ cell }}</a>{% else %}{{ cell }}{% endif %}</th>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
   <section class="card">
     <h2>How it is calculated</h2>
     <ul>{% for i in c.how %}<li>{{ i }}</li>{% endfor %}</ul>
   </section>
+  {% if c.mistakes %}
+  <section class="card">
+    <h2>Common mistakes</h2>
+    <ul>{% for m in c.mistakes %}<li>{{ m }}</li>{% endfor %}</ul>
+    {% if c.sources %}<p class="small muted">Sources: {% for label, url in c.sources %}<a href="{{ url }}" rel="noopener" target="_blank">{{ label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </section>
+  {% endif %}
   <section class="card">
     <h2>Want this from your real numbers?</h2>
     <p>PlannedOut is a free, private cash-flow planner. Enter income and spending like a spreadsheet, and it works out your runway, savings rate, yearly bills and future savings for you. Everything is encrypted in your browser.</p>
@@ -38,6 +61,12 @@
     <ul>{% for gs, g in related_guides %}<li><a href="/{{ gs }}/">{{ g.nav }}</a>: {{ g.description }}</li>{% endfor %}</ul>
   </section>
   {% endif %}
+  <section class="card">
+    <h2>Add this calculator to your site</h2>
+    <p>Free for blogs, newsletters and community sites. Paste this where you want it to appear:</p>
+    <textarea class="embed-code" readonly rows="4" aria-label="Embed code">{{ embed_code }}</textarea>
+    <p><button type="button" data-copy-embed>Copy embed code</button> <span class="muted small" data-embed-msg aria-live="polite"></span></p>
+  </section>
   <section>
     <h2>More free calculators</h2>
     <ul>{% for s, o in others.items %}<li><a href="/calculators/{{ s }}/">{{ o.h1 }}</a>: {{ o.description }}</li>{% endfor %}</ul>

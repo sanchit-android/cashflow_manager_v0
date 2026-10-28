@@ -29,7 +29,8 @@ BENEFITS = [
      "spending, so one expensive month doesn't hide your real trend."),
     ("Free, no install",
      "Works in any modern browser on laptop or phone. Sign in with Google or an email code. "
-     "Five themes, including one that looks like Excel."),
+     "15 themes (Excel, dark, Liquid Glass, Metro and more), plus a custom theme builder for your own "
+     "colours, font and corner style."),
 ]
 
 HOME_FAQ = [
@@ -211,10 +212,10 @@ GUIDES = {
         ],
     },
     "savings-runway-calculator": {
-        "title": "How Long Will My Savings Last? Savings Runway Planner for Career Breaks, FIRE & Retirement",
-        "h1": "How long will my savings last?",
-        "description": "Plan a career break, sabbatical, job loss, early retirement (FIRE) or retirement. See how "
-                       "many months your savings last based on your real spending, with inflation and yearly bills.",
+        "title": "Career Break & Sabbatical Money Planner: Your Savings Runway From Real Spending",
+        "h1": "Plan a career break, sabbatical or layoff with your real savings runway",
+        "description": "Planning a career break, sabbatical, layoff or startup year? Track your real monthly burn, "
+                       "yearly bills and balances to see your runway and which cut extends it most.",
         "nav": "Savings runway planner",
         "intro": "If you are between jobs, on a sabbatical, building a startup, or retired, the question isn't "
                  "'how much can I spend?' but 'how long does my money last?'. PlannedOut answers it from your own "
@@ -452,7 +453,7 @@ GUIDES = {
         ],
     },
     "fire-retirement-runway-planner": {
-        "title": "FIRE & Retirement Runway Planner: How Long Will My Savings Last?",
+        "title": "FIRE & Retirement Runway Planner: FIRE Number vs Real Cash Flow",
         "h1": "Plan your FIRE number, retirement cash flow and savings runway",
         "description": "Go beyond the generic 4% rule. Model your early retirement (FIRE), Coast FIRE or retirement "
                        "runway using your actual monthly burn, lumpy annual bills, inflation and what-if scenarios.",
@@ -1049,6 +1050,36 @@ CALCULATORS = {
                 "Any regular income (rent, pension, part-time work) is added back",
                 "Whatever is left earns the annual return you entered, spread across the year",
                 "Runway is the number of months until savings reach zero (checked up to 100 years)"],
+        "examples": {
+            "heading": "Worked examples: how long savings last",
+            "intro": "Each row uses 4% return on savings. Inflation is 6% for the rupee rows and 3% for the dollar rows. "
+                     "Tap a row to load it into the calculator.",
+            "headers": ["Savings", "Monthly spending", "Regular income", "Simple division", "With inflation & returns"],
+            "rows": [
+                ["₹12,00,000", "₹60,000", "None", "20 months", "1 year 7 months"],
+                ["₹25,00,000", "₹80,000", "None", "31 months", "2 years 6 months"],
+                ["₹50,00,000 (6% return)", "₹1,00,000", "₹30,000 rent", "71 months", "5 years 7 months"],
+                ["$30,000", "$3,000", "None", "10 months", "10 months"],
+                ["$150,000", "$4,000", "None", "37 months", "3 years 2 months"],
+            ],
+            "params": [
+                "savings=1200000&spend=60000&income=0&inflation=6&ret=4&currency=INR",
+                "savings=2500000&spend=80000&income=0&inflation=6&ret=4&currency=INR",
+                "savings=5000000&spend=100000&income=30000&inflation=6&ret=6&currency=INR",
+                "savings=30000&spend=3000&income=0&inflation=3&ret=4&currency=USD",
+                "savings=150000&spend=4000&income=0&inflation=3&ret=4&currency=USD",
+            ],
+        },
+        "mistakes": [
+            "Leaving out yearly bills. Insurance, school fees and property tax add up, so divide the yearly total by 12 and add it to monthly spending.",
+            "Counting money you can't touch. Leave out PF/EPF, retirement accounts with penalties, and your emergency fund if you want to keep it.",
+            "Assuming stock-market returns on money you will spend in 1–3 years. Use savings-account or FD rates for that money.",
+            "Ignoring inflation. At 6% a year, ₹60,000 of spending today costs about ₹80,000 in five years.",
+        ],
+        "sources": [
+            ("RBI: Consumer Price Index (inflation) data", "https://www.rbi.org.in/"),
+            ("US Bureau of Labor Statistics: CPI", "https://www.bls.gov/cpi/"),
+        ],
         "faq": [
             ("How do I calculate how long my savings will last?",
              "Divide your savings by your monthly spending minus any regular income. ₹12,00,000 of savings with "
@@ -1075,6 +1106,32 @@ CALCULATORS = {
                 "Months of cover is suggested from how steady your income is; you can change it",
                 "Gap = target minus what you have already set aside",
                 "Time to reach = gap ÷ what you can add each month"],
+        "examples": {
+            "heading": "Worked examples: emergency fund targets",
+            "intro": "Target = essential monthly expenses × months of cover. Tap a row to load it into the calculator.",
+            "headers": ["Situation", "Essentials / month", "Months", "Target", "Saved", "Adding / month", "Time to reach"],
+            "rows": [
+                ["Salaried, second earner at home", "₹40,000", "3", "₹1,20,000", "₹50,000", "₹10,000", "7 months"],
+                ["Salaried, only earner", "₹50,000", "6", "₹3,00,000", "₹1,00,000", "₹15,000", "1 year 2 months"],
+                ["Freelance income", "₹60,000", "9", "₹5,40,000", "₹2,00,000", "₹20,000", "1 year 5 months"],
+                ["Salaried, only earner (US)", "$3,500", "6", "$21,000", "$5,000", "$800", "1 year 8 months"],
+            ],
+            "params": [
+                "essentials=40000&situation=3&months=3&saved=50000&monthly=10000&currency=INR",
+                "essentials=50000&situation=6&months=6&saved=100000&monthly=15000&currency=INR",
+                "essentials=60000&situation=9&months=9&saved=200000&monthly=20000&currency=INR",
+                "essentials=3500&situation=6&months=6&saved=5000&monthly=800&currency=USD",
+            ],
+        },
+        "mistakes": [
+            "Using total spending instead of essentials. In an emergency you cut eating out and shopping, so size the fund on rent/EMI, food, utilities, insurance, school fees and transport.",
+            "Investing it in equity. Keep it in a savings account, sweep-in FD or liquid fund you can reach in a day or two.",
+            "Mixing it with sinking funds. Planned bills like insurance premiums should come from their own pot.",
+            "Forgetting to top it up when expenses rise, after a new EMI, a move or a child.",
+        ],
+        "sources": [
+            ("Consumer Financial Protection Bureau: building an emergency fund", "https://www.consumerfinance.gov/"),
+        ],
         "faq": [
             ("How many months of expenses should an emergency fund cover?",
              "A common rule is 3 months with a stable salary and a second earner, 6 months for a single salaried "
@@ -1100,6 +1157,24 @@ CALCULATORS = {
         "how": ["For each bill: (amount − already saved) ÷ months until it is due",
                 "A bill due this month needs the full remaining amount now",
                 "The total is what to move into savings each month to cover every bill on time"],
+        "examples": {
+            "heading": "Worked example: one household's sinking funds",
+            "intro": "Each bill needs (amount − already saved) ÷ months until due. Add the rows up to get one monthly transfer.",
+            "headers": ["Bill", "Amount", "Already saved", "Due in", "Set aside each month"],
+            "rows": [
+                ["Health + term insurance", "₹36,000", "₹0", "12 months", "₹3,000"],
+                ["School fees (April)", "₹1,20,000", "₹20,000", "8 months", "₹12,500"],
+                ["Diwali & gifts", "₹40,000", "₹0", "5 months", "₹8,000"],
+                ["Car service & insurance", "₹12,000", "₹0", "6 months", "₹2,000"],
+                ["Total", "₹2,08,000", "₹20,000", "", "₹25,500 a month"],
+            ],
+        },
+        "mistakes": [
+            "Using one pot for everything without tracking each bill, so you can't tell which bill is short.",
+            "Starting too late. A bill due in 2 months needs six times the monthly amount of one due in 12.",
+            "Forgetting irregular but certain costs: gadget replacement, home repairs, annual subscriptions and renewals.",
+        ],
+        "sources": [],
         "faq": [
             ("What is a sinking fund?",
              "A pot of money you build in small monthly amounts for a known future expense, so the bill doesn't "
@@ -1125,6 +1200,30 @@ CALCULATORS = {
                 "Wants (30%): eating out, shopping, entertainment, holidays, subscriptions",
                 "Savings (20%): SIPs, PF top-ups, emergency fund, extra loan prepayments",
                 "Use take-home pay, after tax and PF deductions, not your CTC"],
+        "examples": {
+            "heading": "Worked examples: 50/30/20 split by take-home pay",
+            "intro": "Tap a row to load it into the calculator, then add what you spend today to compare.",
+            "headers": ["Monthly take-home pay", "Needs (50%)", "Wants (30%)", "Savings (20%)"],
+            "rows": [
+                ["₹50,000", "₹25,000", "₹15,000", "₹10,000"],
+                ["₹1,00,000", "₹50,000", "₹30,000", "₹20,000"],
+                ["₹2,00,000", "₹1,00,000", "₹60,000", "₹40,000"],
+                ["$5,000", "$2,500", "$1,500", "$1,000"],
+            ],
+            "params": [
+                "income=50000&currency=INR", "income=100000&currency=INR",
+                "income=200000&currency=INR", "income=5000&currency=USD",
+            ],
+        },
+        "mistakes": [
+            "Using CTC or gross salary instead of what lands in your account.",
+            "Counting EMIs on gadgets or holidays as needs. They are wants paid later.",
+            "Forgetting yearly bills. Insurance premiums and school fees belong in needs, as a monthly share.",
+            "Treating 20% as a ceiling. If needs are low, push savings higher.",
+        ],
+        "sources": [
+            ("Elizabeth Warren & Amelia Warren Tyagi, All Your Worth (2005)", "https://en.wikipedia.org/wiki/Elizabeth_Warren"),
+        ],
         "faq": [
             ("What is the 50/30/20 rule?",
              "A simple budgeting rule: spend 50% of take-home income on needs, 30% on wants and put 20% into "
@@ -1138,11 +1237,135 @@ CALCULATORS = {
         ],
     },
 }
+CALC_UPDATED = "2026-10-28"  # bump when calculator content changes; shown on the page
+
 CALC_HUB = {
     "title": "Free Money Calculators: Savings Runway, Emergency Fund, Sinking Fund, 50/30/20",
     "h1": "Free money calculators",
     "description": "Free personal finance calculators that run in your browser: savings runway, emergency fund, "
                    "sinking funds and the 50/30/20 budget rule. No sign-in, nothing you type is sent anywhere.",
+}
+
+# ---------- Features, themes and changelog pages ----------
+# Keep in step with the app: THEMES mirrors THEMES in static/js/app.js (name, background, accent, note).
+THEMES = [
+    ("excel", "Excel", "#ffffff", "#217346", "Classic green spreadsheet look, the default"),
+    ("planned", "PlannedOut", "#1c1e24", "#34d399", "Charcoal and teal brand theme, dark"),
+    ("paper", "Paper", "#f7f6f2", "#2457c5", "Warm off-white with blue ink"),
+    ("sky", "Sky", "#f3f7fc", "#1f6feb", "Cool light blue"),
+    ("lavender", "Lavender", "#f7f5fc", "#6b4fbb", "Soft purple"),
+    ("sand", "Sand", "#faf6ee", "#a0612a", "Earthy beige and brown"),
+    ("rose", "Rose", "#fdf6f7", "#b4325b", "Pale pink with deep rose"),
+    ("mint", "Mint", "#eef6f3", "#0f7a5c", "Fresh green"),
+    ("chai", "Chai", "#f6efe4", "#9a4a12", "Warm tea tones with a serif font"),
+    ("ink", "Ink", "#ffffff", "#000000", "High-contrast black and white"),
+    ("night", "Night", "#121417", "#7aa7ff", "Dark mode with blue accents"),
+    ("metro-light", "Metro Light", "#ffffff", "#1ba1e2", "Bold tiles in four colours, light"),
+    ("metro-dark", "Metro Dark", "#000000", "#d80073", "Bold tiles in four colours, dark"),
+    ("glass", "Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "#007aff", "Frosted translucent panels over a pastel gradient"),
+    ("glass-dark", "Glass Dark", "linear-gradient(135deg,#0f172a,#3b0764,#042f2e)", "#38bdf8", "Frosted panels over a deep gradient, dark"),
+]
+THEME_FONTS = ["System", "Office", "Serif", "Rounded"]
+THEME_TOKENS = ["Page background", "Cards and cells", "Panels", "Text", "Secondary text", "Borders", "Accent",
+                "Positive numbers", "Negative numbers", "Sheet headers", "Gridlines", "Selected cells"]
+
+THEMES_PAGE = {
+    "title": "Budget App Themes: 15 Looks, Dark Mode & a Custom Theme Builder",
+    "h1": "Make your budget look the way you like",
+    "description": "PlannedOut has 15 themes, including an Excel look, dark mode, Liquid Glass and Metro, plus a "
+                   "custom theme builder for your own colours, font and corner style. Free, and you can try them in the demo.",
+    "faq": [
+        ("Does PlannedOut have a dark mode?",
+         "Yes. PlannedOut, Night, Metro Dark and Glass Dark are dark themes. Pick one in Settings → Theme."),
+        ("Can I make my budget look like Excel?",
+         "Yes. The Excel theme is the default: white cells, green headers and gridlines, like a spreadsheet."),
+        ("Can I create my own theme?",
+         "Yes. Settings → My theme lets you start from any theme, then set 12 colours, pick a font "
+         "(System, Office, Serif or Rounded) and choose how rounded the corners are. It previews live as you change it."),
+        ("Can I turn off animations?",
+         "Yes. Settings → Screen motion offers fade, slide or none. If your device asks for reduced motion, "
+         "animations are off unless you turn them on."),
+        ("Can I try the themes without signing up?",
+         "Yes. Open the live demo, go to Settings and switch themes. Nothing is saved."),
+    ],
+}
+
+# Each feature: (anchor, heading, summary, bullet points)
+FEATURES = [
+    ("sheet", "A spreadsheet you don't have to build",
+     "Type income and spending into an Excel-like grid instead of filling forms.",
+     ["Formulas in any amount cell, like =1200+340 or =4500*2",
+      "Copy and paste from Excel or Google Sheets, fill-down and undo",
+      "Import .xlsx or CSV files and bank statement exports; the file is read in your browser",
+      "Free downloadable Excel and CSV budget templates"]),
+    ("insights", "Answers, not just records",
+     "Every month gets a clear verdict, and the numbers that explain it.",
+     ["Did this month add to your savings or eat into them?",
+      "Fixed commitments vs day-to-day spending vs yearly bills",
+      "Categories trending up, top merchants and savings rate",
+      "Custom metrics: build your own tiles with formulas and drag them into the order you want",
+      "Net monthly burn chart and a full year at a glance"]),
+    ("projections", "Projections and runway",
+     "See where your savings are heading, not just where they've been.",
+     ["Year-by-year savings projection to any year you choose",
+      "Months of runway if income stopped, from your real 3-month average burn",
+      "What-ifs: cut spending, drop a commitment, add income"]),
+    ("accounts", "Accounts, cards and month close",
+     "Track bank accounts, credit cards and loans the way they really work.",
+     ["Credit card bills tracked separately from the spending on them",
+      "Close a month to lock it, and bill cards as entered",
+      "Big yearly bills (insurance, school fees, property tax) kept out of day-to-day trends"]),
+    ("themes", "15 themes and a custom theme builder",
+     "Make it look like a spreadsheet, a dark-mode app or something of your own.",
+     ["Excel, PlannedOut, Paper, Sky, Lavender, Sand, Rose, Mint, Chai, Ink, Night, Metro Light, Metro Dark, Liquid Glass and Glass Dark",
+      "Custom theme builder: 12 colours, 4 fonts and corner roundness, with a live preview",
+      "Screen motion: fade, slide or none, and it respects reduced-motion settings"]),
+    ("security", "Encrypted in your browser",
+     "Your amounts, names and categories are encrypted before they leave your device.",
+     ["AES-256-GCM encryption with a key made from your vault passphrase (PBKDF2-SHA256, 600,000 rounds)",
+      "We never have your key, so we can't read your amounts",
+      "Recovery keys if you forget your passphrase, and lock/unlock on shared devices",
+      "No bank login, no SMS reading, no account aggregator, no ads",
+      "Delete your account and every record in one click"]),
+    ("anywhere", "Works anywhere, in 20 currencies",
+     "No install needed, on laptop or phone.",
+     ["Runs in any modern browser; add it to your home screen like an app",
+      "20 currencies including INR (with ₹1,00,000 grouping), USD, GBP, EUR, AED and SGD",
+      "Sync across devices with Google sign-in or an email code",
+      "Try everything in the live demo first, without signing up"]),
+]
+FEATURES_PAGE = {
+    "title": "PlannedOut Features: Private Budget Planner With Projections, Themes & Encryption",
+    "h1": "Everything PlannedOut does",
+    "description": "Spreadsheet-style entry with formulas, monthly insights, savings projections and runway, card "
+                   "tracking, 15 themes with a custom theme builder, 20 currencies and browser-side encryption. Free.",
+}
+
+# Newest first. (date, title, points). Add an entry when you ship something visitors would notice.
+CHANGELOG = [
+    ("2026-10-28", "Shareable and embeddable calculators", [
+        "Every calculator result has a link you can share, and calculators can be embedded on other sites",
+        "Worked examples and common mistakes on every calculator page",
+        "New Features, Themes and Changelog pages"]),
+    ("2026-10-28", "Live demo and Excel templates", [
+        "Try the full app with 9 months of sample data, no sign-in",
+        "Free Indian household budget Excel (.xlsx) and CSV templates"]),
+    ("2026-10-27", "More themes and product screenshots", [
+        "New themes: Metro Light, Metro Dark, Liquid Glass and Glass Dark, on top of the custom theme builder",
+        "10 new guides for India and global budgeting questions"]),
+    ("2026-10-25", "Calculators, motion and onboarding", [
+        "Free savings runway, emergency fund, sinking fund and 50/30/20 calculators",
+        "Screen motion settings: fade, slide or none",
+        "Step-by-step setup wizard and net monthly burn chart",
+        "Drag-and-drop to reorder metric tiles"]),
+    ("2026-10-24", "Custom metrics and month close", [
+        "Build your own metric tiles with formulas",
+        "Close a month to lock it, with credit card billing"]),
+]
+CHANGELOG_PAGE = {
+    "title": "What's New in PlannedOut: Changelog",
+    "h1": "What's new",
+    "description": "New features and improvements in PlannedOut, the free private cash-flow planner, newest first.",
 }
 
 COMPANY = "Pravaha.AI"
@@ -1161,7 +1384,7 @@ CONTACT_TOPIC_VALUES = {f"{c} / {s}" for c, subs in CONTACT_TOPICS for s in subs
 
 def public_paths():
     """Every page we want search engines to index (used by the sitemap and IndexNow)."""
-    return ["/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in GUIDES] + \
+    return ["/", "/features/", "/themes/", "/changelog/", "/about/", "/contact/", "/privacy/"] + [f"/{slug}/" for slug in GUIDES] + \
         ["/calculators/"] + [f"/calculators/{slug}/" for slug in CALCULATORS]
 
 
@@ -1236,7 +1459,7 @@ def calc_jsonld(site, slug, c):
         {"@context": "https://schema.org", "@type": "WebApplication", "name": c["h1"], "url": url,
          "description": c["description"], "applicationCategory": "FinanceApplication",
          "operatingSystem": "Any (web browser)", "isAccessibleForFree": True, "inLanguage": "en",
-         "offers": _free_offers(),
+         "offers": _free_offers(), "dateModified": CALC_UPDATED,
          "isPartOf": {"@id": site + "/#website"}, "publisher": {"@id": site + "/#org"}},
         {"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
@@ -1306,4 +1529,45 @@ def privacy_jsonld(site):
             {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
             {"@type": "ListItem", "position": 2, "name": "Privacy", "item": url}]},
         _faq(PRIVACY_FAQ),
+    )
+
+
+def _crumbs(site, name, path):
+    return {"@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": NAME, "item": site + "/"},
+        {"@type": "ListItem", "position": 2, "name": name, "item": site + path}]}
+
+
+def features_jsonld(site):
+    url = site + "/features/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "WebPage", "name": FEATURES_PAGE["title"], "url": url,
+         "description": FEATURES_PAGE["description"], "isPartOf": {"@id": site + "/#website"}},
+        {"@type": "WebApplication", "name": NAME, "url": site + "/", "applicationCategory": "FinanceApplication",
+         "operatingSystem": "Any (web browser)", "isAccessibleForFree": True, "offers": _free_offers(),
+         "featureList": [p for f in FEATURES for p in f[3]], "publisher": {"@id": site + "/#org"}},
+        _crumbs(site, "Features", "/features/"),
+    )
+
+
+def themes_jsonld(site):
+    url = site + "/themes/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "CollectionPage", "name": THEMES_PAGE["title"], "url": url,
+         "description": THEMES_PAGE["description"], "isPartOf": {"@id": site + "/#website"}},
+        {"@type": "ItemList", "itemListElement": [
+            {"@type": "ListItem", "position": i, "name": f"{n} theme", "description": note}
+            for i, (_, n, _bg, _ac, note) in enumerate(THEMES, 1)]},
+        _crumbs(site, "Themes", "/themes/"),
+        _faq(THEMES_PAGE["faq"]),
+    )
+
+
+def changelog_jsonld(site):
+    url = site + "/changelog/"
+    return _ld(
+        {"@context": "https://schema.org", "@type": "WebPage", "name": CHANGELOG_PAGE["title"], "url": url,
+         "description": CHANGELOG_PAGE["description"], "dateModified": CHANGELOG[0][0],
+         "isPartOf": {"@id": site + "/#website"}},
+        _crumbs(site, "What's new", "/changelog/"),
     )

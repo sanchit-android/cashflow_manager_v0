@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block description %}{{ page.description }}{% endblock %}
+{% block og_title %}{{ page.title }}{% endblock %}
+{% block og_description %}{{ page.description }}{% endblock %}
+{% block body %}
+{% include "_site_header.html" %}
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › Features</nav>
+  <section class="hero">
+    <h1>{{ page.h1 }}</h1>
+    <p class="lead">A free, private cash-flow planner that works like a spreadsheet, tells you what your numbers mean, and keeps them encrypted so only you can read them.</p>
+    <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %}</p>
+  </section>
+  <nav class="card small" aria-label="On this page">{% for anchor, h, s, pts in features %}<a href="#{{ anchor }}">{{ h }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</nav>
+  {% for anchor, h, summary, points in features %}
+  <section class="card" id="{{ anchor }}">
+    <h2>{{ h }}</h2>
+    <p>{{ summary }}</p>
+    <ul>{% for p in points %}<li>{{ p }}</li>{% endfor %}</ul>
+    {% if anchor == "themes" %}<p><a href="/themes/">See all 15 themes →</a></p>{% elif anchor == "security" %}<p><a href="/privacy/">Exactly what we can and can't see →</a></p>{% elif anchor == "sheet" %}<p><a href="/excel-budget-alternative/">Coming from Excel? →</a></p>{% elif anchor == "projections" %}<p><a href="/calculators/savings-runway/">Try the free savings runway calculator →</a></p>{% endif %}
+  </section>
+  {% endfor %}
+  <section class="card">
+    <h2>What's new</h2>
+    <p>We ship improvements most weeks. <a href="/changelog/">Read the changelog →</a></p>
+  </section>
+  <section class="hero cta"><h2>Try every feature with sample data</h2><p class="hero-actions"><a href="/app?demo=1"><button class="primary">Open the live demo</button></a></p></section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}

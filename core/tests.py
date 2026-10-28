@@ -129,6 +129,33 @@ class CalculatorTests(TestCase):
         self.assertContains(self.client.get("/excel-budget-alternative/"), "transactions-sheet.webp")
         self.assertContains(self.client.get("/budget-app-without-sms-india/"), "transactions-sheet.webp")
 
+    def test_features_themes_changelog_and_embed(self):
+        from . import seo
+        for path, marker in (("/features/", "featureList"), ("/themes/", "Liquid Glass"), ("/changelog/", "dateModified")):
+            r = self.client.get(path)
+            self.assertContains(r, marker)
+            self.assertContains(self.client.get("/sitemap.xml"), path)
+        self.assertContains(self.client.get("/themes/"), "FAQPage")
+        self.assertEqual(len(seo.THEMES), 15)
+        self.assertNotIn("Five themes", self.client.get("/").content.decode())
+        llms = self.client.get("/llms.txt")
+        self.assertContains(llms, "/themes/")
+        self.assertContains(llms, "custom theme builder")
+        for slug in seo.CALCULATORS:
+            page = self.client.get(f"/calculators/{slug}/")
+            self.assertContains(page, "Common mistakes")
+            self.assertContains(page, "data-share")
+            self.assertContains(page, f"/embed/{slug}/")
+            self.assertContains(page, '<table class="compare">')
+            e = self.client.get(f"/embed/{slug}/")
+            self.assertContains(e, f'data-calc="{slug}"')
+            self.assertContains(e, "noindex")
+            self.assertRegex(e.content.decode(), rf'rel="canonical" href="[^"]*/calculators/{slug}/"')
+            self.assertIn("frame-ancestors *", e.headers["Content-Security-Policy"])
+            self.assertNotIn("X-Frame-Options", e.headers)
+        self.assertIn("frame-ancestors 'none'", self.client.get("/calculators/").headers["Content-Security-Policy"])
+        self.assertEqual(self.client.get("/embed/nope/").status_code, 404)
+
     def test_sitemap_lastmod_from_indexnow(self):
         from .models import IndexNowPage
         IndexNowPage.objects.create(path="/about/", digest="x")

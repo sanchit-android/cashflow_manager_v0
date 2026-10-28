@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block description %}{{ page.description }}{% endblock %}
+{% block og_title %}{{ page.title }}{% endblock %}
+{% block og_description %}{{ page.description }}{% endblock %}
+{% block body %}
+{% include "_site_header.html" %}
+<main class="wrap landing guide">
+  <nav class="crumbs small muted" aria-label="Breadcrumb"><a href="/">PlannedOut</a> › What's new</nav>
+  <section class="hero">
+    <h1>{{ page.h1 }}</h1>
+    <p class="lead">New features and improvements, newest first. See <a href="/features/">everything PlannedOut does</a>.</p>
+  </section>
+  {% for date, title, points in entries %}
+  <article class="card">
+    <h2>{{ title }}</h2>
+    <p class="small muted"><time datetime="{{ date }}">{{ date }}</time></p>
+    <ul>{% for p in points %}<li>{{ p }}</li>{% endfor %}</ul>
+  </article>
+  {% endfor %}
+</main>
+{% include "_footer.html" %}
+{% endblock %}

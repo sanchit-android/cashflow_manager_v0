@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{{ c.h1 }} | PlannedOut{% endblock %}
+{% block description %}{{ c.description }}{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+{% block body %}
+<main class="wrap landing guide embed">
+  <section class="card calc" aria-label="Calculator">
+    <h1 class="embed-h">{{ c.h1 }}</h1>
+    <form class="calc-form" data-calc="{{ slug }}" novalidate>
+      <label class="calc-cur">Currency <select name="currency" data-currency></select></label>
+      {% include form %}
+    </form>
+    <div class="calc-out" aria-live="polite"></div>
+    <p class="small muted">Free calculator by <a href="{{ SITE_URL }}/calculators/{{ slug }}/" target="_blank" rel="noopener">PlannedOut</a>. Nothing you type leaves your browser.</p>
+  </section>
+</main>
+<script type="module" src="{% static JS_DIR|add:'/calc.js' %}"></script>
+{% endblock %}

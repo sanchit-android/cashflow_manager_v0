@@ -3,7 +3,8 @@
   <details class="menu">
     <summary aria-label="Menu"><span class="burger" aria-hidden="true"></span></summary>
     <nav class="site-nav" aria-label="Main">
-      <a href="/#why">Features</a>
+      <a href="/features/"{% if request.path == "/features/" %} aria-current="page"{% endif %}>Features</a>
+      <a href="/themes/"{% if request.path == "/themes/" %} aria-current="page"{% endif %}>Themes</a>
       <a href="/#how">How it works</a>
       <details class="dd" name="nav-dd">
         <summary>Guides</summary>

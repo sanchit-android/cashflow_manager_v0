@@ -1,6 +1,6 @@
 // Free public calculators (/calculators/<slug>/). Everything is computed here in the browser;
 // the only thing sent to the server is "this calculator was used" (once per page view, no values).
-import { setCurrency, currencyOptions, guessCurrency, money, num } from "./currency.js";
+import { CURRENCIES, setCurrency, currencyOptions, guessCurrency, money, num } from "./currency.js";
 
 const form = document.querySelector(".calc-form");
 const out = document.querySelector(".calc-out");
@@ -112,8 +112,40 @@ function countUse() {
     body: JSON.stringify({ calc: slug }) }).catch(() => {});
 }
 
+// ---- shareable links: ?savings=1200000&spend=60000… pre-fills the form (repeated names fill table rows) ----
+function fromUrl() {
+  const q = new URLSearchParams(location.search);
+  if (![...q.keys()].length) return null;
+  const tbody = form.querySelector("tbody");
+  if (tbody) {
+    const n = Math.min(20, Math.max(...[...new Set(q.keys())].map((k) => q.getAll(k).length)));
+    while (tbody.rows.length < n) tbody.append(tbody.rows[0].cloneNode(true));
+  }
+  for (const k of new Set(q.keys())) {
+    if (k === "currency") continue;
+    const els = [...form.querySelectorAll(`[name="${CSS.escape(k)}"]`)];
+    q.getAll(k).forEach((v, i) => { if (els[i]) els[i].value = v.slice(0, 40); });
+  }
+  return q.get("currency");
+}
+function shareUrl() {
+  const q = new URLSearchParams();
+  for (const el of form.elements) if (el.name && el.value !== "") q.append(el.name, el.value);
+  return `${location.origin}${location.pathname.replace(/^\/embed\//, "/calculators/")}?${q}`;
+}
+async function copy(text, msgEl, done) {
+  try { await navigator.clipboard.writeText(text); msgEl.textContent = done; }
+  catch { msgEl.textContent = text; }
+}
+document.querySelector("[data-share]")?.addEventListener("click", () =>
+  copy(shareUrl(), document.querySelector("[data-share-msg]"), "Link copied. Anyone who opens it sees these numbers."));
+document.querySelector("[data-copy-embed]")?.addEventListener("click", () =>
+  copy(document.querySelector(".embed-code").value, document.querySelector("[data-embed-msg]"), "Copied."));
+document.querySelector(".embed-code")?.addEventListener("focus", (e) => e.target.select());
+
+const urlCur = fromUrl();
 const cur = form.querySelector("[data-currency]");
-const startCur = guessCurrency();
+const startCur = CURRENCIES[urlCur] ? urlCur : guessCurrency();
 setCurrency(startCur);
 cur.innerHTML = currencyOptions(startCur);
 

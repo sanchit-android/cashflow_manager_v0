@@ -20,10 +20,55 @@ Goal: get PlannedOut found on Google and Bing, and recommended by AI assistants 
 - ✅ Fast public page delivery: `Cache-Control: public, max-age=300, stale-while-revalidate=3600` (`Vary: Cookie`) for anonymous visitors and resized header icon (`73 KB` → `7.5 KB`)
 - ✅ Worked numerical example & comparison tables (`<table class="compare">`) on all 15 guide pages for Google Featured Snippets and AI Overviews
 - ✅ Free downloadable `.xlsx` and `.csv` household budget templates (`/static/templates/indian-household-budget-template.xlsx` and `/static/templates/monthly-budget-template.csv`) on `/indian-household-budget-template/` and `/excel-budget-alternative/`, plus 1-click sample `.xlsx` import in the app
-- ✅ 1-click Interactive Demo Mode (`/app?demo=1` and `/demo/`): pre-loaded with 9 months of realistic household data, unlocking Month, Year, Insights, Projections, Accounts, Savings, Import and Settings (including all themes, custom theme builder, screen motion, currency, recovery keys and lock/unlock) without sign-in
+- ✅ 1-click Interactive Demo Mode (`/app?demo=1` and `/demo/`): pre-loaded with 9 months of realistic household data, unlocking Month, Year, Insights, Projections, Accounts, Savings, Import and Settings (including all 15 themes, custom theme builder, screen motion, currency, recovery keys and lock/unlock) without sign-in
 - ✅ Site verified in Google Search Console and Bing Webmaster Tools; sitemap submitted
+- ✅ Product pages: `/features/` (every app feature, incl. encryption, custom metrics, month close, 20 currencies), `/themes/` (all 15 themes + custom theme builder + screen motion, with `FAQPage`) and `/changelog/` (`dateModified`), linked from header, footer, homepage, sitemap and `llms.txt`
+- ✅ Calculators upgraded: worked-example tables (click to prefill), common mistakes + sources, visible "Last updated" date, shareable result links, and a free embed widget (`/embed/<slug>/`)
 
 All page text lives in `core/seo.py`.
+
+---
+
+## Ranking push to page 1 (Oct 2026 review)
+
+Context: `/calculators/savings-runway/` was first result on page 7. For a site this new, that is mostly an **authority** gap (few links and mentions), plus a few on-page issues that affect every page. Expect 3–6 months for long-tail searches and 6–12 months for competitive ones.
+
+### Code changes (status)
+
+| Status | Task | Detail |
+|---|---|---|
+| ✅ | **Stop pages competing for the same search** | `/savings-runway-calculator/` (guide) now targets "career break / sabbatical money planner"; `/calculators/savings-runway/` owns "how long will my savings last"; `/fire-retirement-runway-planner/` title now "FIRE number vs real cash flow" |
+| ✅ | **Richer calculator pages** | Worked-example tables (₹ and $, each row prefills the calculator), "Common mistakes", sources, visible "Last updated" date (`CALC_UPDATED` in `core/seo.py`), `dateModified` in JSON-LD |
+| ✅ | **Shareable result links** | "Copy a link to these results" builds `?savings=…&spend=…`; any calculator URL with these params prefills the form (`static/js/calc.js`) |
+| ✅ | **Embeddable calculator widget (backlink engine)** | `/embed/<slug>/`: frameable by any site (CSP `frame-ancestors *` on that route only), `noindex`, canonical → full calculator, credit link back. Embed code shown on every calculator page |
+| ✅ | **Fix outdated feature claims** | "Five themes" → 15 themes + custom theme builder (homepage benefits, JSON-LD, `llms.txt`) |
+| ✅ | **`/features/` page** | Spreadsheet & formulas, insights & custom metrics, projections & runway, accounts/cards/month close, themes, encryption & recovery keys, currencies/PWA |
+| ✅ | **`/themes/` gallery** | All 15 themes with colour previews, custom theme builder (12 colours, 4 fonts, corner roundness), screen motion, FAQ ("dark mode budget app", "budget app that looks like Excel") |
+| ✅ | **`/changelog/` page** | Freshness signal; add an entry to `CHANGELOG` in `core/seo.py` with each release |
+| ⬜ | **Same overlap check for the other calculators** | Emergency fund vs runway guides; sinking fund vs `/sinking-funds-guide/` vs `/annual-expenses-planner/`. Give each page one main phrase |
+| ⬜ | **Named author + bio** on guides and calculators | Needs a real person's name and background (finance content gets judged on trust). Currently credited to the company team |
+| ⬜ | **Real theme screenshots** | `/themes/` uses colour previews; add one `.webp` screenshot per theme for image search |
+| ⬜ | **Longer calculator explanations** (800–1,200 words each) | Method, assumptions and India/US examples, in the same style as guides |
+| ⬜ | **Count embed uses** | Uses inside third-party iframes aren't counted (CSRF cookie is blocked cross-site) |
+| ⬜ | **Security page** (`/security/`) | Separate page for "encrypted budget app" / "zero-knowledge expense tracker"; for now covered in `/features/#security` and `/privacy/` |
+
+### Things only you can do (status)
+
+| Status | Task |
+|---|---|
+| ⬜ | Request indexing in Search Console for the 15 pending URLs plus `/features/`, `/themes/`, `/changelog/` |
+| ⬜ | Directory listings: AlternativeTo, Product Hunt, SaaSHub, Indie Hackers, BetaList, Uneed, TinyLaunch |
+| ⬜ | Offer the embed widget to Indian personal-finance bloggers and newsletters |
+| ⬜ | Reddit / Quora answers linking to a calculator with the asker's numbers prefilled (use "Copy a link to these results") |
+| ⬜ | Social profiles (X, LinkedIn, Instagram), then add to `sameAs` in `core/seo.py` |
+| ⬜ | One citable data piece, e.g. "How long do Indian households' savings last, by income band", from public data |
+
+### Keeping page-1 rankings
+
+- **Monthly:** Search Console → Performance, filter position 8–30, sort by impressions; expand those pages first.
+- **Quarterly:** refresh the top 10 pages (numbers, examples, a new FAQ from real queries) and bump `CALC_UPDATED` / add a changelog entry.
+- **Ongoing:** a few new links or mentions every month; check PageSpeed Insights after big changes.
+- **Avoid:** mass-generated near-duplicate pages (e.g. one per salary amount).
 
 ---
 
@@ -115,7 +160,7 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
 
 1. 🟡 **Request indexing** (in progress)
    - ✅ Google Search Console: submitted homepage, About, Contact and initial 5 guides.
-   - ⬜ Google Search Console: use URL Inspection → "Request indexing" for the **10 newer guides** (`/budget-app-without-sms-india/`, `/emi-budget-planner-india/`, `/private-ynab-mint-alternative/`, `/fire-retirement-runway-planner/`, `/first-salary-budget-planner-india/`, `/festival-wedding-budget-planner-india/`, `/child-education-savings-planner-india/`, `/indian-household-budget-template/`, `/freelance-irregular-income-budget/`, `/sinking-funds-guide/`) and **5 calculator URLs** (`/calculators/`, `/calculators/savings-runway/`, `/calculators/emergency-fund/`, `/calculators/sinking-fund/`, `/calculators/50-30-20-budget/`).
+   - ⬜ Google Search Console: use URL Inspection → "Request indexing" for `/features/`, `/themes/`, `/changelog/`, the **10 newer guides** (`/budget-app-without-sms-india/`, `/emi-budget-planner-india/`, `/private-ynab-mint-alternative/`, `/fire-retirement-runway-planner/`, `/first-salary-budget-planner-india/`, `/festival-wedding-budget-planner-india/`, `/child-education-savings-planner-india/`, `/indian-household-budget-template/`, `/freelance-irregular-income-budget/`, `/sinking-funds-guide/`) and **5 calculator URLs** (`/calculators/`, `/calculators/savings-runway/`, `/calculators/emergency-fund/`, `/calculators/sinking-fund/`, `/calculators/50-30-20-budget/`).
    - ✅ Bing: automatic via IndexNow on every deploy (run `python manage.py indexnow --all` once to resend every page).
    - 🟡 Google index check: Admin → **Indexing** lists pages Google hasn't indexed (Search Console URL Inspection API, `core/gsc.py`). Runs after a deploy when the last check is over 6 days old, or via "Check now". Needs `GSC_SERVICE_ACCOUNT_JSON` set on Render (steps at the top of `core/gsc.py`).
 2. ⬜ **Set `SITE_URL` on Render** if the live domain isn't exactly `https://plannedout.in`.
