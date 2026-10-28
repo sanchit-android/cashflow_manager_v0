@@ -153,3 +153,49 @@ class CalculatorTests(TestCase):
         self.assertContains(demo, 'id="demo-reset"')
         self.assertContains(demo, "Live demo")
         self.assertTrue(UsageDaily.objects.filter(event="demo:open").exists())
+
+
+@override_settings(OWNER_EMAIL=OWNER, GSC_SERVICE_ACCOUNT_JSON="{}")
+class IndexingTests(TestCase):
+    def setUp(self):
+        self.client.force_login(User.objects.create(username=OWNER, email=OWNER))
+
+    def test_check_saves_status_and_lists_missing(self):
+        from unittest import mock
+        from . import gsc
+
+        def fake(url, token):
+            ok = not url.endswith("/sinking-funds-guide/")
+            return {"verdict": "PASS" if ok else "NEUTRAL", "last_crawl": None, "google_canonical": "",
+                    "coverage": "Submitted and indexed" if ok else "Discovered - currently not indexed"}
+        with mock.patch.object(gsc, "access_token", return_value="t"), mock.patch.object(gsc, "inspect", fake):
+            d = self.client.post("/api/admin/indexing").json()
+        missing = [p["path"] for p in d["pages"] if not p["indexed"]]
+        self.assertEqual(missing, ["/sinking-funds-guide/"])
+        self.assertEqual(self.client.get("/api/admin/indexing").json()["pages"], d["pages"])
+        self.assertFalse(gsc.is_stale())
+
+    @override_settings(GSC_SERVICE_ACCOUNT_JSON="")
+    def test_not_configured(self):
+        self.assertFalse(self.client.get("/api/admin/indexing").json()["enabled"])
+        self.assertEqual(self.client.post("/api/admin/indexing").status_code, 400)
+
+    def test_signed_token_request(self):
+        """The JWT we build is signed with the key and verifies with its public half."""
+        import base64
+        from unittest import mock
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding, rsa
+        from . import gsc
+        k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        pem = k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                              serialization.NoEncryption()).decode()
+        sent = {}
+        def fake_post(url, data, headers):
+            sent["assertion"] = dict(x.split("=", 1) for x in data.decode().split("&"))["assertion"]
+            return {"access_token": "abc"}
+        with override_settings(GSC_SERVICE_ACCOUNT_JSON=json.dumps({"client_email": "s@x.iam", "private_key": pem})), \
+                mock.patch.object(gsc, "_post", fake_post):
+            self.assertEqual(gsc.access_token(), "abc")
+        h, c, s = sent["assertion"].split(".")
+        k.public_key().verify(base64.urlsafe_b64decode(s + "=="), f"{h}.{c}".encode(), padding.PKCS1v15(), hashes.SHA256())

@@ -25,8 +25,8 @@ const drawBars = (id, items, color) => { const el = host.querySelector("#" + id)
 export async function viewAdmin(root) {
   host = root;
   host.innerHTML = `<div class="row"><h1 style="margin:0">Admin</h1><span class="spacer"></span>
-    <div class="seg" role="group" aria-label="Dashboard">${[["business", "Business"], ["tech", "Technical"], ["admins", "Admins"]].map(([k, l]) => `<button type="button" data-av="${k}" class="${A.view === k ? "on" : ""}" aria-pressed="${A.view === k}">${l}</button>`).join("")}</div>
-    ${A.view !== "admins" ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
+    <div class="seg" role="group" aria-label="Dashboard">${[["business", "Business"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]].map(([k, l]) => `<button type="button" data-av="${k}" class="${A.view === k ? "on" : ""}" aria-pressed="${A.view === k}">${l}</button>`).join("")}</div>
+    ${!["admins", "indexing"].includes(A.view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
     <button type="button" id="adm-refresh">Refresh</button></div>
     <div id="adm"><p class="muted">Loading…</p></div>`;
   host.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => { A.view = b.dataset.av; viewAdmin(root); }));
@@ -35,6 +35,7 @@ export async function viewAdmin(root) {
   const box = host.querySelector("#adm");
   try {
     if (A.view === "admins") return admins(box);
+    if (A.view === "indexing") return indexing(box);
     const d = await api(`/api/admin/${A.view}?days=${A.days}`);
     if (!host.querySelector("#adm")) return; // user left the tab
     (A.view === "business" ? business : tech)(box, d);
@@ -194,6 +195,32 @@ function tech(box, d) {
   stackedBars(box.querySelector("#t-req"), { labels, fmt: num, axis: num, height: 220,
     stacks: [{ name: "Requests", color: C[0], values: r.daily }], line: { name: "Server errors", color: "var(--bad)", values: r.err5_daily } });
   stackedBars(box.querySelector("#t-boots"), { labels, fmt: num, axis: num, height: 180, stacks: [{ name: "Process starts", color: C[2], values: d.boots }] });
+}
+
+// ================= Google indexing =================
+async function indexing(box) {
+  const draw = (d, busy = false) => {
+    if (!d.enabled) {
+      box.innerHTML = card("Google indexing", `<p>Not set up yet. Add a Google service account key as <code>GSC_SERVICE_ACCOUNT_JSON</code> on Render (steps in <code>core/gsc.py</code>).</p>`);
+      return;
+    }
+    const missing = d.pages.filter((p) => p.checked && !p.indexed);
+    const row = (p) => [`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.path)}</a>`,
+      p.checked ? (p.indexed ? "Indexed" : `<strong>Not indexed</strong>`) : '<span class="muted">Not checked</span>',
+      esc(p.coverage), p.last_crawl ? when(p.last_crawl) : "—"];
+    box.innerHTML = `<div class="kpis">${metric("Indexed", num(d.pages.filter((p) => p.indexed).length), `of ${d.pages.length} public pages`)}${metric("Not indexed", num(missing.length))}${metric("Last checked", d.checked_at ? when(d.checked_at) : "Never")}</div>
+      ${d.error ? `<p class="error" role="alert">${esc(d.error)}</p>` : ""}
+      ${card("Needs attention", table(["Page", "Status", "Google says", "Last crawled"], missing.map(row), "Every checked page is indexed."),
+        `Open each in Search Console → URL Inspection → Request indexing. Property: ${esc(d.property)}`)}
+      ${card("All public pages", table(["Page", "Status", "Google says", "Last crawled"], d.pages.map(row)),
+        `Checked automatically after a deploy when the last check is over 6 days old.`)}
+      <button type="button" class="primary" id="idx-check" ${busy ? "disabled" : ""}>${busy ? "Checking…" : "Check now"}</button>`;
+    box.querySelector("#idx-check").onclick = async () => {
+      draw(d, true);
+      try { draw(await api("/api/admin/indexing", { method: "POST" })); } catch (e) { draw({ ...d, error: e.message }); }
+    };
+  };
+  draw(await api("/api/admin/indexing"));
 }
 
 // ================= admins =================

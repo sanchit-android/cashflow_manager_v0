@@ -137,3 +137,13 @@ class IndexNowPage(models.Model):
     path = models.CharField(max_length=200, primary_key=True)
     digest = models.CharField(max_length=64)
     pinged_at = models.DateTimeField(auto_now=True)
+
+
+class IndexStatus(models.Model):
+    """Google's index status for each public page, from the Search Console URL Inspection API."""
+    path = models.CharField(max_length=200, primary_key=True)
+    verdict = models.CharField(max_length=40, blank=True)  # PASS = indexed
+    coverage = models.CharField(max_length=200, blank=True)  # e.g. "Crawled - currently not indexed"
+    last_crawl = models.DateTimeField(null=True, blank=True)
+    google_canonical = models.CharField(max_length=500, blank=True)
+    checked_at = models.DateTimeField(auto_now=True)

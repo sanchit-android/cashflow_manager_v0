@@ -16,6 +16,9 @@ CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("loca
 SITE_URL = os.environ.get("SITE_URL", "https://plannedout.in").rstrip("/")
 # IndexNow key. Optional: if unset, a stable key is derived from DJANGO_SECRET_KEY.
 INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY", "")
+# Google Search Console index checks (see core/gsc.py). Optional.
+GSC_SERVICE_ACCOUNT_JSON = os.environ.get("GSC_SERVICE_ACCOUNT_JSON", "")
+GSC_PROPERTY = os.environ.get("GSC_PROPERTY", "")
 
 if not DEBUG and SECRET_KEY == "dev-only-insecure-key":
     raise RuntimeError("Set DJANGO_SECRET_KEY in production")

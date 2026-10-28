@@ -116,7 +116,8 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
 1. 🟡 **Request indexing** (in progress)
    - ✅ Google Search Console: submitted homepage, About, Contact and initial 5 guides.
    - ⬜ Google Search Console: use URL Inspection → "Request indexing" for the **10 newer guides** (`/budget-app-without-sms-india/`, `/emi-budget-planner-india/`, `/private-ynab-mint-alternative/`, `/fire-retirement-runway-planner/`, `/first-salary-budget-planner-india/`, `/festival-wedding-budget-planner-india/`, `/child-education-savings-planner-india/`, `/indian-household-budget-template/`, `/freelance-irregular-income-budget/`, `/sinking-funds-guide/`) and **5 calculator URLs** (`/calculators/`, `/calculators/savings-runway/`, `/calculators/emergency-fund/`, `/calculators/sinking-fund/`, `/calculators/50-30-20-budget/`).
-   - 🟡 Bing Webmaster Tools: use "Submit URLs" for the remaining new guide and calculator pages (IndexNow also pings them automatically on deploy).
+   - ✅ Bing: automatic via IndexNow on every deploy (run `python manage.py indexnow --all` once to resend every page).
+   - 🟡 Google index check: Admin → **Indexing** lists pages Google hasn't indexed (Search Console URL Inspection API, `core/gsc.py`). Runs after a deploy when the last check is over 6 days old, or via "Check now". Needs `GSC_SERVICE_ACCOUNT_JSON` set on Render (steps at the top of `core/gsc.py`).
 2. ⬜ **Set `SITE_URL` on Render** if the live domain isn't exactly `https://plannedout.in`.
 3. ⬜ **Create free listings:**
    - Product Hunt (plan a launch day)

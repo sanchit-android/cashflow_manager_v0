@@ -29,7 +29,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .models import (AdminGrant, Boot, EndpointStat, ErrorEvent, GoogleIdentity, LoginCode, PageView, Record,
+from .models import (AdminGrant, Boot, EndpointStat, ErrorEvent, GoogleIdentity, IndexStatus, LoginCode, PageView, Record,
                      UsageDaily, Vault)
 
 User = get_user_model()
@@ -706,3 +706,37 @@ def business(request):
                       if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account", "demo")],
         "top_users": top_users,
     })
+
+
+# ---------- admin: Google index status ----------
+
+def _indexing_json(error=""):
+    from . import gsc, seo
+    saved = {s.path: s for s in IndexStatus.objects.all()}
+    rows = []
+    for path in seo.public_paths():
+        s = saved.get(path)
+        rows.append({"path": path, "url": f"{settings.SITE_URL}{path}",
+                     "indexed": bool(s and s.verdict == "PASS"), "checked": s is not None,
+                     "coverage": s.coverage if s else "", "verdict": s.verdict if s else "",
+                     "last_crawl": s.last_crawl.isoformat() if s and s.last_crawl else None,
+                     "google_canonical": s.google_canonical if s else ""})
+    last = max((s.checked_at for s in saved.values()), default=None)
+    return {"enabled": gsc.enabled(), "property": gsc.property_url(), "error": error,
+            "checked_at": last.isoformat() if last else None, "pages": rows}
+
+
+@require_http_methods(["GET", "POST"])
+@admin_required
+def indexing(request):
+    """GET: saved results. POST: run a fresh check now (takes ~10-20s for ~25 pages)."""
+    from . import gsc
+    if request.method == "GET":
+        return JsonResponse(_indexing_json())
+    if not gsc.enabled():
+        return JsonResponse({"error": "Set GSC_SERVICE_ACCOUNT_JSON on the server first."}, status=400)
+    try:
+        _, errors = gsc.check_all()
+    except Exception as e:  # bad key, no access to the property, network
+        return JsonResponse(_indexing_json(f"Check failed: {e}"))
+    return JsonResponse(_indexing_json("; ".join(errors[:3])))
