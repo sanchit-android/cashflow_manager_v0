@@ -73,6 +73,15 @@ class AdminGrant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class UserFlag(models.Model):
+    """Admin override for a user. internal=True leaves the user out of dashboard stats;
+    internal=False keeps them in even if their email matches settings.INTERNAL_EMAIL_MATCH."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="flag")
+    internal = models.BooleanField(default=False)
+    updated_by = models.EmailField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class PageView(models.Model):
     """One HTML page view: where the visitor came from and what they saw."""
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

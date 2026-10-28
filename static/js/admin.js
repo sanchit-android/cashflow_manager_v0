@@ -110,9 +110,15 @@ function business(box, d) {
     ${card("Buttons used", table(["Screen : button", "Clicks", "Users"], d.clicks.map((r) => [esc(r.event), num(r.count), num(r.users)])),
       "Named by button id. Useful to see whether features like export, checkpoints or custom themes get used.")}
     ${card("Settings changed", table(["Screen : field", "Changes", "Users"], d.changes.filter((r) => !r.event.startsWith("savings:")).map((r) => [esc(r.event), num(r.count), num(r.users)])))}
-    ${card("Most active users", table(["Email", "Joined", "Last seen", `Days active (${d.days}d)`, "Transactions", "Months", "Vault"],
-      d.top_users.map((u) => [esc(u.email), short(u.joined), short(u.last_seen), num(u.days_active), num(u.transactions), num(u.months), u.vault ? "Yes" : '<span class="bad">No</span>'])),
-      "Good people to ask for feedback.")}`;
+    ${card("Most active users", table(["Email", "Joined", "Last seen", `Days active (${d.days}d)`, "Transactions", "Months", "Vault", ""],
+      d.top_users.map((u) => [esc(u.email), short(u.joined), short(u.last_seen), num(u.days_active), num(u.transactions), num(u.months), u.vault ? "Yes" : '<span class="bad">No</span>',
+        `<button type="button" data-internal="${esc(u.email)}" title="Leave this user out of all stats">Mark internal</button>`])),
+      `Good people to ask for feedback. ${num(d.internal_users)} internal testing user(s) are left out of every number on this page; manage them under Admins.`)}`;
+  box.querySelectorAll("[data-internal]").forEach((b) => (b.onclick = async () => {
+    if (!confirm(`Mark ${b.dataset.internal} as internal testing? Their usage will be left out of all stats.`)) return;
+    try { await api("/api/admin/internal", { method: "POST", body: { email: b.dataset.internal, internal: true } }); viewAdmin(host, "business"); }
+    catch (e) { alert(e.message); }
+  }));
 
   stackedBars(box.querySelector("#b-users"), { labels, fmt: num, axis: num,
     stacks: [{ name: "Returning", color: C[0], values: d.daily.returning_active }, { name: "New", color: C[1], values: d.daily.new_active }],
@@ -241,6 +247,31 @@ async function admins(box) {
   let current = await api("/api/admin/admins");
   const act = async (method, email) => {
     try { current = await api("/api/admin/admins", { method, body: { email } }); draw(current); }
+    catch (e) { draw(current, e.message); }
+  };
+  box.innerHTML = '<div id="adm-admins"></div><div id="adm-internal"></div>';
+  const adminBox = box.querySelector("#adm-admins");
+  box = adminBox;
+  draw(current);
+  internalUsers(adminBox.parentNode.querySelector("#adm-internal"));
+}
+
+// Internal testing users: their usage is left out of the Business and Technical stats.
+async function internalUsers(box) {
+  const draw = (d, err = "") => {
+    box.innerHTML = card("Internal testing users", `${table(["Email", "Why", ""], d.users.map((u) => [esc(u.email),
+      u.manual ? "Marked by an admin" : "Email matches " + esc(d.rule.join(", ")),
+      `<button type="button" data-unmark="${esc(u.email)}">Count in stats</button>`]), "No internal users.")}
+      <label for="adm-int-email">Mark a user as internal by email</label>
+      <div class="row"><input id="adm-int-email" type="email" placeholder="name@example.com" style="max-width:320px"><button type="button" class="primary" id="adm-int-add">Mark internal</button></div>
+      <p class="error" role="alert">${esc(err)}</p>`,
+      "Page views, app usage, records and errors from these users are left out of every dashboard number. Anonymous visits before they sign in can't be told apart.");
+    box.querySelector("#adm-int-add").onclick = () => act(box.querySelector("#adm-int-email").value, true);
+    box.querySelectorAll("[data-unmark]").forEach((b) => (b.onclick = () => act(b.dataset.unmark, false)));
+  };
+  let current = await api("/api/admin/internal");
+  const act = async (email, internal) => {
+    try { current = await api("/api/admin/internal", { method: "POST", body: { email, internal } }); draw(current); }
     catch (e) { draw(current, e.message); }
   };
   draw(current);

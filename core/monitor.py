@@ -30,7 +30,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .models import (AdminGrant, Boot, EndpointStat, ErrorEvent, GoogleIdentity, IndexStatus, LoginCode, PageView, Record,
-                     UsageDaily, Vault)
+                     UsageDaily, UserFlag, Vault)
 
 User = get_user_model()
 PROCESS_STARTED = timezone.now()
@@ -331,6 +331,46 @@ def admins(request):
     return JsonResponse(_admins_json())
 
 
+# ---------- admin: internal (testing) users ----------
+
+def default_internal(email):
+    email = (email or "").lower()
+    return any(m in email for m in settings.INTERNAL_EMAIL_MATCH)
+
+
+def internal_user_ids():
+    """Users left out of dashboard stats: an admin's flag wins, otherwise the email rule."""
+    flags = dict(UserFlag.objects.values_list("user_id", "internal"))
+    return {uid for uid, email, username in User.objects.values_list("id", "email", "username")
+            if flags.get(uid, default_internal(email or username))}
+
+
+def _internal_json():
+    ids = internal_user_ids()
+    flagged = set(UserFlag.objects.values_list("user_id", flat=True))
+    rows = [{"email": u.email or u.username, "manual": u.id in flagged}
+            for u in User.objects.filter(id__in=ids).order_by("email")]
+    return {"users": rows, "rule": settings.INTERNAL_EMAIL_MATCH}
+
+
+@require_http_methods(["GET", "POST"])
+@admin_required
+def internal(request):
+    """GET: internal users. POST {email, internal: bool}: mark or unmark a user."""
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            data = {}
+        email = str(data.get("email", "")).strip().lower()
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first() if email else None
+        if not user:
+            return JsonResponse({"error": "No user with that email."}, status=404)
+        UserFlag.objects.update_or_create(user=user, defaults={"internal": bool(data.get("internal")),
+                                                               "updated_by": request.user.email})
+    return JsonResponse(_internal_json())
+
+
 # ---------- admin: dashboards ----------
 
 def _window(request):
@@ -448,7 +488,8 @@ def tech(request):
     idx = {d: i for i, d in enumerate(labels)}
 
     # traffic
-    pv = list(PageView.objects.filter(created_at__gte=since).order_by("created_at")
+    internal_ids = internal_user_ids()
+    pv = list(PageView.objects.filter(created_at__gte=since).exclude(user_id__in=internal_ids).order_by("created_at")
               .values("created_at", "path", "status", "ms", "visitor", "user_id", "source", "source_name",
                       "referrer_host", "utm_campaign", "device"))
     humans = [p for p in pv if p["source"] != "bot"]
@@ -493,7 +534,7 @@ def tech(request):
             req_daily[i] += r["count"]
             err5_daily[i] += r["err5"]
     tot = es.aggregate(n=Sum("count"), e4=Sum("err4"), e5=Sum("err5"), ms=Sum("total_ms"), slow=Sum("slow"))
-    ev = ErrorEvent.objects.filter(created_at__gte=since)
+    ev = ErrorEvent.objects.filter(created_at__gte=since).exclude(user_id__in=internal_ids)
     grouped = list(ev.values("kind", "message", "path").annotate(n=Count("id"), users=Count("user_id", distinct=True),
                                                                  last=Max("created_at")).order_by("-n")[:30])
     for g in grouped:
@@ -531,7 +572,7 @@ def tech(request):
             "ai_bot_pages": _top(Counter(p["path"] for p in pv if p["source"] == "bot"
                                          and any(w in p["source_name"].lower() for w in AI_BOT_WORDS)), 10),
             "funnel": {"visits": len(visits), "login_page": len(login_visitors), "reached_app": len(signed_in_visitors),
-                       "signups": User.objects.filter(date_joined__gte=since).count()},
+                       "signups": User.objects.filter(date_joined__gte=since).exclude(id__in=internal_ids).count()},
             "slow_pages": sorted(({"label": k, "value": round(sum(v) / len(v))} for k, v in
                                   _group([(p["path"], p["ms"]) for p in humans]).items() if len(v) >= 3),
                                  key=lambda r: -r["value"])[:10],
@@ -565,20 +606,22 @@ def business(request):
     labels = _day_labels(start, end)
     idx = {d: i for i, d in enumerate(labels)}
     now = timezone.now()
-    users = list(User.objects.values("id", "email", "date_joined", "last_login"))
+    internal_ids = internal_user_ids()
+    all_users = list(User.objects.values("id", "email", "date_joined", "last_login"))
+    users = [u for u in all_users if u["id"] not in internal_ids]
     joined = {u["id"]: timezone.localtime(u["date_joined"]).date() for u in users}
 
-    vault_users = set(Vault.objects.values_list("user_id", flat=True))
-    live = Record.objects.filter(deleted=False)
+    vault_users = set(Vault.objects.exclude(user_id__in=internal_ids).values_list("user_id", flat=True))
+    live = Record.objects.filter(deleted=False).exclude(user_id__in=internal_ids)
     per_user_type = defaultdict(Counter)
     for uid, typ, n in live.values_list("user_id", "type").annotate(n=Count("id")):
         per_user_type[uid][typ] = n
     months_per_user = dict(live.filter(type="transaction").values_list("user_id").annotate(n=Count("period", distinct=True)))
     onboarded = {u for u, c in per_user_type.items() if c.get("settings")}
     with_tx = {u for u, c in per_user_type.items() if c.get("transaction")}
-    google = set(GoogleIdentity.objects.values_list("user_id", flat=True))
+    google = set(GoogleIdentity.objects.exclude(user_id__in=internal_ids).values_list("user_id", flat=True))
 
-    usage = list(UsageDaily.objects.filter(day__gte=start - timedelta(days=35)).values("day", "user_id", "event", "count"))
+    usage = list(UsageDaily.objects.filter(day__gte=start - timedelta(days=35)).exclude(user_id__in=internal_ids).values("day", "user_id", "event", "count"))
     active_days = defaultdict(set)  # user -> days they used the app
     for u in usage:
         if u["user_id"]:
@@ -705,6 +748,7 @@ def business(request):
         "lifecycle": [r for r in feature_rows("", strip=False)
                       if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account", "demo")],
         "top_users": top_users,
+        "internal_users": len(internal_ids),
     })
 
 

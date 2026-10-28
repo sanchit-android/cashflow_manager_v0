@@ -46,6 +46,8 @@ MIDDLEWARE = [
 # Admin dashboard: the owner is always an admin and can add others from the dashboard.
 OWNER_EMAIL = os.environ.get("OWNER_EMAIL", "pravaha.ai@gmail.com")
 # Free-tier database storage limit, for the usage gauge (Neon free = 0.5 GB).
+# Users whose email contains any of these are internal testers by default (stats leave them out).
+INTERNAL_EMAIL_MATCH = [m.strip().lower() for m in os.environ.get("INTERNAL_EMAIL_MATCH", "pravaha.ai").split(",") if m.strip()]
 DB_SIZE_LIMIT_MB = int(os.environ.get("DB_SIZE_LIMIT_MB", "512"))
 
 ROOT_URLCONF = "config.urls"

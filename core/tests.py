@@ -34,7 +34,23 @@ class AdminAccessTests(TestCase):
         self.assertIn("traffic", t)
         self.assertIn("db", t)
         b = self.client.get("/api/admin/business?days=30").json()
-        self.assertEqual(b["kpis"]["users"], 2)
+        self.assertEqual(b["kpis"]["users"], 1)  # the owner matches pravaha.ai, so is internal
+        self.assertEqual(b["internal_users"], 1)
+
+    def test_internal_users_left_out_of_stats(self):
+        self.client.force_login(self.owner)
+        internal = self.client.get("/api/admin/internal").json()["users"]
+        self.assertEqual([u["email"] for u in internal], [OWNER])
+        _post(self.client, "/api/admin/internal", {"email": "a@b.com", "internal": True})
+        UsageDaily.objects.create(day=__import__("datetime").date.today(), user_id=self.other.id, event="tab:month", count=3)
+        b = self.client.get("/api/admin/business?days=30").json()
+        self.assertEqual(b["kpis"]["users"], 0)
+        self.assertEqual(b["tabs"][0]["count"], 0)
+        # an admin can put a default-internal user back into the stats
+        r = _post(self.client, "/api/admin/internal", {"email": OWNER, "internal": False}).json()
+        self.assertEqual([u["email"] for u in r["users"]], ["a@b.com"])
+        self.assertEqual(self.client.get("/api/admin/business").json()["kpis"]["users"], 1)
+        self.assertEqual(_post(self.client, "/api/admin/internal", {"email": "x@y.com", "internal": True}).status_code, 404)
 
     def test_owner_adds_admin_and_cannot_be_removed(self):
         self.client.force_login(self.owner)
