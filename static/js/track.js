@@ -51,14 +51,14 @@ export function startTracking(tabOf) {
   // Buttons: named by their id or their first data-* attribute; both are fixed in code.
   document.addEventListener("click", (e) => {
     const b = e.target.closest("button, a.button, [data-track]");
-    if (!b || b.closest("#bottomnav, #tabs") || tabOf() === "admin") return; // tab switches are counted separately
+    if (!b || b.closest("#bottomnav, #tabs") || String(tabOf()).startsWith("admin-")) return; // tab switches are counted separately
     const name = b.dataset.track || b.id || Object.keys(b.dataset)[0];
     if (name) track(`click:${tabOf()}:${name}`);
   }, true);
   // Inputs: count that a setting or what-if slider was changed, never its value.
   document.addEventListener("change", (e) => {
     const el = e.target;
-    if (!el.id || !el.matches("input, select") || tabOf() === "admin" || el.type === "password" || el.type === "file") return;
+    if (!el.id || !el.matches("input, select") || String(tabOf()).startsWith("admin-") || el.type === "password" || el.type === "file") return;
     track(el.id.startsWith("wf-") ? `whatif:${el.id.slice(3)}` : `change:${tabOf()}:${el.id}`);
   }, true);
 }

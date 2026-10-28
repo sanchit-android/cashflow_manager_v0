@@ -11,7 +11,7 @@ import { stackedBars, lines, hbars, money } from "./charts.js";
 import { catIcon } from "./icons.js";
 import { setCurrency, currencyOptions, guessCurrency } from "./currency.js";
 import { track, startTracking } from "./track.js";
-import { viewAdmin } from "./admin.js";
+import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
 
 const root = document.getElementById("root");
@@ -297,14 +297,16 @@ function onboarding() {
 
 // ================= tabs =================
 const BASE_TABS = [["month", "Month"], ["year", "Year"], ["insights", "Insights"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
-const tabList = () => (store.isAdmin ? [...BASE_TABS, ["admin", "Admin"]] : BASE_TABS);
+const ADMIN_TABS = ADMIN_VIEWS.map(([k, l]) => ["admin-" + k, l]);
+const isAdminTab = (k) => k.startsWith("admin-");
+const tabList = () => (store.isAdmin ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS);
 // Phones: a bottom tab bar with the four main screens and "More" for the rest.
 const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
   ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'], ["savings", "Savings", '<path d="M4 19h16M6 15l4-4 3 3 5-6"/>'],
   ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
 function syncTabIndicator(nav) {
   if (!nav || nav.hidden) return;
-  const b = nav.querySelector("button.on");
+  const b = nav.querySelector(":scope > button.on, :scope > details > summary.on");
   if (!b || !b.offsetWidth) return;
   nav.style.setProperty("--tab-x", b.offsetLeft + "px");
   nav.style.setProperty("--tab-y", b.offsetTop + "px");
@@ -342,7 +344,7 @@ function moreSheet() {
   const back = document.createElement("div");
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
-    ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? [["admin", "Admin"]] : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? ADMIN_TABS.map(([k, l]) => [k, "Admin · " + l]) : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
     <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : "Sign out"}</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
@@ -363,14 +365,30 @@ function renderTabs() {
   if (tabsEl.dataset.keys !== keys) {
     tabsEl.dataset.keys = keys;
     tabsEl.classList.remove("ready");
-    tabsEl.innerHTML = list.map(([k, l]) => `<button type="button" data-tab="${k}" data-label="${l}">${l}</button>`).join("");
-    tabsEl.querySelectorAll("button").forEach((b) => (b.onclick = () => goTab(b.dataset.tab, false)));
+    const btn = ([k, l]) => `<button type="button" data-tab="${k}" data-label="${l}">${l}</button>`;
+    const admin = list.filter(([k]) => isAdminTab(k));
+    tabsEl.innerHTML = list.filter(([k]) => !isAdminTab(k)).map(btn).join("")
+      + (admin.length ? `<details class="tab-dd"><summary data-label="Admin">Admin</summary><div class="dd-panel" role="menu">${admin.map(btn).join("")}</div></details>` : "");
+    tabsEl.querySelectorAll("button[data-tab]").forEach((b) => (b.onclick = () => { const dd = b.closest("details"); if (dd) dd.open = false; goTab(b.dataset.tab, false); }));
+    const dd = tabsEl.querySelector(".tab-dd");
+    if (dd) {
+      // The tab bar scrolls sideways, so the panel is fixed-positioned under the summary to avoid being clipped.
+      dd.addEventListener("toggle", () => {
+        if (!dd.open) return;
+        const r = dd.querySelector("summary").getBoundingClientRect(), p = dd.querySelector(".dd-panel");
+        p.style.top = r.bottom + 6 + "px"; p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + "px";
+      });
+      document.addEventListener("click", (e) => { if (dd.open && !dd.contains(e.target)) dd.open = false; });
+      window.addEventListener("scroll", () => { dd.open = false; }, { passive: true });
+    }
   }
-  tabsEl.querySelectorAll("button").forEach((b) => {
+  tabsEl.querySelectorAll("button[data-tab]").forEach((b) => {
     const on = b.dataset.tab === S.tab;
     b.classList.toggle("on", on);
     b.setAttribute("aria-current", on ? "page" : "false");
   });
+  const sum = tabsEl.querySelector(".tab-dd > summary");
+  if (sum) sum.classList.toggle("on", isAdminTab(S.tab));
   syncTabIndicator(tabsEl);
 }
 // ================= motion =================
@@ -428,8 +446,8 @@ function countUp(el, value, fmt, ms = 600) {
 
 let lastTracked = null;
 function render() {
-  if (S.tab !== lastTracked) { lastTracked = S.tab; if (S.tab !== "admin") track("tab:" + S.tab); }
-  try { ({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings, admin: () => viewAdmin(root) })[S.tab](); }
+  if (S.tab !== lastTracked) { lastTracked = S.tab; if (!isAdminTab(S.tab)) track("tab:" + S.tab); }
+  try { (({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab] || (() => viewAdmin(root, S.tab.slice(6))))(); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
 }
 

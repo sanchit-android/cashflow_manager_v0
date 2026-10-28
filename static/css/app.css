@@ -51,6 +51,17 @@ nav.tabs button::after { content: attr(data-label); font-weight: 600; height: 0;
 nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
 nav.tabs.ready button.on { background: transparent; }
 nav.tabs.ready button:focus-visible { outline: none; }
+/* Admin dropdown inside the tab bar (panel is fixed so the scrolling bar doesn't clip it). */
+nav.tabs .tab-dd { flex: none; position: relative; z-index: 1; }
+nav.tabs .tab-dd > summary { list-style: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; transition: color .2s ease; }
+nav.tabs .tab-dd > summary::-webkit-details-marker { display: none; }
+nav.tabs .tab-dd > summary::after { content: "▾"; font-size: 11px; margin-left: 4px; }
+nav.tabs .tab-dd > summary.on { color: var(--text); font-weight: 600; }
+nav.tabs .tab-dd > .dd-panel { position: fixed; z-index: 50; min-width: 180px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+nav.tabs .tab-dd > .dd-panel button { align-items: flex-start; color: var(--text); padding: 8px 10px; }
+nav.tabs .tab-dd > .dd-panel button:hover { background: var(--border); }
+nav.tabs .tab-dd > .dd-panel button.on { background: var(--surface-2); font-weight: 600; }
+nav.tabs .tab-dd > .dd-panel button::after { display: none; }
 nav.tabs.ready:has(button:focus-visible)::before { outline: 2px solid var(--accent); outline-offset: 1px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin: 0 0 16px; }
 .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }

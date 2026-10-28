@@ -22,23 +22,25 @@ const table = (heads, rows, empty = "Nothing yet.") => rows.length
 const bars = (id) => `<div id="${id}"></div>`;
 const drawBars = (id, items, color) => { const el = host.querySelector("#" + id); if (el) { if (items.length) hbars(el, { items, color, fmt: num }); else el.innerHTML = '<p class="muted">Nothing yet.</p>'; } };
 
-export async function viewAdmin(root) {
-  host = root;
-  host.innerHTML = `<div class="row"><h1 style="margin:0">Admin</h1><span class="spacer"></span>
-    <div class="seg" role="group" aria-label="Dashboard">${[["business", "Business"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]].map(([k, l]) => `<button type="button" data-av="${k}" class="${A.view === k ? "on" : ""}" aria-pressed="${A.view === k}">${l}</button>`).join("")}</div>
-    ${!["admins", "indexing"].includes(A.view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
+export const ADMIN_VIEWS = [["business", "Business"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]];
+
+// Each admin view is its own tab ("admin-business", "admin-tech", ...).
+export async function viewAdmin(root, view) {
+  host = root; A.view = view;
+  const title = (ADMIN_VIEWS.find(([k]) => k === view) || [, "Admin"])[1];
+  host.innerHTML = `<div class="row"><h1 style="margin:0">Admin · ${esc(title)}</h1><span class="spacer"></span>
+    ${!["admins", "indexing"].includes(view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
     <button type="button" id="adm-refresh">Refresh</button></div>
     <div id="adm"><p class="muted">Loading…</p></div>`;
-  host.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => { A.view = b.dataset.av; viewAdmin(root); }));
-  host.querySelectorAll("[data-ad]").forEach((b) => (b.onclick = () => { A.days = +b.dataset.ad; viewAdmin(root); }));
-  host.querySelector("#adm-refresh").onclick = () => viewAdmin(root);
+  host.querySelectorAll("[data-ad]").forEach((b) => (b.onclick = () => { A.days = +b.dataset.ad; viewAdmin(root, view); }));
+  host.querySelector("#adm-refresh").onclick = () => viewAdmin(root, view);
   const box = host.querySelector("#adm");
   try {
-    if (A.view === "admins") return admins(box);
-    if (A.view === "indexing") return indexing(box);
-    const d = await api(`/api/admin/${A.view}?days=${A.days}`);
-    if (!host.querySelector("#adm")) return; // user left the tab
-    (A.view === "business" ? business : tech)(box, d);
+    if (view === "admins") return admins(box);
+    if (view === "indexing") return indexing(box);
+    const d = await api(`/api/admin/${view}?days=${A.days}`);
+    if (host.querySelector("#adm") !== box || A.view !== view) return; // user left the tab
+    (view === "business" ? business : tech)(box, d);
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
