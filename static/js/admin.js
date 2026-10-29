@@ -362,7 +362,7 @@ async function indexing(box) {
       esc(p.coverage), p.last_crawl ? when(p.last_crawl) : "—"];
     box.innerHTML = `<div class="kpis">${metric("Indexed", num(d.pages.filter((p) => p.indexed).length), `of ${d.pages.length} public pages`)}${metric("Not indexed", num(missing.length))}${metric("Last checked", d.checked_at ? when(d.checked_at) : "Never")}</div>
       ${d.error ? `<p class="error" role="alert">${esc(d.error)}</p>` : ""}
-      ${card("Needs attention", table(["Page", "Status", "Google says", "Last crawled"], missing.map(row), "Every checked page is indexed."),
+      ${card("Needs attention", table(["Page", "Status", "Google says", "Last crawled"], missing.map(row), d.pages.some((p) => p.checked) ? "Every checked page is indexed." : "No pages checked yet. Use “Check now” below to run the first check."),
         `Open each in Search Console → URL Inspection → Request indexing. Property: ${esc(d.property)}`)}
       ${card("All public pages", table(["Page", "Status", "Google says", "Last crawled"], d.pages.map(row)),
         `Checked automatically after a deploy when the last check is over 6 days old.`)}
