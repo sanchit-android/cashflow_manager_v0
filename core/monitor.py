@@ -936,12 +936,26 @@ def _indexing_json(error=""):
 @require_http_methods(["GET", "POST"])
 @admin_required
 def indexing(request):
-    """GET: saved results. POST: run a fresh check now (takes ~10-20s for ~25 pages)."""
+    """GET: saved results. POST {"path": ...}: check one page. POST with no path: check all (slow)."""
     from . import gsc
     if request.method == "GET":
         return JsonResponse(_indexing_json())
     if not gsc.enabled():
         return JsonResponse({"error": "Set GSC_SERVICE_ACCOUNT_JSON on the server first."}, status=400)
+    try:
+        path = json.loads(request.body or b"{}").get("path")
+    except ValueError:
+        path = None
+    if path:
+        error = ""
+        try:
+            gsc.check_one(path)
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        except Exception as e:  # bad key, quota, network
+            error = f"{path}: {e}"
+        d = _indexing_json(error)
+        return JsonResponse({**d, "page": next((p for p in d["pages"] if p["path"] == path), None)})
     try:
         _, errors = gsc.check_all()
     except Exception as e:  # bad key, no access to the property, network

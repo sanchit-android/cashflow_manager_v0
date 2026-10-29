@@ -351,28 +351,56 @@ async function traffic(box) {
 
 // ================= Google indexing =================
 async function indexing(box) {
-  const draw = (d, busy = false) => {
+  // Pages are checked one request at a time, so no request runs long enough to time out.
+  const S = { d: await api("/api/admin/indexing"), current: null, running: false, stop: false, errors: [] };
+  const checkOne = async (path) => {
+    S.current = path; draw();
+    try {
+      const r = await api("/api/admin/indexing", { method: "POST", body: { path } });
+      S.d = { ...r, error: "" };
+      if (r.error) S.errors.push(r.error);
+    } catch (e) { S.errors.push(`${path}: ${e.message}`); }
+    S.current = null; draw();
+  };
+  const checkAll = async (paths) => {
+    S.running = true; S.stop = false; S.errors = [];
+    for (const path of paths) { if (S.stop) break; await checkOne(path); }
+    S.running = false; draw();
+  };
+  const draw = () => {
+    const d = S.d;
     if (!d.enabled) {
       box.innerHTML = card("Google indexing", `<p>Not set up yet. Add a Google service account key as <code>GSC_SERVICE_ACCOUNT_JSON</code> on Render (steps in <code>core/gsc.py</code>).</p>`);
       return;
     }
+    const busy = S.running || S.current;
     const missing = d.pages.filter((p) => p.checked && !p.indexed);
-    const row = (p) => [`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.path)}</a>`,
-      p.checked ? (p.indexed ? "Indexed" : `<strong>Not indexed</strong>`) : '<span class="muted">Not checked</span>',
-      esc(p.coverage), p.last_crawl ? when(p.last_crawl) : "—"];
-    box.innerHTML = `<div class="kpis">${metric("Indexed", num(d.pages.filter((p) => p.indexed).length), `of ${d.pages.length} public pages`)}${metric("Not indexed", num(missing.length))}${metric("Last checked", d.checked_at ? when(d.checked_at) : "Never")}</div>
+    const status = (p) => p.path === S.current ? '<span class="idx-spin" aria-hidden="true"></span> Checking…'
+      : p.checked ? (p.indexed ? "Indexed" : `<strong>Not indexed</strong>`) : '<span class="muted">Not checked</span>';
+    const row = (p) => [`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.path)}</a>`, status(p),
+      esc(p.coverage), p.last_crawl ? when(p.last_crawl) : "—",
+      `<button type="button" data-idx="${esc(p.path)}" ${busy ? "disabled" : ""}>Check</button>`];
+    const cols = ["Page", "Status", "Google says", "Last crawled", ""];
+    const done = S.running ? d.pages.findIndex((p) => p.path === S.current) : -1;
+    box.innerHTML = `<style>.idx-spin{display:inline-block;width:.8em;height:.8em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:idx-spin .7s linear infinite;vertical-align:-.1em}@keyframes idx-spin{to{transform:rotate(360deg)}}</style>
+      <div class="kpis">${metric("Indexed", num(d.pages.filter((p) => p.indexed).length), `of ${d.pages.length} public pages`)}${metric("Not indexed", num(missing.length))}${metric("Last checked", d.checked_at ? when(d.checked_at) : "Never")}</div>
       ${d.error ? `<p class="error" role="alert">${esc(d.error)}</p>` : ""}
-      ${card("Needs attention", table(["Page", "Status", "Google says", "Last crawled"], missing.map(row), d.pages.some((p) => p.checked) ? "Every checked page is indexed." : "No pages checked yet. Use “Check now” below to run the first check."),
+      ${S.errors.length ? `<p class="error" role="alert">${S.errors.slice(0, 3).map(esc).join("<br>")}${S.errors.length > 3 ? `<br>…and ${S.errors.length - 3} more` : ""}</p>` : ""}
+      ${card("Needs attention", table(cols, missing.map(row), d.pages.some((p) => p.checked) ? "Every checked page is indexed." : "No pages checked yet. Use “Check all” below to run the first check."),
         `Open each in Search Console → URL Inspection → Request indexing. Property: ${esc(d.property)}`)}
-      ${card("All public pages", table(["Page", "Status", "Google says", "Last crawled"], d.pages.map(row)),
+      ${card("All public pages", table(cols, d.pages.map(row)),
         `Checked automatically after a deploy when the last check is over 6 days old.`)}
-      <button type="button" class="primary" id="idx-check" ${busy ? "disabled" : ""}>${busy ? "Checking…" : "Check now"}</button>`;
-    box.querySelector("#idx-check").onclick = async () => {
-      draw(d, true);
-      try { draw(await api("/api/admin/indexing", { method: "POST" })); } catch (e) { draw({ ...d, error: e.message }); }
-    };
+      ${S.running
+        ? `<button type="button" id="idx-stop">Stop</button> <span class="muted" aria-live="polite">Checking ${done + 1} of ${d.pages.length}…</span>`
+        : `<button type="button" class="primary" id="idx-check" ${busy ? "disabled" : ""}>Check all</button>
+           ${missing.length || d.pages.some((p) => !p.checked) ? `<button type="button" id="idx-check-missing" ${busy ? "disabled" : ""}>Check unindexed &amp; unchecked</button>` : ""}`}`;
+    const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
+    on("#idx-check", () => checkAll(d.pages.map((p) => p.path)));
+    on("#idx-check-missing", () => checkAll(d.pages.filter((p) => !p.indexed).map((p) => p.path)));
+    on("#idx-stop", () => { S.stop = true; box.querySelector("#idx-stop").disabled = true; });
+    box.querySelectorAll("[data-idx]").forEach((b) => (b.onclick = () => { S.errors = []; checkOne(b.dataset.idx); }));
   };
-  draw(await api("/api/admin/indexing"));
+  draw();
 }
 
 // ================= admins =================

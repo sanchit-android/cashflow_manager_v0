@@ -269,6 +269,19 @@ class IndexingTests(TestCase):
         self.assertEqual(self.client.get("/api/admin/indexing").json()["pages"], d["pages"])
         self.assertFalse(gsc.is_stale())
 
+    def test_check_one_page(self):
+        from unittest import mock
+        from . import gsc
+        fake = {"verdict": "PASS", "coverage": "Submitted and indexed", "last_crawl": None, "google_canonical": ""}
+        gsc._token["value"] = None
+        with mock.patch.object(gsc, "access_token", return_value="t"), \
+                mock.patch.object(gsc, "inspect", return_value=fake):
+            d = self.client.post("/api/admin/indexing", {"path": "/about/"}, content_type="application/json").json()
+            bad = self.client.post("/api/admin/indexing", {"path": "/nope/"}, content_type="application/json")
+        self.assertTrue(d["page"]["indexed"])
+        self.assertEqual(sum(p["checked"] for p in d["pages"]), 1)
+        self.assertEqual(bad.status_code, 400)
+
     @override_settings(GSC_SERVICE_ACCOUNT_JSON="")
     def test_not_configured(self):
         self.assertFalse(self.client.get("/api/admin/indexing").json()["enabled"])

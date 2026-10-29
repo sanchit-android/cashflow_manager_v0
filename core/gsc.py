@@ -88,6 +88,25 @@ def inspect(url, token):
             "google_canonical": r.get("googleCanonical", "")}
 
 
+_token = {"value": None, "expires": 0}
+
+
+def cached_token():
+    """Reuse one access token (valid 1h) across single-page checks."""
+    if not _token["value"] or time.time() > _token["expires"]:
+        _token["value"], _token["expires"] = access_token(), time.time() + 3000
+    return _token["value"]
+
+
+def check_one(path):
+    """Inspect one public page and save its result. Raises on Google/network errors."""
+    from .models import IndexStatus
+    if path not in seo.public_paths():
+        raise ValueError(f"{path} is not a public page")
+    result = inspect(f"{settings.SITE_URL}{path}", cached_token())
+    IndexStatus.objects.update_or_create(path=path, defaults=result)
+
+
 def check_all():
     """Inspect every public page and save the results. Returns (checked, errors)."""
     from .models import IndexStatus
