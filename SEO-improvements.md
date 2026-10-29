@@ -47,7 +47,7 @@ Context: `/calculators/savings-runway/` was first result on page 7. For a site t
 | ✅ | **`/changelog/` page** | Freshness signal; add an entry to `CHANGELOG` in `core/seo.py` with each release |
 | ⬜ | **Same overlap check for the other calculators** | Emergency fund vs runway guides; sinking fund vs `/sinking-funds-guide/` vs `/annual-expenses-planner/`. Give each page one main phrase |
 | ⬜ | **Named author + bio** on guides and calculators | Needs a real person's name and background (finance content gets judged on trust). Currently credited to the company team |
-| 🟡 | **Real theme screenshots** (14 of 15) | Done: all except Glass Dark (`static/img/screenshots/themes/<key>.{webp,png}`, 1024×640, `ImageObject` in JSON-LD). To do: Glass Dark (`glass-dark`). Add with `python scripts/make_theme_shots.py <folder> mint=1.png ...`; the page picks them up automatically and shows colour previews for the rest |
+| ✅ | **Real theme screenshots** (15 of 15) | All themes have a screenshot (`static/img/screenshots/themes/<key>.{webp,png}`, 1024×640, `ImageObject` in JSON-LD), opening in a popup (`static/js/lightbox.js`). For a new theme, add with `python scripts/make_theme_shots.py <folder> mint=1.png ...`; the page picks them up automatically and shows colour previews for the rest |
 | ⬜ | **Longer calculator explanations** (800–1,200 words each) | Method, assumptions and India/US examples, in the same style as guides |
 | ⬜ | **Count embed uses** | Uses inside third-party iframes aren't counted (CSRF cookie is blocked cross-site) |
 | ⬜ | **Security page** (`/security/`) | Separate page for "encrypted budget app" / "zero-knowledge expense tracker"; for now covered in `/features/#security` and `/privacy/` |
