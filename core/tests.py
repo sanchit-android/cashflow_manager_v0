@@ -37,6 +37,23 @@ class AdminAccessTests(TestCase):
         self.assertEqual(b["kpis"]["users"], 1)  # the owner matches pravaha.ai, so is internal
         self.assertEqual(b["internal_users"], 1)
 
+    def test_traffic_explorer(self):
+        self.client.force_login(self.other)
+        AdminGrant.objects.create(email="a@b.com")
+        self.client.logout()
+        self.client.get("/", HTTP_REFERER="https://www.google.com/", HTTP_USER_AGENT="Mozilla/5.0")
+        self.client.get("/features/", HTTP_USER_AGENT="Mozilla/5.0 (iPhone) Mobile")
+        self.client.force_login(self.other)
+        d = self.client.get("/api/admin/traffic?days=7&split=source").json()
+        self.assertEqual(d["group"], "day")
+        self.assertEqual(len(d["labels"]), 7)
+        self.assertEqual(sum(d["series"]["views"]), 2)
+        self.assertIn("search", [s["name"] for s in d["split"]])
+        d = self.client.get("/api/admin/traffic?days=1&source=search").json()
+        self.assertEqual(d["group"], "hour")
+        self.assertEqual(d["totals"]["visits"], 1)
+        self.assertEqual(self.client.get("/api/admin/traffic?path=/features").json()["totals"]["views"], 1)
+
     def test_internal_users_left_out_of_stats(self):
         self.client.force_login(self.owner)
         internal = self.client.get("/api/admin/internal").json()["users"]

@@ -752,6 +752,129 @@ def business(request):
     })
 
 
+# ---------- admin: traffic explorer ----------
+
+SOURCES = ["direct", "search", "ai", "social", "referral", "email", "campaign"]
+
+
+def _parse_day(v):
+    try:
+        return timezone.datetime.strptime(v, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
+@require_GET
+@admin_required
+def traffic(request):
+    """Traffic over time, with filters.
+    ?days=N or ?from=YYYY-MM-DD&to=YYYY-MM-DD, group=hour|day|week,
+    split=none|source|device|page, source=, name=, device=, path= (prefix), bots=1 to include crawlers."""
+    g = request.GET
+    end = _parse_day(g.get("to")) or timezone.localdate()
+    start = _parse_day(g.get("from"))
+    if not start:
+        try:
+            days = max(1, min(365, int(g.get("days", 30))))
+        except ValueError:
+            days = 30
+        start = end - timedelta(days=days - 1)
+    start, end = min(start, end), max(start, end)
+    group = g.get("group") or ("hour" if (end - start).days < 2 else "week" if (end - start).days > 120 else "day")
+    split = g.get("split", "none")
+
+    qs = PageView.objects.filter(created_at__gte=_since(start), created_at__lt=_since(end + timedelta(days=1)))
+    qs = qs.exclude(user_id__in=internal_user_ids())
+    if g.get("bots") != "1":
+        qs = qs.exclude(source="bot")
+    if g.get("source"):
+        qs = qs.filter(source=g["source"])
+    if g.get("name"):
+        qs = qs.filter(source_name=g["name"])
+    if g.get("device"):
+        qs = qs.filter(device=g["device"])
+    if g.get("path"):
+        qs = qs.filter(path__startswith=g["path"])
+    pv = list(qs.order_by("created_at").values("created_at", "path", "visitor", "source", "source_name", "device", "referrer_host"))
+
+    # buckets
+    def bucket(dt):
+        t = timezone.localtime(dt)
+        if group == "hour":
+            return t.replace(minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:00")
+        d = t.date()
+        if group == "week":
+            d -= timedelta(days=d.weekday())
+        return d.isoformat()
+    labels = []
+    if group == "hour":
+        t = timezone.make_aware(timezone.datetime.combine(start, timezone.datetime.min.time()))
+        while t.date() <= end:
+            labels.append(t.strftime("%Y-%m-%d %H:00"))
+            t += timedelta(hours=1)
+    else:
+        d = start - timedelta(days=start.weekday()) if group == "week" else start
+        while d <= end:
+            labels.append(d.isoformat())
+            d += timedelta(days=7 if group == "week" else 1)
+    idx = {l: i for i, l in enumerate(labels)}
+
+    views, bots = [0] * len(labels), [0] * len(labels)
+    uniq = [set() for _ in labels]
+    first = {}  # (day, visitor) -> first human page view = a visit
+    for p in pv:
+        i = idx.get(bucket(p["created_at"]))
+        if i is None:
+            continue
+        if p["source"] == "bot":
+            bots[i] += 1
+            continue
+        views[i] += 1
+        uniq[i].add(p["visitor"])
+        key = (timezone.localtime(p["created_at"]).date(), p["visitor"])
+        if key not in first and p["source"] != "internal":
+            first[key] = (i, p)
+    visits = [0] * len(labels)
+    for i, _ in first.values():
+        visits[i] += 1
+
+    series = {"views": views, "visits": visits, "visitors": [len(u) for u in uniq], "bots": bots}
+    split_series = []
+    if split in ("source", "device", "page"):
+        field = {"source": "source", "device": "device", "page": "path"}[split]
+        per = defaultdict(lambda: [0] * len(labels))
+        for i, p in first.values():
+            per[p[field] or "(none)"][i] += 1
+        top = sorted(per.items(), key=lambda kv: -sum(kv[1]))
+        others = [0] * len(labels)
+        for _, vals in top[6:]:
+            others = [a + b for a, b in zip(others, vals)]
+        split_series = [{"name": k, "values": v} for k, v in top[:6]]
+        if any(others):
+            split_series.append({"name": "Other", "values": others})
+
+    vlist = [p for _, p in first.values()]
+    humans = [p for p in pv if p["source"] != "bot"]
+    return JsonResponse({
+        "from": start.isoformat(), "to": end.isoformat(), "group": group, "labels": labels,
+        "series": series, "split": split_series,
+        "totals": {"views": len(humans), "visits": len(vlist), "visitors": len({p["visitor"] for p in humans}),
+                   "bots": sum(bots), "pages_per_visit": round(len(humans) / len(vlist), 1) if vlist else 0},
+        "breakdown": {
+            "sources": _top(Counter(p["source"] for p in vlist), 10),
+            "names": _top(Counter(p["source_name"] for p in vlist if p["source_name"]), 15),
+            "landing": _top(Counter(p["path"] for p in vlist), 15),
+            "pages": _top(Counter(p["path"] for p in humans), 15),
+            "devices": _top(Counter(p["device"] for p in vlist), 5),
+            "referrers": _top(Counter(p["referrer_host"] for p in vlist if p["referrer_host"]), 10),
+        },
+        "options": {"sources": SOURCES,
+                    "names": sorted(set(PageView.objects.exclude(source_name="").exclude(source="bot")
+                                        .values_list("source_name", flat=True).distinct()[:200]))},
+        "retention_days": RETENTION[PageView],
+    })
+
+
 # ---------- admin: Google index status ----------
 
 def _indexing_json(error=""):

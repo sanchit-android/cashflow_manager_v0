@@ -22,14 +22,14 @@ const table = (heads, rows, empty = "Nothing yet.") => rows.length
 const bars = (id) => `<div id="${id}"></div>`;
 const drawBars = (id, items, color) => { const el = host.querySelector("#" + id); if (el) { if (items.length) hbars(el, { items, color, fmt: num }); else el.innerHTML = '<p class="muted">Nothing yet.</p>'; } };
 
-export const ADMIN_VIEWS = [["business", "Business"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]];
+export const ADMIN_VIEWS = [["business", "Business"], ["traffic", "Traffic"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]];
 
 // Each admin view is its own tab ("admin-business", "admin-tech", ...).
 export async function viewAdmin(root, view) {
   host = root; A.view = view;
   const title = (ADMIN_VIEWS.find(([k]) => k === view) || [, "Admin"])[1];
   host.innerHTML = `<div class="row"><h1 style="margin:0">Admin · ${esc(title)}</h1><span class="spacer"></span>
-    ${!["admins", "indexing"].includes(view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
+    ${!["admins", "indexing", "traffic"].includes(view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
     <button type="button" id="adm-refresh">Refresh</button></div>
     <div id="adm"><p class="muted">Loading…</p></div>`;
   host.querySelectorAll("[data-ad]").forEach((b) => (b.onclick = () => { A.days = +b.dataset.ad; viewAdmin(root, view); }));
@@ -38,6 +38,7 @@ export async function viewAdmin(root, view) {
   try {
     if (view === "admins") return admins(box);
     if (view === "indexing") return indexing(box);
+    if (view === "traffic") return traffic(box);
     const d = await api(`/api/admin/${view}?days=${A.days}`);
     if (host.querySelector("#adm") !== box || A.view !== view) return; // user left the tab
     (view === "business" ? business : tech)(box, d);
@@ -203,6 +204,102 @@ function tech(box, d) {
   stackedBars(box.querySelector("#t-req"), { labels, fmt: num, axis: num, height: 220,
     stacks: [{ name: "Requests", color: C[0], values: r.daily }], line: { name: "Server errors", color: "var(--bad)", values: r.err5_daily } });
   stackedBars(box.querySelector("#t-boots"), { labels, fmt: num, axis: num, height: 180, stacks: [{ name: "Process starts", color: C[2], values: d.boots }] });
+}
+
+// ================= traffic explorer =================
+const SRC = { direct: "Direct / unknown", search: "Search engines", ai: "AI assistants", social: "Social", referral: "Other websites", email: "Email", campaign: "Campaign links" };
+const T = { range: "30", from: "", to: "", group: "", split: "none", source: "", name: "", device: "", path: "", bots: false,
+  show: { views: true, visits: true, visitors: true, bots: false } };
+const PALETTE = [...C, "var(--good)", "var(--bad)", "var(--muted)"];
+
+async function traffic(box) {
+  const today = new Date().toISOString().slice(0, 10);
+  const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(label)}</option>`;
+  const query = () => {
+    const q = new URLSearchParams();
+    if (T.range === "custom") { if (T.from) q.set("from", T.from); if (T.to) q.set("to", T.to); }
+    else if (T.range === "today") { q.set("from", today); q.set("to", today); }
+    else q.set("days", T.range);
+    for (const k of ["group", "source", "name", "device", "path"]) if (T[k]) q.set(k, T[k]);
+    if (T.split !== "none") q.set("split", T.split);
+    if (T.bots) q.set("bots", "1");
+    return q.toString();
+  };
+  const fmtLabel = (l, group) => group === "hour" ? l.slice(11, 16) + (l.slice(0, 10) === today ? "" : " " + short(l.slice(0, 10))) : (group === "week" ? "wk " : "") + short(l);
+  const load = async () => {
+    const out = box.querySelector("#tr-out");
+    out.innerHTML = '<p class="muted">Loading…</p>';
+    let d;
+    try { d = await api("/api/admin/traffic?" + query()); } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    const nameSel = box.querySelector("#tr-name");
+    nameSel.innerHTML = opt("", "Any site", T.name) + d.options.names.map((n) => opt(n, n, T.name)).join("");
+    const t = d.totals, b = d.breakdown, labels = d.labels.map((l) => fmtLabel(l, d.group));
+    out.innerHTML = `
+      <div class="kpis">
+        ${metric("Visits", num(t.visits), "a visitor's first page on a day")}
+        ${metric("Unique visitors", num(t.visitors))}
+        ${metric("Page views", num(t.views), `${t.pages_per_visit} pages per visit`)}
+        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "turn on “Include bots” to count")}
+      </div>
+      ${card(`Traffic · ${short(d.from)} – ${short(d.to)} · by ${d.group}`, bars("tr-chart"),
+        T.split !== "none" ? "Each line is visits from one group (top 6, rest in Other)." : "")}
+      <div class="adm-2">
+        ${card("Sources", table(["Source", "Visits"], b.sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])))}
+        ${card("Sites", table(["Site", "Visits"], b.names.map((x) => [esc(x.label), num(x.value)])))}
+      </div>
+      <div class="adm-2">
+        ${card("Landing pages", table(["Page", "Visits"], b.landing.map((x) => [esc(x.label), num(x.value)])))}
+        ${card("Most viewed pages", table(["Page", "Views"], b.pages.map((x) => [esc(x.label), num(x.value)])))}
+      </div>
+      <div class="adm-2">
+        ${card("Other websites linking here", table(["Website", "Visits"], b.referrers.map((x) => [esc(x.label), num(x.value)])))}
+        ${card("Devices", table(["Device", "Visits"], b.devices.map((x) => [esc(x.label), num(x.value)])))}
+      </div>
+      <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`;
+    let series;
+    if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (SRC[s.name] || s.name) : s.name, color: PALETTE[i % PALETTE.length], values: s.values }));
+    else series = [["views", "Page views", C[0]], ["visits", "Visits", C[1]], ["visitors", "Unique visitors", C[2]], ["bots", "Bot fetches", C[3], true]]
+      .filter(([k]) => T.show[k]).map(([k, name, color, dashed]) => ({ name, color, values: d.series[k], dashed }));
+    const el = out.querySelector("#tr-chart");
+    if (series.length) lines(el, { labels, fmt: num, axis: num, series }); else el.innerHTML = '<p class="muted">Pick at least one line.</p>';
+  };
+
+  box.innerHTML = `<div class="card adm-filters">
+    <div class="row" style="flex-wrap:wrap;gap:8px">
+      <div class="seg" role="group" aria-label="Range">${[["today", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"], ["custom", "Custom"]]
+        .map(([k, l]) => `<button type="button" data-tr-range="${k}" class="${T.range === k ? "on" : ""}" aria-pressed="${T.range === k}">${l}</button>`).join("")}</div>
+      <span id="tr-custom" ${T.range === "custom" ? "" : "hidden"}><input type="date" id="tr-from" value="${T.from}" max="${today}"> – <input type="date" id="tr-to" value="${T.to || today}" max="${today}"></span>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+      <label>Group by <select id="tr-group">${opt("", "Auto", T.group)}${opt("hour", "Hour", T.group)}${opt("day", "Day", T.group)}${opt("week", "Week", T.group)}</select></label>
+      <label>Lines <select id="tr-split">${opt("none", "Totals", T.split)}${opt("source", "By source", T.split)}${opt("device", "By device", T.split)}${opt("page", "By landing page", T.split)}</select></label>
+      <label>Source <select id="tr-source">${opt("", "All", T.source)}${Object.entries(SRC).map(([k, l]) => opt(k, l, T.source)).join("")}</select></label>
+      <label>Site <select id="tr-name">${opt("", "Any site", T.name)}</select></label>
+      <label>Device <select id="tr-device">${opt("", "All", T.device)}${opt("desktop", "Desktop", T.device)}${opt("mobile", "Mobile", T.device)}${opt("tablet", "Tablet", T.device)}</select></label>
+      <label>Page starts with <input id="tr-path" value="${esc(T.path)}" placeholder="/calculators/" style="max-width:160px"></label>
+      <label><input type="checkbox" id="tr-bots" ${T.bots ? "checked" : ""}> Include bots</label>
+    </div>
+    <div class="row" id="tr-show" style="flex-wrap:wrap;gap:12px;margin-top:8px" ${T.split !== "none" ? "hidden" : ""}>
+      ${[["views", "Page views"], ["visits", "Visits"], ["visitors", "Unique visitors"], ["bots", "Bot fetches"]].map(([k, l]) => `<label><input type="checkbox" data-tr-show="${k}" ${T.show[k] ? "checked" : ""}> ${l}</label>`).join("")}
+    </div>
+  </div><div id="tr-out"></div>`;
+
+  box.querySelectorAll("[data-tr-range]").forEach((b) => (b.onclick = () => { T.range = b.dataset.trRange; traffic(box); }));
+  const on = (id, ev, fn) => (box.querySelector(id)[ev] = fn);
+  on("#tr-from", "onchange", (e) => { T.from = e.target.value; load(); });
+  on("#tr-to", "onchange", (e) => { T.to = e.target.value; load(); });
+  for (const k of ["group", "split", "source", "name", "device"]) on("#tr-" + k, "onchange", (e) => {
+    T[k] = e.target.value;
+    if (k === "split") box.querySelector("#tr-show").hidden = T.split !== "none";
+    if (k === "source") T.name = "";
+    load();
+  });
+  on("#tr-path", "onchange", (e) => { T.path = e.target.value.trim(); load(); });
+  on("#tr-bots", "onchange", (e) => { T.bots = e.target.checked; if (T.bots) T.show.bots = true; box.querySelector('[data-tr-show="bots"]').checked = T.show.bots; load(); });
+  box.querySelectorAll("[data-tr-show]").forEach((c) => (c.onchange = () => { T.show[c.dataset.trShow] = c.checked; load(); }));
+  if (T.range === "custom" && !T.from) T.from = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10);
+  if (T.range === "custom") box.querySelector("#tr-from").value = T.from;
+  await load();
 }
 
 // ================= Google indexing =================
