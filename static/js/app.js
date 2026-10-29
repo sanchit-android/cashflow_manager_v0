@@ -308,8 +308,10 @@ function syncTabIndicator(nav) {
   if (!nav || nav.hidden) return;
   const b = nav.querySelector(":scope > button.on, :scope > details > summary.on");
   if (!b || !b.offsetWidth) return;
-  nav.style.setProperty("--tab-x", b.offsetLeft + "px");
-  nav.style.setProperty("--tab-y", b.offsetTop + "px");
+  // Measure against the nav itself: the Admin summary sits inside a positioned <details>, so its offsetLeft would be ~0.
+  const nr = nav.getBoundingClientRect(), br = b.getBoundingClientRect();
+  nav.style.setProperty("--tab-x", br.left - nr.left - nav.clientLeft + nav.scrollLeft + "px");
+  nav.style.setProperty("--tab-y", br.top - nr.top - nav.clientTop + nav.scrollTop + "px");
   nav.style.setProperty("--tab-w", b.offsetWidth + "px");
   nav.style.setProperty("--tab-h", b.offsetHeight + "px");
   if (!nav.classList.contains("ready")) { void nav.offsetWidth; nav.classList.add("ready"); }
