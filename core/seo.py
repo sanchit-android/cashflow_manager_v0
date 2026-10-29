@@ -4,6 +4,7 @@ Each guide targets what people actually type into Google or ask ChatGPT / Gemini
 Keep every claim true to what the app does today.
 """
 import json
+from pathlib import Path
 
 from django.utils.safestring import mark_safe
 
@@ -1265,6 +1266,10 @@ THEMES = [
     ("glass", "Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "#007aff", "Frosted translucent panels over a pastel gradient"),
     ("glass-dark", "Glass Dark", "linear-gradient(135deg,#0f172a,#3b0764,#042f2e)", "#38bdf8", "Frosted panels over a deep gradient, dark"),
 ]
+# Themes that have a real screenshot in static/img/screenshots/themes/ (made by scripts/make_theme_shots.py).
+# The rest fall back to a colour preview.
+THEME_SHOT_DIR = Path(__file__).resolve().parent.parent / "static" / "img" / "screenshots" / "themes"
+THEME_SHOTS = {t[0] for t in THEMES if (THEME_SHOT_DIR / f"{t[0]}.webp").exists()}
 THEME_FONTS = ["System", "Office", "Serif", "Rounded"]
 THEME_TOKENS = ["Page background", "Cards and cells", "Panels", "Text", "Secondary text", "Borders", "Accent",
                 "Positive numbers", "Negative numbers", "Sheet headers", "Gridlines", "Selected cells"]
@@ -1556,8 +1561,11 @@ def themes_jsonld(site):
         {"@context": "https://schema.org", "@type": "CollectionPage", "name": THEMES_PAGE["title"], "url": url,
          "description": THEMES_PAGE["description"], "isPartOf": {"@id": site + "/#website"}},
         {"@type": "ItemList", "itemListElement": [
-            {"@type": "ListItem", "position": i, "name": f"{n} theme", "description": note}
-            for i, (_, n, _bg, _ac, note) in enumerate(THEMES, 1)]},
+            {"@type": "ListItem", "position": i, "name": f"{n} theme", "description": note,
+             **({"image": {"@type": "ImageObject", "contentUrl": f"{site}/static/img/screenshots/themes/{k}.png",
+                           "name": f"PlannedOut budget app in the {n} theme", "width": 1024, "height": 640}}
+                if k in THEME_SHOTS else {})}
+            for i, (k, n, _bg, _ac, note) in enumerate(THEMES, 1)]},
         _crumbs(site, "Themes", "/themes/"),
         _faq(THEMES_PAGE["faq"]),
     )

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% load static %}
 {% block title %}{{ page.title }} | PlannedOut{% endblock %}
 {% block description %}{{ page.description }}{% endblock %}
 {% block og_title %}{{ page.title }}{% endblock %}
@@ -14,16 +14,34 @@
   </section>
   <section aria-labelledby="themes-h">
     <h2 id="themes-h">All {{ themes|length }} themes</h2>
+    {% if shots %}
+    <div class="theme-gallery theme-gallery-shots">
+      {% for key, name, bg, accent, note in themes %}{% if key in shots %}
+      {% with base="img/screenshots/themes/"|add:key %}{% with png=base|add:".png" webp=base|add:".webp" %}
+      <figure class="card theme-card" id="theme-{{ key }}">
+        <a href="{% static png %}" class="theme-shot"><picture>
+          <source srcset="{% static webp %}" type="image/webp">
+          <img src="{% static png %}" alt="PlannedOut monthly budget overview in the {{ name }} theme ({{ note|lower }}): savings verdict, balance movement from opening to closing, and summary tiles" width="1024" height="640" loading="lazy" decoding="async">
+        </picture></a>
+        <figcaption><strong>{{ name }}</strong><br><span class="small muted">{{ note }}</span></figcaption>
+      </figure>
+      {% endwith %}{% endwith %}
+      {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+    {% if shots|length < themes|length %}
+    {% if shots %}<h3>More themes</h3>{% endif %}
     <div class="theme-gallery">
-      {% for key, name, bg, accent, note in themes %}
-      <figure class="card theme-card">
+      {% for key, name, bg, accent, note in themes %}{% if key not in shots %}
+      <figure class="card theme-card" id="theme-{{ key }}">
         <div class="theme-mock" style="background:{{ bg }}" role="img" aria-label="{{ name }} theme colours">
           <span style="background:{{ accent }}"></span><span></span><span></span>
         </div>
         <figcaption><strong>{{ name }}</strong><br><span class="small muted">{{ note }}</span></figcaption>
       </figure>
-      {% endfor %}
+      {% endif %}{% endfor %}
     </div>
+    {% endif %}
   </section>
   <section class="card">
     <h2>Build your own theme</h2>

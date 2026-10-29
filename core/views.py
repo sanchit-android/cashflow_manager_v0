@@ -138,7 +138,8 @@ def features(request):
 
 @require_GET
 def themes(request):
-    return render(request, "themes.html", {"page": seo.THEMES_PAGE, "themes": seo.THEMES, "fonts": seo.THEME_FONTS,
+    return render(request, "themes.html", {"page": seo.THEMES_PAGE, "themes": seo.THEMES, "shots": seo.THEME_SHOTS,
+                                           "fonts": seo.THEME_FONTS,
                                            "tokens": seo.THEME_TOKENS, "jsonld": seo.themes_jsonld(settings.SITE_URL)})
 
 

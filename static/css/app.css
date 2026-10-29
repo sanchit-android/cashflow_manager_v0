@@ -946,6 +946,9 @@ body { overflow-x: clip; }
 /* Public themes gallery (/themes/) and calculator embed */
 .theme-gallery { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
 .theme-card { margin: 0; padding: 12px; }
+.theme-gallery-shots { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); margin-bottom: 16px; }
+.theme-shot { display: block; margin-bottom: 8px; }
+.theme-shot img { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); }
 .theme-mock { height: 84px; border-radius: 6px; border: 1px solid var(--border); padding: 10px; display: grid; gap: 6px; align-content: start; margin-bottom: 8px; }
 .theme-mock span { display: block; height: 10px; border-radius: 3px; background: rgba(128, 128, 128, .35); }
 .theme-mock span:first-child { width: 45%; }
