@@ -379,10 +379,10 @@ async function indexing(box) {
       : p.checked ? (p.indexed ? "Indexed" : `<strong>Not indexed</strong>`) : '<span class="muted">Not checked</span>';
     const row = (p) => [`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.path)}</a>`, status(p),
       esc(p.coverage), p.last_crawl ? when(p.last_crawl) : "—",
-      `<button type="button" data-idx="${esc(p.path)}" ${busy ? "disabled" : ""}>Check</button>`];
-    const cols = ["Page", "Status", "Google says", "Last crawled", ""];
+      `<button type="button" class="idx-btn" data-idx="${esc(p.path)}" title="Check ${esc(p.path)}" aria-label="Check ${esc(p.path)}" ${busy ? "disabled" : ""}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>`];
+    const cols = ["Page", "Status", "Google says", "Last crawled", "Actions"];
     const done = S.running ? d.pages.findIndex((p) => p.path === S.current) : -1;
-    box.innerHTML = `<style>.idx-spin{display:inline-block;width:.8em;height:.8em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:idx-spin .7s linear infinite;vertical-align:-.1em}@keyframes idx-spin{to{transform:rotate(360deg)}}</style>
+    box.innerHTML = `<style>.idx-btn{padding:2px 6px;min-height:0;line-height:0;margin:0}.idx-spin{display:inline-block;width:.8em;height:.8em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:idx-spin .7s linear infinite;vertical-align:-.1em}@keyframes idx-spin{to{transform:rotate(360deg)}}</style>
       <div class="kpis">${metric("Indexed", num(d.pages.filter((p) => p.indexed).length), `of ${d.pages.length} public pages`)}${metric("Not indexed", num(missing.length))}${metric("Last checked", d.checked_at ? when(d.checked_at) : "Never")}</div>
       ${d.error ? `<p class="error" role="alert">${esc(d.error)}</p>` : ""}
       ${S.errors.length ? `<p class="error" role="alert">${S.errors.slice(0, 3).map(esc).join("<br>")}${S.errors.length > 3 ? `<br>…and ${S.errors.length - 3} more` : ""}</p>` : ""}
