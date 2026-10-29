@@ -208,7 +208,8 @@ function tech(box, d) {
 
 // ================= traffic explorer =================
 const SRC = { direct: "Direct / unknown", search: "Search engines", ai: "AI assistants", social: "Social", referral: "Other websites", email: "Email", campaign: "Campaign links" };
-const T = { range: "30", from: "", to: "", group: "", split: "none", source: "", name: "", device: "", path: "", bots: false,
+const T = { range: "30", from: "", to: "", group: "", split: "none", name: "", device: "", path: "",
+  people: true, bots: false, sources: new Set(Object.keys(SRC)),
   show: { views: true, visits: true, visitors: true, bots: false } };
 const PALETTE = [...C, "var(--good)", "var(--bad)", "var(--muted)"];
 
@@ -220,9 +221,9 @@ async function traffic(box) {
     if (T.range === "custom") { if (T.from) q.set("from", T.from); if (T.to) q.set("to", T.to); }
     else if (T.range === "today") { q.set("from", today); q.set("to", today); }
     else q.set("days", T.range);
-    for (const k of ["group", "source", "name", "device", "path"]) if (T[k]) q.set(k, T[k]);
+    for (const k of ["group", "name", "device", "path"]) if (T[k]) q.set(k, T[k]);
     if (T.split !== "none") q.set("split", T.split);
-    if (T.bots) q.set("bots", "1");
+    q.set("sources", [...(T.people ? T.sources : []), ...(T.bots ? ["bot"] : [])].join(","));
     return q.toString();
   };
   const fmtLabel = (l, group) => group === "hour" ? l.slice(11, 16) + (l.slice(0, 10) === today ? "" : " " + short(l.slice(0, 10))) : (group === "week" ? "wk " : "") + short(l);
@@ -239,7 +240,7 @@ async function traffic(box) {
         ${metric("Visits", num(t.visits), "a visitor's first page on a day")}
         ${metric("Unique visitors", num(t.visitors))}
         ${metric("Page views", num(t.views), `${t.pages_per_visit} pages per visit`)}
-        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "turn on “Include bots” to count")}
+        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "tick Bots to count")}
       </div>
       ${card(`Traffic · ${short(d.from)} – ${short(d.to)} · by ${d.group}`, bars("tr-chart"),
         T.split !== "none" ? "Each line is visits from one group (top 6, rest in Other)." : "")}
@@ -255,9 +256,10 @@ async function traffic(box) {
         ${card("Other websites linking here", table(["Website", "Visits"], b.referrers.map((x) => [esc(x.label), num(x.value)])))}
         ${card("Devices", table(["Device", "Visits"], b.devices.map((x) => [esc(x.label), num(x.value)])))}
       </div>
+      ${T.bots ? card("Bots and crawlers", table(["Bot", "Fetches"], d.bot_names.map((x) => [esc(x.label), num(x.value)]))) : ""}
       <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`;
     let series;
-    if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (SRC[s.name] || s.name) : s.name, color: PALETTE[i % PALETTE.length], values: s.values }));
+    if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (s.name === "bot" ? "Bots" : SRC[s.name] || s.name) : s.name, dashed: s.name === "bot" && T.split === "source", color: PALETTE[i % PALETTE.length], values: s.values }));
     else series = [["views", "Page views", C[0]], ["visits", "Visits", C[1]], ["visitors", "Unique visitors", C[2]], ["bots", "Bot fetches", C[3], true]]
       .filter(([k]) => T.show[k]).map(([k, name, color, dashed]) => ({ name, color, values: d.series[k], dashed }));
     const el = out.querySelector("#tr-chart");
@@ -272,12 +274,18 @@ async function traffic(box) {
     </div>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
       <label>Group by <select id="tr-group">${opt("", "Auto", T.group)}${opt("hour", "Hour", T.group)}${opt("day", "Day", T.group)}${opt("week", "Week", T.group)}</select></label>
-      <label>Lines <select id="tr-split">${opt("none", "Totals", T.split)}${opt("source", "By source", T.split)}${opt("device", "By device", T.split)}${opt("page", "By landing page", T.split)}</select></label>
-      <label>Source <select id="tr-source">${opt("", "All", T.source)}${Object.entries(SRC).map(([k, l]) => opt(k, l, T.source)).join("")}</select></label>
+      <label>Lines <select id="tr-split">${opt("none", "Totals", T.split)}${opt("source", "By source", T.split)}${opt("device", "By device", T.split)}${opt("page", "By landing page", T.split)}${opt("bot", "By bot", T.split)}</select></label>
       <label>Site <select id="tr-name">${opt("", "Any site", T.name)}</select></label>
       <label>Device <select id="tr-device">${opt("", "All", T.device)}${opt("desktop", "Desktop", T.device)}${opt("mobile", "Mobile", T.device)}${opt("tablet", "Tablet", T.device)}</select></label>
       <label>Page starts with <input id="tr-path" value="${esc(T.path)}" placeholder="/calculators/" style="max-width:160px"></label>
-      <label><input type="checkbox" id="tr-bots" ${T.bots ? "checked" : ""}> Include bots</label>
+    </div>
+    <div class="row" style="flex-wrap:wrap;gap:12px;margin-top:8px">
+      <strong>Traffic:</strong>
+      <label><input type="checkbox" id="tr-people" ${T.people ? "checked" : ""}> People</label>
+      <label><input type="checkbox" id="tr-bots" ${T.bots ? "checked" : ""}> Bots</label>
+      <span class="muted">|</span>
+      <span id="tr-sources" style="display:contents">${Object.entries(SRC).map(([k, l]) => `<label><input type="checkbox" data-tr-src="${k}" ${T.sources.has(k) ? "checked" : ""} ${T.people ? "" : "disabled"}> ${l}</label>`).join("")}</span>
+      <button type="button" id="tr-src-all" class="link">All</button><button type="button" id="tr-src-none" class="link">None</button>
     </div>
     <div class="row" id="tr-show" style="flex-wrap:wrap;gap:12px;margin-top:8px" ${T.split !== "none" ? "hidden" : ""}>
       ${[["views", "Page views"], ["visits", "Visits"], ["visitors", "Unique visitors"], ["bots", "Bot fetches"]].map(([k, l]) => `<label><input type="checkbox" data-tr-show="${k}" ${T.show[k] ? "checked" : ""}> ${l}</label>`).join("")}
@@ -288,12 +296,18 @@ async function traffic(box) {
   const on = (id, ev, fn) => (box.querySelector(id)[ev] = fn);
   on("#tr-from", "onchange", (e) => { T.from = e.target.value; load(); });
   on("#tr-to", "onchange", (e) => { T.to = e.target.value; load(); });
-  for (const k of ["group", "split", "source", "name", "device"]) on("#tr-" + k, "onchange", (e) => {
+  for (const k of ["group", "split", "name", "device"]) on("#tr-" + k, "onchange", (e) => {
     T[k] = e.target.value;
     if (k === "split") box.querySelector("#tr-show").hidden = T.split !== "none";
-    if (k === "source") T.name = "";
+    if (k === "split" && T.split === "bot" && !T.bots) { T.bots = true; box.querySelector("#tr-bots").checked = true; }
     load();
   });
+  const srcBoxes = [...box.querySelectorAll("[data-tr-src]")];
+  srcBoxes.forEach((c) => (c.onchange = () => { c.checked ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); load(); }));
+  const setAll = (v) => { srcBoxes.forEach((c) => { c.checked = v; v ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); }); load(); };
+  on("#tr-src-all", "onclick", () => setAll(true));
+  on("#tr-src-none", "onclick", () => setAll(false));
+  on("#tr-people", "onchange", (e) => { T.people = e.target.checked; srcBoxes.forEach((c) => (c.disabled = !T.people)); load(); });
   on("#tr-path", "onchange", (e) => { T.path = e.target.value.trim(); load(); });
   on("#tr-bots", "onchange", (e) => { T.bots = e.target.checked; if (T.bots) T.show.bots = true; box.querySelector('[data-tr-show="bots"]').checked = T.show.bots; load(); });
   box.querySelectorAll("[data-tr-show]").forEach((c) => (c.onchange = () => { T.show[c.dataset.trShow] = c.checked; load(); }));

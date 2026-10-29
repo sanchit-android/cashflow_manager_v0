@@ -769,7 +769,8 @@ def _parse_day(v):
 def traffic(request):
     """Traffic over time, with filters.
     ?days=N or ?from=YYYY-MM-DD&to=YYYY-MM-DD, group=hour|day|week,
-    split=none|source|device|page, source=, name=, device=, path= (prefix), bots=1 to include crawlers."""
+    split=none|source|device|page|bot, sources=direct,search,...,bot (comma list; "bot" = crawlers;
+    default all people sources, no bots), name=, device=, path= (prefix)."""
     g = request.GET
     end = _parse_day(g.get("to")) or timezone.localdate()
     start = _parse_day(g.get("from"))
@@ -785,10 +786,15 @@ def traffic(request):
 
     qs = PageView.objects.filter(created_at__gte=_since(start), created_at__lt=_since(end + timedelta(days=1)))
     qs = qs.exclude(user_id__in=internal_user_ids())
-    if g.get("bots") != "1":
-        qs = qs.exclude(source="bot")
-    if g.get("source"):
-        qs = qs.filter(source=g["source"])
+    if "sources" in g:
+        picked = {x for x in g["sources"].split(",") if x in SOURCES or x == "bot"}
+    else:
+        picked = set(SOURCES)
+    if g.get("source"):  # older single-source filter
+        picked = {g["source"]}
+    if picked & set(SOURCES):
+        picked.add("internal")  # clicks between our own pages belong to the people who arrived
+    qs = qs.filter(source__in=picked)
     if g.get("name"):
         qs = qs.filter(source_name=g["name"])
     if g.get("device"):
@@ -840,11 +846,19 @@ def traffic(request):
 
     series = {"views": views, "visits": visits, "visitors": [len(u) for u in uniq], "bots": bots}
     split_series = []
-    if split in ("source", "device", "page"):
-        field = {"source": "source", "device": "device", "page": "path"}[split]
+    if split in ("source", "device", "page", "bot"):
+        field = {"source": "source", "device": "device", "page": "path", "bot": "source_name"}[split]
         per = defaultdict(lambda: [0] * len(labels))
-        for i, p in first.values():
-            per[p[field] or "(none)"][i] += 1
+        if split == "bot":  # one line per crawler, counting fetches
+            for p in pv:
+                i = idx.get(bucket(p["created_at"]))
+                if p["source"] == "bot" and i is not None:
+                    per[p["source_name"] or "Other bot"][i] += 1
+        else:
+            for i, p in first.values():
+                per[p[field] or "(none)"][i] += 1
+            if split == "source" and any(bots):
+                per["bot"] = bots
         top = sorted(per.items(), key=lambda kv: -sum(kv[1]))
         others = [0] * len(labels)
         for _, vals in top[6:]:
@@ -868,6 +882,7 @@ def traffic(request):
             "devices": _top(Counter(p["device"] for p in vlist), 5),
             "referrers": _top(Counter(p["referrer_host"] for p in vlist if p["referrer_host"]), 10),
         },
+        "bot_names": _top(Counter(p["source_name"] for p in pv if p["source"] == "bot"), 15),
         "options": {"sources": SOURCES,
                     "names": sorted(set(PageView.objects.exclude(source_name="").exclude(source="bot")
                                         .values_list("source_name", flat=True).distinct()[:200]))},

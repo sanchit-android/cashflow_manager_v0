@@ -53,6 +53,14 @@ class AdminAccessTests(TestCase):
         self.assertEqual(d["group"], "hour")
         self.assertEqual(d["totals"]["visits"], 1)
         self.assertEqual(self.client.get("/api/admin/traffic?path=/features").json()["totals"]["views"], 1)
+        self.client.logout()
+        self.client.get("/", HTTP_USER_AGENT="GPTBot/1.0")
+        self.client.force_login(self.other)
+        only_bots = self.client.get("/api/admin/traffic?days=7&sources=bot&split=bot").json()
+        self.assertEqual((only_bots["totals"]["views"], only_bots["totals"]["bots"]), (0, 1))
+        self.assertEqual(only_bots["split"][0]["name"], "GPTBot (OpenAI)")
+        both = self.client.get("/api/admin/traffic?days=7&sources=search,bot").json()
+        self.assertEqual((both["totals"]["visits"], both["totals"]["bots"]), (1, 1))
 
     def test_internal_users_left_out_of_stats(self):
         self.client.force_login(self.owner)
