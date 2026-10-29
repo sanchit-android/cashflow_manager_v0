@@ -19,7 +19,7 @@
       {% for key, name, bg, accent, note in themes %}{% if key in shots %}
       {% with base="img/screenshots/themes/"|add:key %}{% with png=base|add:".png" webp=base|add:".webp" %}
       <figure class="card theme-card" id="theme-{{ key }}">
-        <a href="{% static png %}" class="theme-shot"><picture>
+        <a href="{% static png %}" class="theme-shot" data-lightbox><picture>
           <source srcset="{% static webp %}" type="image/webp">
           <img src="{% static png %}" alt="PlannedOut monthly budget overview in the {{ name }} theme ({{ note|lower }}): savings verdict, balance movement from opening to closing, and summary tiles" width="1024" height="640" loading="lazy" decoding="async">
         </picture></a>
@@ -64,4 +64,5 @@
   <section class="hero cta"><h2>Pick a look, then plan your money</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/features/"><button type="button">All features</button></a>{% endif %}</p></section>
 </main>
 {% include "_footer.html" %}
+<script src="{% static JS_DIR|add:'/lightbox.js' %}" defer></script>
 {% endblock %}

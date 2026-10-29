@@ -1,0 +1,7 @@
+(()=>{(()=>{let n=[...document.querySelectorAll("a[data-lightbox]")];if(!n.length||!window.HTMLDialogElement)return;let t=document.createElement("dialog");t.className="lightbox",t.setAttribute("aria-label","Image preview"),t.innerHTML=`<div class="lb-inner">
+      <button type="button" class="lb-close" aria-label="Close">\xD7</button>
+      <img alt="">
+      <p class="lb-caption"></p>
+      ${n.length>1?`<button type="button" class="lb-nav lb-prev" aria-label="Previous">\u2039</button>
+      <button type="button" class="lb-nav lb-next" aria-label="Next">\u203A</button>`:""}
+    </div>`,document.body.appendChild(t);let s=t.querySelector("img"),u=t.querySelector(".lb-caption"),o=0,r=e=>{o=(e+n.length)%n.length;let a=n[o],l=a.querySelector("img");s.src=l&&l.currentSrc||a.href,s.alt=l?l.alt:"";let i=a.closest("figure")?.querySelector("figcaption strong");u.textContent=i?i.textContent:""},c=()=>t.close();n.forEach((e,a)=>e.addEventListener("click",l=>{l.ctrlKey||l.metaKey||l.shiftKey||l.button!==0||(l.preventDefault(),r(a),document.documentElement.classList.add("lb-open"),t.showModal())})),t.addEventListener("close",()=>document.documentElement.classList.remove("lb-open")),t.addEventListener("click",e=>{if(e.target.closest(".lb-close"))return c();if(e.target.closest(".lb-prev"))return r(o-1);if(e.target.closest(".lb-next"))return r(o+1);e.target.closest("img, .lb-caption")||c()}),t.addEventListener("keydown",e=>{n.length<2||(e.key==="ArrowLeft"&&r(o-1),e.key==="ArrowRight"&&r(o+1))})})();})();
