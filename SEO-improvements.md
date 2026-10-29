@@ -56,7 +56,7 @@ Context: `/calculators/savings-runway/` was first result on page 7. For a site t
 
 | Status | Task |
 |---|---|
-| ⬜ | Request indexing in Search Console for the 15 pending URLs plus `/features/`, `/themes/`, `/changelog/` |
+| ✅ | Request indexing in Search Console for the 15 pending URLs plus `/features/`, `/themes/`, `/changelog/` |
 | ⬜ | Directory listings: AlternativeTo, Product Hunt, SaaSHub, Indie Hackers, BetaList, Uneed, TinyLaunch |
 | ⬜ | Offer the embed widget to Indian personal-finance bloggers and newsletters |
 | ⬜ | Reddit / Quora answers linking to a calculator with the asker's numbers prefilled (use "Copy a link to these results") |
@@ -158,9 +158,9 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
 
 ## What you can do now
 
-1. 🟡 **Request indexing** (in progress)
+1. ✅ **Request indexing**
    - ✅ Google Search Console: submitted homepage, About, Contact and initial 5 guides.
-   - ⬜ Google Search Console: use URL Inspection → "Request indexing" for `/features/`, `/themes/`, `/changelog/`, the **10 newer guides** (`/budget-app-without-sms-india/`, `/emi-budget-planner-india/`, `/private-ynab-mint-alternative/`, `/fire-retirement-runway-planner/`, `/first-salary-budget-planner-india/`, `/festival-wedding-budget-planner-india/`, `/child-education-savings-planner-india/`, `/indian-household-budget-template/`, `/freelance-irregular-income-budget/`, `/sinking-funds-guide/`) and **5 calculator URLs** (`/calculators/`, `/calculators/savings-runway/`, `/calculators/emergency-fund/`, `/calculators/sinking-fund/`, `/calculators/50-30-20-budget/`).
+   - ✅ Google Search Console: URL Inspection → "Request indexing" done for `/features/`, `/themes/`, `/changelog/`, the **10 newer guides** (`/budget-app-without-sms-india/`, `/emi-budget-planner-india/`, `/private-ynab-mint-alternative/`, `/fire-retirement-runway-planner/`, `/first-salary-budget-planner-india/`, `/festival-wedding-budget-planner-india/`, `/child-education-savings-planner-india/`, `/indian-household-budget-template/`, `/freelance-irregular-income-budget/`, `/sinking-funds-guide/`) and **5 calculator URLs** (`/calculators/`, `/calculators/savings-runway/`, `/calculators/emergency-fund/`, `/calculators/sinking-fund/`, `/calculators/50-30-20-budget/`).
    - ✅ Bing: automatic via IndexNow on every deploy (run `python manage.py indexnow --all` once to resend every page).
    - 🟡 Google index check: Admin → **Indexing** lists pages Google hasn't indexed (Search Console URL Inspection API, `core/gsc.py`). Runs after a deploy when the last check is over 6 days old, or via "Check now". Needs `GSC_SERVICE_ACCOUNT_JSON` set on Render (steps at the top of `core/gsc.py`).
 2. ⬜ **Set `SITE_URL` on Render** if the live domain isn't exactly `https://plannedout.in`.
@@ -168,7 +168,10 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
    - Product Hunt (plan a launch day)
    - AlternativeTo: list it as an alternative to Walnut, Money Manager, YNAB, Mint, Monarch Money, Goodbudget and Excel templates
    - Indie Hackers, SaaSHub, BetaList, Uneed, TinyLaunch
-4. ⬜ **Set up social profiles** on X, LinkedIn and Instagram, all linking to the site. Search engines and AI tools use these to confirm the brand is real (and we can add their URLs to `sameAs` in the `Organization` JSON-LD in `core/seo.py`).
+4. ✅ **Social profiles set up** and first posts published ([X](https://x.com/pravaha_AI/status/2115730410462404767), [LinkedIn](https://lnkd.in/p/eev7x83G), [Instagram](https://www.instagram.com/p/DfEtrKVBdR1/)):
+   - [X @pravaha_AI](https://x.com/pravaha_AI) · [LinkedIn](https://www.linkedin.com/in/pravah-ai-6a2a10447/) · [Instagram @pravaha.ai](https://www.instagram.com/pravaha.ai/)
+   - On the site: `SOCIALS` / `LAUNCH_POSTS` in `core/seo.py` feed `sameAs` in the `Organization` JSON-LD, both footers, [About → Follow us](https://plannedout.in/about/#follow), Contact, `llms.txt` and `twitter:site`.
+   - ⬜ Put `https://plannedout.in` in each profile's bio/website field. In posts, deep-link to sections, e.g. [/features/#security](https://plannedout.in/features/#security), a calculator, or [/about/#follow](https://plannedout.in/about/#follow).
 5. ⬜ **Ask friends and early users to try it** and talk about it. Real mentions beat anything else.
 
 ## What to do later (ongoing)

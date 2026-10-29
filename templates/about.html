@@ -33,15 +33,15 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" id="company">
     <h2>Company details</h2>
     <ul>
       <li><strong>Product:</strong> PlannedOut (plannedout.in)</li>
       <li><strong>Owned and operated by:</strong> {{ COMPANY }}, a privately owned business</li>
       <li><strong>Based in:</strong> India</li>
       <li><strong>Contact:</strong> <a href="mailto:{{ CONTACT_EMAIL }}">{{ CONTACT_EMAIL }}</a> or our <a href="/contact/">contact form</a></li>
-      <li><strong>Follow us:</strong>{% for name, url in SOCIALS %} {% if not forloop.first %}· {% endif %}<a href="{{ url }}" target="_blank" rel="noopener me">{{ name }}</a>{% endfor %}</li>
-      <li><strong>Launch announcement:</strong>{% for name, url in LAUNCH_POSTS %} {% if not forloop.first %}· {% endif %}<a href="{{ url }}" target="_blank" rel="noopener">on {{ name }}</a>{% endfor %}</li>
+      <li id="follow"><strong>Follow us:</strong>{% for name, url in SOCIALS %} {% if not forloop.first %}· {% endif %}<a href="{{ url }}" target="_blank" rel="noopener me">{{ name }}</a>{% endfor %}</li>
+      <li id="launch"><strong>Launch announcement:</strong>{% for name, url in LAUNCH_POSTS %} {% if not forloop.first %}· {% endif %}<a href="{{ url }}" target="_blank" rel="noopener">on {{ name }}</a>{% endfor %}</li>
     </ul>
     <p class="muted small">PlannedOut is a planning tool, not financial, tax or investment advice. Check important decisions with a qualified professional.</p>
   </section>
