@@ -310,8 +310,6 @@ def app_page(request):
     demo = request.GET.get("demo") == "1"
     if not request.user.is_authenticated and not demo:
         return redirect(settings.LOGIN_URL)
-    if demo:
-        log_event(request.user.id if request.user.is_authenticated else None, "demo:open")
     return render(request, "app.html", {"demo": demo})
 
 

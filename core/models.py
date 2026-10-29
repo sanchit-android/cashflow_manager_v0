@@ -95,6 +95,7 @@ class PageView(models.Model):
     referrer_host = models.CharField(max_length=120, blank=True, default="")
     utm_campaign = models.CharField(max_length=80, blank=True, default="")
     device = models.CharField(max_length=8, default="desktop")  # desktop, mobile, tablet, bot
+    demo = models.BooleanField(default=False)  # a view of the live demo (/app?demo=1), counted apart from real use
 
 
 class EndpointStat(models.Model):

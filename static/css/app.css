@@ -951,3 +951,17 @@ body { overflow-x: clip; }
 .theme-mock span:first-child { width: 45%; }
 .embed-code { width: 100%; font-family: ui-monospace, monospace; font-size: 12px; }
 .embed .embed-h { font-size: 20px; margin: 0 0 12px; }
+
+/* admin traffic: multiselect dropdowns */
+.msel-wrap { display: inline-flex; flex-direction: column; gap: 2px; }
+.msel { position: relative; }
+.msel > summary { list-style: none; cursor: pointer; min-width: 180px; padding: 6px 28px 6px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); position: relative; white-space: nowrap; }
+.msel > summary::-webkit-details-marker { display: none; }
+.msel > summary::after { content: "▾"; position: absolute; right: 10px; color: var(--muted); }
+.msel-pop { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 280px; max-width: calc(100vw - 32px); padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+.msel-pop label { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; cursor: pointer; }
+.msel-pop label small { display: block; font-size: 12px; }
+.msel-head { margin: 6px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.msel-acts { margin: 4px 0 8px; font-size: 13px; }
+.tr-help summary { cursor: pointer; font-size: 13px; }
+.tr-help ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }

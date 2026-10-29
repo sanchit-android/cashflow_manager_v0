@@ -61,6 +61,17 @@ class AdminAccessTests(TestCase):
         self.assertEqual(only_bots["split"][0]["name"], "GPTBot (OpenAI)")
         both = self.client.get("/api/admin/traffic?days=7&sources=search,bot").json()
         self.assertEqual((both["totals"]["visits"], both["totals"]["bots"]), (1, 1))
+        self.client.logout()
+        self.client.get("/app?demo=1", HTTP_REFERER="https://chatgpt.com/", HTTP_USER_AGENT="Mozilla/5.0")
+        self.client.force_login(self.other)
+        d = self.client.get("/api/admin/traffic?days=7&split=source").json()
+        self.assertEqual((d["totals"]["visits"], d["totals"]["demo_visits"]), (2, 1))  # demo kept apart from people
+        self.assertEqual(d["breakdown"]["demo_sources"][0]["label"], "ai")
+        self.assertIn("demo", [s["name"] for s in d["split"]])
+        no_demo = self.client.get("/api/admin/traffic?days=7&audience=people").json()
+        self.assertEqual(no_demo["totals"]["demo_visits"], 0)
+        demo_only = self.client.get("/api/admin/traffic?days=7&audience=demo").json()
+        self.assertEqual((demo_only["totals"]["visits"], demo_only["totals"]["demo_visits"]), (0, 1))
 
     def test_internal_users_left_out_of_stats(self):
         self.client.force_login(self.owner)
@@ -103,6 +114,16 @@ class TrackingTests(TestCase):
         self.client.get("/", HTTP_USER_AGENT="Mozilla/5.0 (compatible; GPTBot/1.1)")
         pv = list(PageView.objects.order_by("id").values_list("source", "source_name", "device"))
         self.assertEqual(pv, [("search", "google", "mobile"), ("bot", "GPTBot (OpenAI)", "bot")])
+
+    def test_demo_counted_apart(self):
+        ua = "Mozilla/5.0"
+        self.client.get("/", HTTP_REFERER="https://www.google.com/", HTTP_USER_AGENT=ua)
+        self.client.get("/demo/", HTTP_USER_AGENT=ua)
+        self.client.get("/app?demo=1", HTTP_REFERER="https://chatgpt.com/", HTTP_USER_AGENT=ua)
+        self.client.get("/", HTTP_USER_AGENT="Mozilla/5.0 (compatible; GPTBot/1.1)")
+        self.assertEqual(list(PageView.objects.order_by("id").values_list("source", "demo")),
+                         [("search", False), ("ai", True), ("bot", False)])
+        self.assertEqual(UsageDaily.objects.count(), 0)
 
     def test_classify(self):
         self.assertEqual(classify("", "utm_source=chatgpt.com", "plannedout.in")[:2], ("ai", "chatgpt"))
@@ -220,7 +241,7 @@ class CalculatorTests(TestCase):
         self.assertEqual(demo.status_code, 200)
         self.assertContains(demo, 'id="demo-reset"')
         self.assertContains(demo, "Live demo")
-        self.assertTrue(UsageDaily.objects.filter(event="demo:open").exists())
+        self.assertFalse(UsageDaily.objects.filter(event="demo:open").exists())
 
 
 @override_settings(OWNER_EMAIL=OWNER, GSC_SERVICE_ACCOUNT_JSON="{}")

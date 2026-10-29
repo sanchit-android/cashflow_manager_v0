@@ -209,8 +209,10 @@ function tech(box, d) {
 // ================= traffic explorer =================
 const SRC = { direct: "Direct / unknown", search: "Search engines", ai: "AI assistants", social: "Social", referral: "Other websites", email: "Email", campaign: "Campaign links" };
 const T = { range: "30", from: "", to: "", group: "", split: "none", name: "", device: "", path: "",
-  people: true, bots: false, sources: new Set(Object.keys(SRC)),
-  show: { views: true, visits: true, visitors: true, bots: false } };
+  people: true, demo: true, bots: false, sources: new Set(Object.keys(SRC)),
+  show: { views: true, visits: true, visitors: true, demo: true, bots: false } };
+const SRC_HELP = { direct: "Typed the URL, bookmark, or no referrer sent", search: "Google, Bing, DuckDuckGo…", ai: "ChatGPT, Perplexity, Claude…", social: "Reddit, X, LinkedIn, Facebook…", referral: "Links on any other site", email: "Webmail and newsletter links", campaign: "Links tagged with utm_source" };
+const SHOW = [["views", "Page views", "Every page loaded"], ["visits", "Visits", "A visitor's first page on a day"], ["visitors", "Unique visitors", "Distinct people"], ["demo", "Demo visits", "Visits to the live demo"], ["bots", "Bot fetches", "Pages loaded by bots (needs Bots ticked)"]];
 const PALETTE = [...C, "var(--good)", "var(--bad)", "var(--muted)"];
 
 async function traffic(box) {
@@ -223,7 +225,8 @@ async function traffic(box) {
     else q.set("days", T.range);
     for (const k of ["group", "name", "device", "path"]) if (T[k]) q.set(k, T[k]);
     if (T.split !== "none") q.set("split", T.split);
-    q.set("sources", [...(T.people ? T.sources : []), ...(T.bots ? ["bot"] : [])].join(","));
+    q.set("sources", [...T.sources, ...(T.bots ? ["bot"] : [])].join(","));
+    q.set("audience", [T.people && "people", T.demo && "demo"].filter(Boolean).join(","));
     return q.toString();
   };
   const fmtLabel = (l, group) => group === "hour" ? l.slice(11, 16) + (l.slice(0, 10) === today ? "" : " " + short(l.slice(0, 10))) : (group === "week" ? "wk " : "") + short(l);
@@ -237,15 +240,19 @@ async function traffic(box) {
     const t = d.totals, b = d.breakdown, labels = d.labels.map((l) => fmtLabel(l, d.group));
     out.innerHTML = `
       <div class="kpis">
-        ${metric("Visits", num(t.visits), "a visitor's first page on a day")}
-        ${metric("Unique visitors", num(t.visitors))}
-        ${metric("Page views", num(t.views), `${t.pages_per_visit} pages per visit`)}
-        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "tick Bots to count")}
+        ${metric("People · visits", num(t.visits), "a visitor's first page on a day")}
+        ${metric("People · unique", num(t.visitors))}
+        ${metric("People · page views", num(t.views), `${t.pages_per_visit} pages per visit`)}
+        ${metric("Demo visits", num(t.demo_visits), T.demo ? `${num(t.demo_visitors)} visitors · ${num(t.demo_views)} views` : "add Demo under Count traffic from")}
+        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "add Bots under Count traffic from")}
       </div>
       ${card(`Traffic · ${short(d.from)} – ${short(d.to)} · by ${d.group}`, bars("tr-chart"),
         T.split !== "none" ? "Each line is visits from one group (top 6, rest in Other)." : "")}
       <div class="adm-2">
-        ${card("Sources", table(["Source", "Visits"], b.sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])))}
+        ${card("Sources", table(["Source", "Visits"], b.sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), "Real use only (no demo, no bots).")}
+        ${card("Demo · how they arrived", table(["Source", "Demo visits"], b.demo_sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), b.demo_names.length ? "Top: " + b.demo_names.slice(0, 5).map((x) => `${esc(x.label)} (${num(x.value)})`).join(", ") : "")}
+      </div>
+      <div class="adm-2">
         ${card("Sites", table(["Site", "Visits"], b.names.map((x) => [esc(x.label), num(x.value)])))}
       </div>
       <div class="adm-2">
@@ -259,8 +266,8 @@ async function traffic(box) {
       ${T.bots ? card("Bots and crawlers", table(["Bot", "Fetches"], d.bot_names.map((x) => [esc(x.label), num(x.value)]))) : ""}
       <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`;
     let series;
-    if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (s.name === "bot" ? "Bots" : SRC[s.name] || s.name) : s.name, dashed: s.name === "bot" && T.split === "source", color: PALETTE[i % PALETTE.length], values: s.values }));
-    else series = [["views", "Page views", C[0]], ["visits", "Visits", C[1]], ["visitors", "Unique visitors", C[2]], ["bots", "Bot fetches", C[3], true]]
+    if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (s.name === "bot" ? "Bots" : s.name === "demo" ? "Demo (all sources)" : SRC[s.name] || s.name) : s.name, dashed: (s.name === "bot" || s.name === "demo") && T.split === "source", color: PALETTE[i % PALETTE.length], values: s.values }));
+    else series = [["views", "Page views", C[0]], ["visits", "Visits", C[1]], ["visitors", "Unique visitors", C[2]], ["demo", "Demo visits", "var(--good)", true], ["bots", "Bot fetches", C[3], true]]
       .filter(([k]) => T.show[k]).map(([k, name, color, dashed]) => ({ name, color, values: d.series[k], dashed }));
     const el = out.querySelector("#tr-chart");
     if (series.length) lines(el, { labels, fmt: num, axis: num, series }); else el.innerHTML = '<p class="muted">Pick at least one line.</p>';
@@ -279,17 +286,29 @@ async function traffic(box) {
       <label>Device <select id="tr-device">${opt("", "All", T.device)}${opt("desktop", "Desktop", T.device)}${opt("mobile", "Mobile", T.device)}${opt("tablet", "Tablet", T.device)}</select></label>
       <label>Page starts with <input id="tr-path" value="${esc(T.path)}" placeholder="/calculators/" style="max-width:160px"></label>
     </div>
-    <div class="row" style="flex-wrap:wrap;gap:12px;margin-top:8px">
-      <strong>Traffic:</strong>
-      <label><input type="checkbox" id="tr-people" ${T.people ? "checked" : ""}> People</label>
-      <label><input type="checkbox" id="tr-bots" ${T.bots ? "checked" : ""}> Bots</label>
-      <span class="muted">|</span>
-      <span id="tr-sources" style="display:contents">${Object.entries(SRC).map(([k, l]) => `<label><input type="checkbox" data-tr-src="${k}" ${T.sources.has(k) ? "checked" : ""} ${T.people ? "" : "disabled"}> ${l}</label>`).join("")}</span>
-      <button type="button" id="tr-src-all" class="link">All</button><button type="button" id="tr-src-none" class="link">None</button>
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-end">
+      <div class="msel-wrap"><span>Count traffic from</span>
+        <details class="msel" id="tr-who"><summary id="tr-who-sum"></summary><div class="msel-pop">
+          <p class="muted msel-head">Who</p>
+          <label><input type="checkbox" id="tr-aud-people" ${T.people ? "checked" : ""}> <span>People<small class="muted">Real visitors using the site and app</small></span></label>
+          <label><input type="checkbox" id="tr-aud-demo" ${T.demo ? "checked" : ""}> <span>Demo<small class="muted">Visitors trying the live demo (/app?demo=1), counted apart</small></span></label>
+          <label><input type="checkbox" id="tr-bots" ${T.bots ? "checked" : ""}> <span>Bots<small class="muted">Search crawlers, AI scrapers, uptime checks</small></span></label>
+          <p class="muted msel-head">How they arrived (people and demo)</p>
+          ${Object.entries(SRC).map(([k, l]) => `<label title="${esc(SRC_HELP[k])}"><input type="checkbox" data-tr-src="${k}" ${T.sources.has(k) ? "checked" : ""}> <span>${l}<small class="muted">${esc(SRC_HELP[k])}</small></span></label>`).join("")}
+          <p class="msel-acts"><button type="button" id="tr-src-all" class="link">All sources</button> · <button type="button" id="tr-src-none" class="link">None</button></p>
+        </div></details></div>
+      <div class="msel-wrap" id="tr-show" ${T.split !== "none" ? "hidden" : ""}><span>Chart lines</span>
+        <details class="msel"><summary id="tr-show-sum"></summary><div class="msel-pop">
+          ${SHOW.map(([k, l, h]) => `<label><input type="checkbox" data-tr-show="${k}" ${T.show[k] ? "checked" : ""}> <span>${l}<small class="muted">${h}</small></span></label>`).join("")}
+        </div></details></div>
     </div>
-    <div class="row" id="tr-show" style="flex-wrap:wrap;gap:12px;margin-top:8px" ${T.split !== "none" ? "hidden" : ""}>
-      ${[["views", "Page views"], ["visits", "Visits"], ["visitors", "Unique visitors"], ["bots", "Bot fetches"]].map(([k, l]) => `<label><input type="checkbox" data-tr-show="${k}" ${T.show[k] ? "checked" : ""}> ${l}</label>`).join("")}
-    </div>
+    <details class="muted tr-help" style="margin-top:8px"><summary>What do these filters mean?</summary><ul>
+      <li><b>Range / Group by</b> — the period shown, and whether each chart point is an hour, day or week (Auto picks one).</li>
+      <li><b>Lines</b> — Totals draws one line per measure; the other choices draw one line per source, device, landing page or bot (visits only).</li>
+      <li><b>Site / Device / Page starts with</b> — narrow everything to one site, device type, or pages under a path like <code>/calculators/</code>.</li>
+      <li><b>Count traffic from</b> — three separate groups: <i>People</i> (real use), <i>Demo</i> (the live demo) and <i>Bots</i> (off by default). They are never added together. The source ticks (search, AI, social…) narrow both people and demo.</li>
+      <li><b>Chart lines</b> — which measures to draw when Lines is Totals. A <i>page view</i> is any page load; a <i>visit</i> is a visitor's first page on a day; <i>unique visitors</i> are distinct people.</li>
+    </ul></details>
   </div><div id="tr-out"></div>`;
 
   box.querySelectorAll("[data-tr-range]").forEach((b) => (b.onclick = () => { T.range = b.dataset.trRange; traffic(box); }));
@@ -300,17 +319,31 @@ async function traffic(box) {
     T[k] = e.target.value;
     if (k === "split") box.querySelector("#tr-show").hidden = T.split !== "none";
     if (k === "split" && T.split === "bot" && !T.bots) { T.bots = true; box.querySelector("#tr-bots").checked = true; }
-    load();
+    reload();
   });
+  const summarize = () => {
+    const n = T.sources.size, all = Object.keys(SRC).length;
+    const src = n === all ? "" : n === 0 ? " (no sources)" : n === 1 ? ` (${SRC[[...T.sources][0]]})` : ` (${n} of ${all} sources)`;
+    const who = [T.people && "People", T.demo && "Demo", T.bots && "Bots"].filter(Boolean);
+    box.querySelector("#tr-who-sum").textContent = (who.join(", ") || "Nothing") + (T.people || T.demo ? src : "");
+    const sh = SHOW.filter(([k]) => T.show[k]).map(([, l]) => l);
+    box.querySelector("#tr-show-sum").textContent = sh.length === SHOW.length ? "All" : sh.join(", ") || "None";
+  };
+  const reload = () => { summarize(); load(); };
+  // close dropdowns on outside click
+  box.querySelectorAll("details.msel").forEach((d) => d.addEventListener("toggle", () => { if (d.open) box.querySelectorAll("details.msel").forEach((o) => o !== d && (o.open = false)); }));
+  document.addEventListener("click", (e) => box.querySelectorAll("details.msel[open]").forEach((d) => !d.contains(e.target) && (d.open = false)));
   const srcBoxes = [...box.querySelectorAll("[data-tr-src]")];
-  srcBoxes.forEach((c) => (c.onchange = () => { c.checked ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); load(); }));
-  const setAll = (v) => { srcBoxes.forEach((c) => { c.checked = v; v ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); }); load(); };
+  srcBoxes.forEach((c) => (c.onchange = () => { c.checked ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); reload(); }));
+  const setAll = (v) => { srcBoxes.forEach((c) => { c.checked = v; v ? T.sources.add(c.dataset.trSrc) : T.sources.delete(c.dataset.trSrc); }); reload(); };
   on("#tr-src-all", "onclick", () => setAll(true));
   on("#tr-src-none", "onclick", () => setAll(false));
-  on("#tr-people", "onchange", (e) => { T.people = e.target.checked; srcBoxes.forEach((c) => (c.disabled = !T.people)); load(); });
+  on("#tr-aud-people", "onchange", (e) => { T.people = e.target.checked; reload(); });
+  on("#tr-aud-demo", "onchange", (e) => { T.demo = e.target.checked; reload(); });
   on("#tr-path", "onchange", (e) => { T.path = e.target.value.trim(); load(); });
-  on("#tr-bots", "onchange", (e) => { T.bots = e.target.checked; if (T.bots) T.show.bots = true; box.querySelector('[data-tr-show="bots"]').checked = T.show.bots; load(); });
-  box.querySelectorAll("[data-tr-show]").forEach((c) => (c.onchange = () => { T.show[c.dataset.trShow] = c.checked; load(); }));
+  on("#tr-bots", "onchange", (e) => { T.bots = e.target.checked; if (T.bots) T.show.bots = true; box.querySelector('[data-tr-show="bots"]').checked = T.show.bots; reload(); });
+  box.querySelectorAll("[data-tr-show]").forEach((c) => (c.onchange = () => { T.show[c.dataset.trShow] = c.checked; reload(); }));
+  summarize();
   if (T.range === "custom" && !T.from) T.from = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10);
   if (T.range === "custom") box.querySelector("#tr-from").value = T.from;
   await load();

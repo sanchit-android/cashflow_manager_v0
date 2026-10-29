@@ -267,7 +267,8 @@ class MonitorMiddleware:
                                                     request.get_host().split(":")[0].lower().removeprefix("www."))
         PageView.objects.create(path=path[:200], status=status, ms=ms, visitor=visitor_hash(request), user_id=user_id,
                                 source=source, source_name=name[:64], referrer_host=host[:120], utm_campaign=campaign,
-                                device="bot" if bot else device_of(ua))
+                                device="bot" if bot else device_of(ua),
+                                demo=path.rstrip("/") == "/app" and request.GET.get("demo") == "1")
 
 
 # ---------- telemetry from the app ----------
@@ -491,7 +492,8 @@ def tech(request):
     internal_ids = internal_user_ids()
     pv = list(PageView.objects.filter(created_at__gte=since).exclude(user_id__in=internal_ids).order_by("created_at")
               .values("created_at", "path", "status", "ms", "visitor", "user_id", "source", "source_name",
-                      "referrer_host", "utm_campaign", "device"))
+                      "referrer_host", "utm_campaign", "device", "demo"))
+    pv = [p for p in pv if not p["demo"]]  # demo views live in the Traffic explorer, apart from real use
     humans = [p for p in pv if p["source"] != "bot"]
     views = [0] * len(labels)
     uniq = [set() for _ in labels]
@@ -770,7 +772,8 @@ def traffic(request):
     """Traffic over time, with filters.
     ?days=N or ?from=YYYY-MM-DD&to=YYYY-MM-DD, group=hour|day|week,
     split=none|source|device|page|bot, sources=direct,search,...,bot (comma list; "bot" = crawlers;
-    default all people sources, no bots), name=, device=, path= (prefix)."""
+    default all people sources, no bots), audience=people,demo (who the sources apply to; default both),
+    name=, device=, path= (prefix). People and demo views are always counted apart."""
     g = request.GET
     end = _parse_day(g.get("to")) or timezone.localdate()
     start = _parse_day(g.get("from"))
@@ -794,14 +797,21 @@ def traffic(request):
         picked = {g["source"]}
     if picked & set(SOURCES):
         picked.add("internal")  # clicks between our own pages belong to the people who arrived
-    qs = qs.filter(source__in=picked)
+    audience = set(g.get("audience", "people,demo").split(","))
+    human_src = picked - {"bot"}
+    who = Q(source="bot") if "bot" in picked else Q(pk__in=[])
+    if "people" in audience:
+        who |= Q(source__in=human_src, demo=False)
+    if "demo" in audience:
+        who |= Q(source__in=human_src, demo=True)
+    qs = qs.filter(who)
     if g.get("name"):
         qs = qs.filter(source_name=g["name"])
     if g.get("device"):
         qs = qs.filter(device=g["device"])
     if g.get("path"):
         qs = qs.filter(path__startswith=g["path"])
-    pv = list(qs.order_by("created_at").values("created_at", "path", "visitor", "source", "source_name", "device", "referrer_host"))
+    pv = list(qs.order_by("created_at").values("created_at", "path", "visitor", "source", "source_name", "device", "referrer_host", "demo"))
 
     # buckets
     def bucket(dt):
@@ -825,15 +835,19 @@ def traffic(request):
             d += timedelta(days=7 if group == "week" else 1)
     idx = {l: i for i, l in enumerate(labels)}
 
-    views, bots = [0] * len(labels), [0] * len(labels)
+    views, bots, demo_views = [0] * len(labels), [0] * len(labels), [0] * len(labels)
     uniq = [set() for _ in labels]
-    first = {}  # (day, visitor) -> first human page view = a visit
+    first, demo_first = {}, {}  # (day, visitor) -> first page view = a visit; people and demo kept apart
     for p in pv:
         i = idx.get(bucket(p["created_at"]))
         if i is None:
             continue
         if p["source"] == "bot":
             bots[i] += 1
+            continue
+        if p["demo"]:
+            demo_views[i] += 1
+            demo_first.setdefault((timezone.localtime(p["created_at"]).date(), p["visitor"]), (i, p))
             continue
         views[i] += 1
         uniq[i].add(p["visitor"])
@@ -844,7 +858,12 @@ def traffic(request):
     for i, _ in first.values():
         visits[i] += 1
 
-    series = {"views": views, "visits": visits, "visitors": [len(u) for u in uniq], "bots": bots}
+    demo_visits = [0] * len(labels)
+    for i, _ in demo_first.values():
+        demo_visits[i] += 1
+
+    series = {"views": views, "visits": visits, "visitors": [len(u) for u in uniq], "bots": bots,
+              "demo": demo_visits}
     split_series = []
     if split in ("source", "device", "page", "bot"):
         field = {"source": "source", "device": "device", "page": "path", "bot": "source_name"}[split]
@@ -857,6 +876,8 @@ def traffic(request):
         else:
             for i, p in first.values():
                 per[p[field] or "(none)"][i] += 1
+            if split == "source" and any(demo_visits):
+                per["demo"] = demo_visits
             if split == "source" and any(bots):
                 per["bot"] = bots
         top = sorted(per.items(), key=lambda kv: -sum(kv[1]))
@@ -868,12 +889,14 @@ def traffic(request):
             split_series.append({"name": "Other", "values": others})
 
     vlist = [p for _, p in first.values()]
-    humans = [p for p in pv if p["source"] != "bot"]
+    humans = [p for p in pv if p["source"] != "bot" and not p["demo"]]
+    dlist = [p for _, p in demo_first.values()]
     return JsonResponse({
         "from": start.isoformat(), "to": end.isoformat(), "group": group, "labels": labels,
         "series": series, "split": split_series,
         "totals": {"views": len(humans), "visits": len(vlist), "visitors": len({p["visitor"] for p in humans}),
-                   "bots": sum(bots), "pages_per_visit": round(len(humans) / len(vlist), 1) if vlist else 0},
+                   "bots": sum(bots), "demo_views": sum(demo_views), "demo_visits": len(dlist),
+                   "demo_visitors": len({p["visitor"] for p in dlist}), "pages_per_visit": round(len(humans) / len(vlist), 1) if vlist else 0},
         "breakdown": {
             "sources": _top(Counter(p["source"] for p in vlist), 10),
             "names": _top(Counter(p["source_name"] for p in vlist if p["source_name"]), 15),
@@ -881,6 +904,8 @@ def traffic(request):
             "pages": _top(Counter(p["path"] for p in humans), 15),
             "devices": _top(Counter(p["device"] for p in vlist), 5),
             "referrers": _top(Counter(p["referrer_host"] for p in vlist if p["referrer_host"]), 10),
+            "demo_sources": _top(Counter(p["source"] for p in dlist), 10),
+            "demo_names": _top(Counter(p["source_name"] for p in dlist if p["source_name"]), 10),
         },
         "bot_names": _top(Counter(p["source_name"] for p in pv if p["source"] == "bot"), 15),
         "options": {"sources": SOURCES,
