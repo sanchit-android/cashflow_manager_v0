@@ -60,7 +60,7 @@ Context: `/calculators/savings-runway/` was first result on page 7. For a site t
 | ⬜ | Directory listings: AlternativeTo, Product Hunt, SaaSHub, Indie Hackers, BetaList, Uneed, TinyLaunch |
 | ⬜ | Offer the embed widget to Indian personal-finance bloggers and newsletters |
 | ⬜ | Reddit / Quora answers linking to a calculator with the asker's numbers prefilled (use "Copy a link to these results") |
-| ⬜ | Social profiles (X, LinkedIn, Instagram), then add to `sameAs` in `core/seo.py` |
+| ✅ | Social profiles (X, LinkedIn, Instagram) live; listed in `SOCIALS` in `core/seo.py` and used for `sameAs`, footers, About, Contact, llms.txt and `twitter:site` |
 | ⬜ | One citable data piece, e.g. "How long do Indian households' savings last, by income band", from public data |
 
 ### Keeping page-1 rankings

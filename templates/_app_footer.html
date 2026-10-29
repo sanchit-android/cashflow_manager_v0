@@ -1,5 +1,5 @@
 <footer class="site-foot app-foot wrap">
-  <nav aria-label="Company"><a href="/about/" target="_blank" rel="noopener">About us</a> · <a href="/privacy/" target="_blank" rel="noopener">Privacy</a> · <a href="/contact/" target="_blank" rel="noopener">Contact &amp; support</a></nav>
+  <nav aria-label="Company"><a href="/about/" target="_blank" rel="noopener">About us</a> · <a href="/privacy/" target="_blank" rel="noopener">Privacy</a> · <a href="/contact/" target="_blank" rel="noopener">Contact &amp; support</a>{% for name, url in SOCIALS %} · <a href="{{ url }}" target="_blank" rel="noopener me">{{ name }}</a>{% endfor %}</nav>
   <p class="muted small">Your data is encrypted in your browser before it's saved. We can't read it.</p>
   <p class="muted legal">© {% now "Y" %} {{ COMPANY }}. All rights reserved. PlannedOut is a product of {{ COMPANY }}, India. <a href="mailto:{{ CONTACT_EMAIL }}">{{ CONTACT_EMAIL }}</a></p>
 </footer>

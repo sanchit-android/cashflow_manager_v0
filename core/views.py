@@ -215,7 +215,9 @@ def llms_txt(request):
               f"- [All features]({site}/features/)", f"- [Themes]({site}/themes/)", f"- [What's new]({site}/changelog/)",
               f"- [Privacy: what we can and can't see]({site}/privacy/)",
               f"- [About]({site}/about/)", f"- [Contact]({site}/contact/)",
-              f"- [Sign up free]({site}/login/)", "",
+              f"- [Sign up free]({site}/login/)"]
+    lines += [f"- [{seo.COMPANY} on {name}]({url})" for name, url in seo.SOCIALS]
+    lines += ["",
               f"{seo.NAME} is a product of {seo.COMPANY}, a privately owned business based in India. Contact: {seo.CONTACT_EMAIL}", ""]
     return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
 

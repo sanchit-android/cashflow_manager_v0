@@ -47,6 +47,7 @@
         <li><strong>Found a security issue?</strong> Choose "Privacy &amp; data / Security report". We take every report seriously.</li>
       </ul>
       <p class="muted small">{{ COMPANY }} · Privately owned · India · <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+      <p class="muted small">For news and updates, follow us on{% for name, url in SOCIALS %}{% if forloop.last %} and{% elif not forloop.first %},{% endif %} <a href="{{ url }}" target="_blank" rel="noopener me">{{ name }}</a>{% endfor %}. Please don't send support requests by DM; email is the fastest way to reach us.</p>
     </section>
   </div>
 </main>

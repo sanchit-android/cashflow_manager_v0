@@ -1375,6 +1375,19 @@ CHANGELOG_PAGE = {
 
 COMPANY = "Pravaha.AI"
 CONTACT_EMAIL = "pravaha.ai@gmail.com"
+# Official social profiles (name, url). Used in footers, About/Contact, llms.txt and JSON-LD sameAs.
+SOCIALS = [
+    ("X", "https://x.com/pravaha_AI"),
+    ("LinkedIn", "https://www.linkedin.com/in/pravah-ai-6a2a10447/"),
+    ("Instagram", "https://www.instagram.com/pravaha.ai/"),
+]
+X_HANDLE = "@pravaha_AI"
+# Launch announcement posts (name, url), shown on the About page.
+LAUNCH_POSTS = [
+    ("X", "https://x.com/pravaha_AI/status/2115730410462404767"),
+    ("LinkedIn", "https://lnkd.in/p/eev7x83G"),
+    ("Instagram", "https://www.instagram.com/p/DfEtrKVBdR1/"),
+]
 
 # Contact form topics: category -> subcategories. "Other" lets people describe anything.
 CONTACT_TOPICS = [
@@ -1407,7 +1420,9 @@ def _faq(pairs):
 def _org_ld(site):
     return {"@type": "Organization", "@id": site + "/#org", "name": NAME,
             "url": site + "/", "logo": site + "/static/img/icon-512.png", "email": CONTACT_EMAIL,
+            "sameAs": [u for _, u in SOCIALS],
             "parentOrganization": {"@type": "Organization", "name": COMPANY, "email": CONTACT_EMAIL,
+                                   "sameAs": [u for _, u in SOCIALS],
                                    "address": {"@type": "PostalAddress", "addressCountry": "IN"}}}
 
 
