@@ -286,7 +286,7 @@ async function rasterize(b, dpr, tint) {
 // ---------------- the game ----------------
 
 const Pong = (() => {
-  let canvas, ctx, ui, W, H, dpr, raf = 0, last = 0, running = false, paused = false;
+  let canvas, ctx, ui, W, H, dpr, raf = 0, last = 0, running = false, paused = false, menu = false;
   let vertical, colors, base, maxSpeed, aiSpeed, onEnd;
   let bricks = [], frags = [], pops = [], trail = [];
   let ball, player, ai, aiErr = 0, state, score, smashed, lives, pointerAlong = null;
@@ -305,14 +305,15 @@ const Pong = (() => {
       <div class="game-msg" hidden></div>
       <div class="game-dialog" role="dialog" aria-live="polite" hidden>
         <h2 class="gd-title"></h2><p>Score</p><div class="gd-score num"></div><p class="gd-detail"></p>
-        <div class="gd-actions"><button type="button" class="primary gd-again">Play again</button><button type="button" class="gd-back">Back to month</button></div>
+        <div class="gd-actions"><button type="button" class="primary gd-resume">Resume</button><button type="button" class="gd-again">Play again</button><button type="button" class="gd-back">Back to month</button></div>
       </div>`;
     document.body.append(canvas, ui);
     ui.querySelector(".game-reset").onclick = stop;
     ui.querySelector(".gd-back").onclick = stop;
+    ui.querySelector(".gd-resume").onclick = resume;
     ui.querySelector(".gd-again").onclick = () => { stop(true); start({ onEnd }); };
     canvas.addEventListener("pointermove", setPointer);
-    canvas.addEventListener("pointerdown", (e) => { setPointer(e); serve(); });
+    canvas.addEventListener("pointerdown", (e) => { if (menu) return; setPointer(e); serve(); });
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("keyup", (e) => { keys[e.key] = false; }, true);
     document.addEventListener("visibilitychange", () => { paused = document.hidden; last = performance.now(); });
@@ -325,11 +326,35 @@ const Pong = (() => {
     if (e.target.closest?.(".game-dialog") && (e.key === "Enter" || e.key === " " || e.key === "Tab")) return; // dialog buttons
     if (e.target.classList?.contains("game-reset") && (e.key === "Enter" || e.key === " ")) return;
     e.stopImmediatePropagation(); // nothing underneath (the grid) sees keys while playing
-    if (e.key === "Escape") { e.preventDefault(); stop(); return; }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (state === "won" || state === "over") stop(); else if (menu) resume(); else pause();
+      return;
+    }
+    if (menu) return;
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); serve(); }
     if (e.key.startsWith("Arrow")) { keys[e.key] = true; e.preventDefault(); }
   }
-  function setPointer(e) { pointerAlong = vertical ? e.clientX : e.clientY; }
+  function setPointer(e) {
+    if (menu) return; pointerAlong = vertical ? e.clientX : e.clientY; }
+
+  // the dialog takes over: pointer controls the page again, game freezes
+  function openMenu(on) {
+    menu = on; canvas.classList.toggle("menu", on); q(".game-dialog").hidden = !on;
+    pointerAlong = null; for (const k in keys) keys[k] = false; last = performance.now();
+  }
+  function pause() {
+    if (!running || menu) return;
+    q(".gd-title").textContent = "Paused";
+    q(".gd-score").textContent = inr.format(score);
+    q(".gd-detail").textContent = "Press Esc to resume.";
+    q(".gd-resume").hidden = false; q(".gd-again").textContent = "Restart"; q(".gd-again").classList.remove("primary");
+    openMenu(true); q(".gd-resume").focus();
+  }
+  function resume() {
+    if (!menu || state === "won" || state === "over") return;
+    openMenu(false); canvas.focus?.();
+  }
 
   async function start(opts = {}) {
     if (running) return;
@@ -347,7 +372,7 @@ const Pong = (() => {
     await Promise.all(bricks.map(async (b) => { b.img = await rasterize(b, dpr, tint); }));
     bricks.forEach((b) => { b.prevVis = b.el.style.visibility; b.el.style.visibility = "hidden"; });
     document.documentElement.classList.add("game-on");
-    size(); canvas.hidden = false; ui.hidden = false; q(".game-dialog").hidden = true;
+    size(); canvas.hidden = false; ui.hidden = false; openMenu(false);
 
     base = Math.max(300, Math.min(520, Math.min(W, H) * 0.75));
     maxSpeed = base * 1.9; aiSpeed = base * 0.72;
@@ -397,13 +422,14 @@ const Pong = (() => {
     q(".gd-detail").textContent = won
       ? `Every box and figure is gone${smashed ? `, ₹${inr.format(smashed)} of it in rupees` : ""}. Reset puts it all back.`
       : `${left} ${left === 1 ? "piece" : "pieces"} still standing. They look smug.`;
-    q(".game-dialog").hidden = false; q(".gd-again").focus();
+    q(".gd-resume").hidden = true; q(".gd-again").textContent = "Play again"; q(".gd-again").classList.add("primary");
+    openMenu(true); q(".gd-again").focus();
   }
 
   function loop(t) {
     raf = requestAnimationFrame(loop);
     const dt = Math.min(0.033, (t - last) / 1000); last = t;
-    if (!paused) update(dt);
+    if (!paused && !menu) update(dt);
     draw();
   }
 
@@ -466,7 +492,17 @@ const Pong = (() => {
     if (isPlayer) { score += 10; aiErr = (Math.random() - 0.5) * ai.len * 1.1; }
   }
 
-  const hittable = (b) => b.alive && b.kids.every((k) => !k.alive);
+  // ball sits fully inside a box without touching its edge
+  const inside = (b) => ball.x - ball.r > b.x && ball.x + ball.r < b.x + b.w && ball.y - ball.r > b.y && ball.y + ball.r < b.y + b.h;
+
+  // inner tiles must go first; text inside a tile breaks along with it
+  const onlyText = (b) => b.kids.every((k) => !k.alive || (k.text && onlyText(k)));
+  const hittable = (b) => b.alive && onlyText(b);
+
+  function smashAll(b) {
+    for (const k of b.kids) if (k.alive) smashAll(k);
+    smash(b);
+  }
 
   function hitBricks() {
     // innermost first, so the ball meets text before the card around it
@@ -475,10 +511,17 @@ const Pong = (() => {
       if (!hittable(b)) continue;
       const hit = circleRect(b);
       if (!hit) continue;
+      // a box with live pieces inside only breaks when the ball touches its edge
+      if (b.kids.some((k) => k.alive) && inside(b)) continue;
       let { dx, dy } = hit;
-      if (!dx && !dy) { dx = -ball.vx; dy = -ball.vy; }
+      if (!dx && !dy) {
+        // ball centre is inside: bounce off the nearest edge
+        const l = ball.x - b.x, r = b.x + b.w - ball.x, t = ball.y - b.y, bt = b.y + b.h - ball.y;
+        const m = Math.min(l, r, t, bt);
+        if (m === l) dx = 1; else if (m === r) dx = -1; else if (m === t) dy = 1; else dy = -1;
+      }
       if (Math.abs(dx) > Math.abs(dy)) ball.vx = Math.sign(dx) * Math.abs(ball.vx); else ball.vy = Math.sign(dy) * Math.abs(ball.vy);
-      smash(b); return;
+      smashAll(b); return;
     }
   }
 
