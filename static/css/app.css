@@ -987,3 +987,43 @@ html.lb-open { overflow: hidden; }
 .msel > summary { overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 .tr-help summary { cursor: pointer; font-size: 13px; }
 .tr-help ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+
+/* ================= screen games (static/js/games.js) ================= */
+.month-nav .gcloud { margin-left: auto; }
+.gcloud { position: relative; display: inline-flex; }
+.gcloud-btn { padding: 2px 6px; border: 0; background: transparent; line-height: 0; color: var(--muted); }
+.gcloud-btn svg { width: 38px; height: 25px; display: block; overflow: visible; }
+.gcloud-btn .gc-body { fill: color-mix(in srgb, var(--accent) 12%, var(--surface)); stroke: color-mix(in srgb, var(--accent) 45%, var(--border)); stroke-width: 1.4; }
+.gcloud-btn .gc-ball { fill: var(--accent); }
+.gcloud-btn:hover .gc-body, .gcloud-btn[aria-expanded="true"] .gc-body { fill: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+:root:not([data-motion="none"]) .gcloud-btn svg { animation: gc-float 4s ease-in-out infinite; }
+:root:not([data-motion="none"]) .gcloud-btn .gc-ball { animation: gc-bounce 1.6s ease-in-out infinite; }
+@keyframes gc-float { 50% { transform: translateY(-2px); } }
+@keyframes gc-bounce { 0%, 100% { transform: translateX(-5px); } 50% { transform: translateX(5px); } }
+@media (prefers-reduced-motion: reduce) { .gcloud-btn svg, .gcloud-btn .gc-ball { animation: none !important; } }
+.gcloud-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: min(300px, calc(100vw - 32px));
+  background: var(--glass-pop, var(--surface)); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .16); padding: 10px; display: grid; gap: 6px; }
+.gcloud-pop::before { content: ""; position: absolute; right: 0; left: 0; top: -8px; height: 8px; } /* hover bridge */
+.gcloud-quip { margin: 2px 4px 4px; font-weight: 600; text-wrap: balance; }
+.gcloud-game { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; padding: 8px; background: transparent; border-color: transparent; color: var(--text); }
+.gcloud-game:hover, .gcloud-game:focus-visible { background: var(--surface-2); border-color: var(--border); }
+.gcloud-game svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+.gcloud-game > span { display: grid; gap: 2px; min-width: 0; }
+.gcloud-game > span > span { color: var(--muted); font-size: 13px; }
+.gcloud-game em { font-style: normal; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: var(--warn-bg); color: var(--text); margin-left: 4px; }
+.gcloud-game[aria-disabled="true"] { opacity: .7; cursor: default; }
+
+html.game-on, html.game-on body { overflow: hidden; overscroll-behavior: none; }
+.game-stage { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100%; touch-action: none; cursor: none; }
+.game-reset { position: fixed; z-index: 1001; top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); box-shadow: 0 4px 14px rgb(0 0 0 / .18); font-weight: 600; }
+.game-msg { position: fixed; z-index: 1001; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 8px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-weight: 600; pointer-events: none; white-space: nowrap; }
+.game-dialog { position: fixed; z-index: 1002; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100% - 32px));
+  background: var(--glass-pop, var(--surface)); color: var(--text); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px);
+  padding: 20px; display: grid; gap: 8px; text-align: center; box-shadow: 0 16px 48px rgb(0 0 0 / .25); }
+.game-dialog h2 { margin: 0; }
+.game-dialog p { margin: 0; color: var(--muted); }
+.game-dialog .gd-score { font-size: 32px; font-weight: 700; }
+.game-dialog .gd-actions { display: flex; gap: 8px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
+.gcloud-pop[hidden], .game-msg[hidden], .game-dialog[hidden], .game-stage[hidden], [data-game-ui][hidden] { display: none !important; }
+html.game-on .gcloud { visibility: hidden; }

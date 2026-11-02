@@ -57,6 +57,9 @@ HOME_FAQ = [
      "Most expense trackers look backwards. PlannedOut also looks forward: it separates fixed commitments, "
      "day-to-day spending and annual bills, then projects your savings into future years and shows how many "
      "months your money would last if income stopped."),
+    ("Is there anything fun in PlannedOut?",
+     "Yes. A small cloud on the Month screen opens a games menu. Pong turns every figure and box on screen into "
+     "bricks you smash with a ball. Reset puts everything back, and your data is never changed. Try it in the live demo."),
     ("What happens if I forget my passphrase?",
      "Use one of your recovery keys. If you lose the passphrase and every recovery key, nobody can decrypt "
      "the data, including us. That is the trade-off for real privacy."),
@@ -823,6 +826,61 @@ GUIDES = {
              "be withdrawn without penalty the month the bill falls due."),
         ],
     },
+    "budget-games": {
+        "title": "Budget Games: Play Pong With Your Monthly Spending (Free, Private)",
+        "h1": "Budgeting is serious. Smashing your spending with a ball isn't.",
+        "description": "PlannedOut turns your month screen into a game of Pong: every figure and box becomes a brick "
+                       "you can smash. A fun, free budget app with a game mode. Nothing is changed, nothing leaves your browser.",
+        "nav": "Budget games",
+        "intro": "Most budget apps are about as fun as a tax form. PlannedOut has a small cloud on the Month screen. "
+                 "Hover it, pick Pong, and every rupee figure, row and card on screen becomes a brick to smash. "
+                 "Press Reset and your month is back exactly as it was.",
+        "sections": [
+            ("How the game works",
+             ["Hover or tap the little cloud next to the month title and pick Pong",
+              "Your paddle follows your mouse or finger; the computer plays the other side",
+              "The ball breaks every piece of text, number and box it hits",
+              "Bigger amounts are worth more points: smashing ₹18,460 earns 185",
+              "Cards and panels break only after everything inside them is gone",
+              "Clear the whole screen to win; three balls per game"]),
+            ("Your data is never touched",
+             ["The game draws a copy of your screen on a canvas; your entries are only hidden while you play",
+              "Reset, Escape or 'Back to month' restores the screen instantly",
+              "Key presses are blocked while you play, so nothing in your sheet can be edited by accident",
+              "Nothing about the game is sent anywhere: no amounts, no screenshots, no scores",
+              "Your data stays encrypted in your browser, as always"]),
+            ("Why put a game in a budget app?",
+             ["Checking your month is easier to keep up when opening the app is something you look forward to",
+              "Ending a heavy month with a quick game beats avoiding the app",
+              "Burn rate, meet paddle: a light way to look at the numbers you'd rather not",
+              "More games are coming: Burn turns your cursor into a flame thrower"]),
+        ],
+        "table": {
+            "heading": "Game controls",
+            "intro": "Works on laptop and phone. On a tall phone screen the paddles run along the top and bottom.",
+            "headers": ["Action", "Laptop", "Phone"],
+            "rows": [
+                ["Open the games menu", "Hover the cloud next to the month title", "Tap the cloud"],
+                ["Serve", "Click or press Space", "Tap the screen"],
+                ["Move your paddle", "Move the mouse, or arrow keys", "Drag your finger"],
+                ["Stop and restore the screen", "Reset button or Escape", "Reset button"],
+            ],
+        },
+        "faq": [
+            ("Does playing the game change or delete my budget data?",
+             "No. The game only draws a copy of what's on screen and hides the originals while you play. Reset puts "
+             "everything back. It never reads or writes your saved records."),
+            ("Can I try the game without signing up?",
+             "Yes. Open the live demo, go to the Month screen and hover the cloud next to the month title. The demo "
+             "is loaded with sample household data you can smash."),
+            ("Is anything about the game sent to PlannedOut?",
+             "Only an anonymous count that the game was opened, the same way we count which screens are used. "
+             "No amounts, scores or screenshots. In the demo nothing is sent at all."),
+            ("Does it work on a phone?", "Yes. Tap the cloud, tap to serve, and drag your finger to move the paddle."),
+            ("Which games are available?",
+             "Pong is available now. Burn, which turns your cursor into a flame thrower for your spending, is coming soon."),
+        ],
+    },
 }
 
 
@@ -995,6 +1053,7 @@ GUIDE_ILLUS = {
     "indian-household-budget-template": ["grid", "year_bars", "import"],
     "freelance-irregular-income-budget": ["burn", "year_bars", "runway"],
     "sinking-funds-guide": ["sinking", "annual_cal", "verdict"],
+    "budget-games": ["pong", "control", "verdict"],
 }
 
 # India-specific guides use en-IN; global guides use generic English (en) so global searchers match cleanly.
@@ -1025,6 +1084,7 @@ GUIDE_CALCS = {
     "indian-household-budget-template": ("50-30-20-budget", "Want a quick benchmark for your family's needs, wants and savings?", "Try the free 50/30/20 budget calculator →"),
     "freelance-irregular-income-budget": ("emergency-fund", "Working out how many months of buffer you need for variable income?", "Try the free emergency fund calculator →"),
     "sinking-funds-guide": ("sinking-fund", "Ready to add up your own yearly bills right now?", "Try the free sinking fund calculator →"),
+    "budget-games": ("savings-runway", "Done smashing? Find out how long your real savings would last.", "Try the free savings runway calculator →"),
 }
 
 CALC_GUIDES = {
@@ -1332,6 +1392,13 @@ FEATURES = [
       "Recovery keys if you forget your passphrase, and lock/unlock on shared devices",
       "No bank login, no SMS reading, no account aggregator, no ads",
       "Delete your account and every record in one click"]),
+    ("games", "Games on your month screen",
+     "A small cloud on the Month screen opens games you play with the figures on screen.",
+     ["Pong: every number, row and card becomes a brick, with points for bigger amounts",
+      "Works with mouse, keyboard or touch, in every theme",
+      "Reset puts the screen back instantly; your data is never changed",
+      "Nothing about the game leaves your browser",
+      "Burn, a flame-thrower game, is coming soon"]),
     ("anywhere", "Works anywhere, in 20 currencies",
      "No install needed, on laptop or phone.",
      ["Runs in any modern browser; add it to your home screen like an app",
@@ -1343,11 +1410,16 @@ FEATURES_PAGE = {
     "title": "PlannedOut Features: Private Budget Planner With Projections, Themes & Encryption",
     "h1": "Everything PlannedOut does",
     "description": "Spreadsheet-style entry with formulas, monthly insights, savings projections and runway, card "
-                   "tracking, 15 themes with a custom theme builder, 20 currencies and browser-side encryption. Free.",
+                   "tracking, 15 themes with a custom theme builder, a Pong game mode, 20 currencies and browser-side encryption. Free.",
 }
 
 # Newest first. (date, title, points). Add an entry when you ship something visitors would notice.
 CHANGELOG = [
+    ("2026-11-02", "Games on the Month screen", [
+        "A small cloud next to the month title opens a games menu",
+        "Pong: smash every figure, row and card on screen with a ball, against the computer",
+        "Bigger amounts score more points; Reset restores the screen instantly and your data is never touched",
+        "Available in the live demo too. Burn, a flame-thrower game, is coming soon"]),
     ("2026-10-28", "Shareable and embeddable calculators", [
         "Every calculator result has a link you can share, and calculators can be embedded on other sites",
         "Worked examples and common mistakes on every calculator page",
@@ -1534,6 +1606,9 @@ PRIVACY_FAQ = [
      "No. Every amount, description, category and balance is encrypted in your browser using AES-256-GCM before it is sent to our servers. Your key is derived from your vault passphrase using PBKDF2-SHA256 (600,000 iterations) and never leaves your device."),
     ("What metadata can PlannedOut see?",
      "Only what is needed to run the service and sync across devices: your email address, sign-in timestamps, record counts, record type (e.g. transaction), month period, and update timestamps."),
+    ("Does the game on the Month screen send my numbers anywhere?",
+     "No. The game copies what's already on your screen into a canvas in your browser. No amounts, screenshots or "
+     "scores are sent. We only count, anonymously, that the game was opened."),
     ("How do I delete my account and all encrypted records?",
      "Open Settings and click Delete account. Your user account, vault keys and all encrypted records are permanently deleted immediately."),
 ]

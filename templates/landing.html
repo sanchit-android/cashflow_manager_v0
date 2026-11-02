@@ -98,6 +98,15 @@
     {% include "illus/steps.html" %}
   </section>
 
+  <section aria-labelledby="play" class="card gsec">
+    <div>
+    <h2 id="play">Bored of budgeting? Smash it.</h2>
+    <p>A little cloud on the Month screen opens a game of Pong played with your own month. Every figure, row and card becomes a brick, and bigger amounts score more. Press Reset and it's all back, untouched and still encrypted.</p>
+    <p class="hero-actions"><a href="/app?demo=1"><button type="button" class="primary">Play it in the live demo</button></a> <a href="/budget-games/">How the games work →</a></p>
+    </div>
+    {% include "illus/pong.html" %}
+  </section>
+
   <section aria-labelledby="faq-h" class="faq">
     <h2 id="faq-h">Frequently asked questions</h2>
     {% for q, a in faq %}<details class="card"><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}

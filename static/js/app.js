@@ -13,6 +13,7 @@ import { setCurrency, currencyOptions, guessCurrency } from "./currency.js";
 import { track, startTracking } from "./track.js";
 import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
+import { mountGamesCloud } from "./games.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -533,7 +534,7 @@ function viewMonth() {
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   html(`
-    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>
+    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<span id="gcloud"></span></div>
     <div id="summary" style="margin-top:12px"></div>
     <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
     <div id="cats"></div>`);
@@ -552,6 +553,7 @@ function viewMonth() {
   monthCloseBar();
   monthSummary();
   mountTxGrid();
+  mountGamesCloud($("#gcloud"), { track });
 }
 
 const barAccounts = (d) => store.ofType("account").filter((a) => a.data.role !== "long_term" && a.data.role !== "receivable" && E.accountVisible(d, { id: a.id, ...a.data }, S.period));
