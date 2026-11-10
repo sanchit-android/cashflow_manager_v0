@@ -143,6 +143,22 @@ document.querySelector("[data-copy-embed]")?.addEventListener("click", () =>
   copy(document.querySelector(".embed-code").value, document.querySelector("[data-embed-msg]"), "Copied."));
 document.querySelector(".embed-code")?.addEventListener("focus", (e) => e.target.select());
 
+// ---- "Continue in PlannedOut": start the app with these numbers already in the setup wizard ----
+// The numbers go into this browser's storage (never the URL or the server) and are used once by the app's setup.
+const handoff = {
+  "savings-runway": () => ({ fm: f("income") > 0 ? "both" : "savings", sv: f("savings"), other: f("income") }),
+  "emergency-fund": () => ({ sv: f("saved") }),
+  "50-30-20-budget": () => ({ fm: "salary", samt: f("income") }),
+  "sinking-fund": () => ({}),
+};
+document.querySelector("[data-continue]")?.addEventListener("click", () => {
+  try {
+    const v = handoff[slug] ? handoff[slug]() : {};
+    for (const k of Object.keys(v)) if (typeof v[k] === "number" && !(v[k] > 0)) delete v[k];
+    localStorage.setItem("po-prefill", JSON.stringify({ calc: slug, currency: form.querySelector("[data-currency]").value, v, at: Date.now() }));
+  } catch (e) { /* storage blocked: the app still opens, just without the numbers */ }
+});
+
 const urlCur = fromUrl();
 const cur = form.querySelector("[data-currency]");
 const startCur = CURRENCIES[urlCur] ? urlCur : guessCurrency();

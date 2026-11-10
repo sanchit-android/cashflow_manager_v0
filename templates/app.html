@@ -8,6 +8,8 @@
   <nav class="tabs" id="tabs" hidden></nav>
   {% if demo %}
   <span class="demo-head-cta"><a href="/login/"><button class="primary" type="button">Sign up free</button></a><a class="link" href="/">Exit demo</a></span>
+  {% elif local %}
+  <span class="demo-head-cta"><a href="/login/"><button class="primary" type="button">Save to a free account</button></a><a class="link" href="/">Exit</a></span>
   {% else %}
   <form method="post" action="/logout/">{% csrf_token %}<button class="link" type="submit">Sign out</button></form>
   {% endif %}
@@ -16,6 +18,12 @@
 <div class="demo-bar" role="region" aria-label="Interactive demo">
   <span><strong>Live demo</strong> — loaded with 9 months of sample household data. Edit cells, switch themes in Settings, or test projections. Changes stay in your browser tab.</span>
   <span class="demo-bar-actions"><button type="button" class="link-btn" id="demo-reset">Reset sample data</button><a href="/login/"><button class="primary" type="button">Create your free account →</button></a></span>
+</div>
+{% endif %}
+{% if local %}
+<div class="demo-bar local-bar" role="region" aria-label="Not signed in">
+  <span><strong>No account needed.</strong> What you enter is encrypted and kept only in this browser. Create a free account to back it up and use it on your phone. Your entries come with you.</span>
+  <span class="demo-bar-actions"><a href="/login/"><button class="primary" type="button">Create free account →</button></a></span>
 </div>
 {% endif %}
 <main class="wrap" id="root"><p class="muted">Loading…</p></main>

@@ -55,6 +55,8 @@ function business(box, d) {
   const lc = (e) => (life[e] ? `${num(life[e].count)} <span class="muted">(${num(life[e].users)} users)</span>` : "0");
   box.innerHTML = `
     <div class="kpis">
+      ${metric("Real use today", num(k.real_today), `7-day average ${k.real_avg_7} · ${num(k.real_days_10)} day(s) with 10+ in ${d.days} days`)}
+      ${metric("Using it without an account", `${num(k.local_today)} / ${num(k.local_week)}`, `today / last 7 days (person-days, before signing up)`)}
       ${metric("Total users", num(k.users), `${num(k.new_users)} new in ${d.days} days`)}
       ${metric("Active users", num(k.active_window), `in the last ${d.days} days`)}
       ${metric("Daily / weekly / monthly", `${num(k.dau)} / ${num(k.wau)} / ${num(k.mau)}`, `stickiness (daily ÷ monthly) ${k.stickiness}%`)}
@@ -64,7 +66,7 @@ function business(box, d) {
       ${metric("Records stored", num(k.records), `${num(k.google_users)} users sign in with Google`)}
       ${metric("Accounts deleted", num(k.deleted_accounts), `in the last ${d.days} days`)}
     </div>
-    ${card("New and returning users", bars("b-users"), "Bars: people who used the app each day, split into new (signed up that day) and returning. Line: sign-ups.")}
+    ${card("New and returning users", bars("b-users"), "Bars: people who used the app with their own data each day: new (signed up that day), returning, and not signed up yet (using it in their browser only). Line: sign-ups. Demo visits are not counted.")}
     <div class="adm-2">
       ${card("Activation funnel", table(["Step", "Users", "Of sign-ups", "Of previous step"],
         f.map((r, i) => [esc(r.label), num(r.value), pct(r.value, f[0].value), i ? pct(r.value, f[i - 1].value) : ""])),
@@ -90,6 +92,7 @@ function business(box, d) {
         ["Setup: salary / savings / both", `${lc("onboard:salary")} / ${lc("onboard:savings")} / ${lc("onboard:both")}`],
         ["Setup wizard: reached step 2 / step 3 / opened Settings after", `${lc("onboard:step2")} / ${lc("onboard:step3")} / ${lc("onboard:to-settings")}`],
         ["Imports: workbook / xlsx / csv", `${lc("import:workbook")} / ${lc("import:xlsx")} / ${lc("import:csv")}`],
+        ["No-account use moved into a new account", lc("local:imported")],
         ["App opened", lc("app:open")]]))}
     </div>
     ${card("Data being added", bars("b-saves") + table(["Record type", "Created", "Edited", "Deleted", "Users adding"],
@@ -122,7 +125,8 @@ function business(box, d) {
   }));
 
   stackedBars(box.querySelector("#b-users"), { labels, fmt: num, axis: num,
-    stacks: [{ name: "Returning", color: C[0], values: d.daily.returning_active }, { name: "New", color: C[1], values: d.daily.new_active }],
+    stacks: [{ name: "Returning", color: C[0], values: d.daily.returning_active }, { name: "New", color: C[1], values: d.daily.new_active },
+      { name: "No account yet", color: C[3], values: d.daily.local || d.labels.map(() => 0) }],
     line: { name: "Sign-ups", color: C[2], values: d.daily.signups } });
   lines(box.querySelector("#b-saves"), { labels, fmt: num, axis: num, series: [{ name: "Records saved", color: C[0], values: d.daily.saves }] });
   drawBars("b-types", d.records_by_type, C[0]);

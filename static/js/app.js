@@ -14,6 +14,7 @@ import { track, startTracking } from "./track.js";
 import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
 import { mountGamesCloud } from "./games.js";
+import { loadLocal, hasLocal, clearLocal } from "./local.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -84,6 +85,11 @@ async function start() {
     if (store.isDemo) {
       const resetBtn = document.getElementById("demo-reset");
       if (resetBtn) resetBtn.onclick = () => { store.resetDemo(); afterUnlock(); };
+      return afterUnlock();
+    }
+    if (store.isLocal) {
+      track("local:open");
+      await store.unlock("local");
       return afterUnlock();
     }
     if (!store.vault) return setupVault();
@@ -198,7 +204,12 @@ const S = { tab: "month", period: E.periodOf(today()) };
 const db = () => E.index(store.records());
 const settingsRec = () => store.ofType("settings")[0];
 
-function afterUnlock() {
+async function afterUnlock() {
+  // Signed in with data still sitting in this browser from before sign-up: offer to move it into the account.
+  if (!store.isDemo && !store.isLocal && !S.localChecked) {
+    S.localChecked = true;
+    if (await hasLocal()) return importLocalScreen();
+  }
   const s = settingsRec();
   if (!s) return onboarding();
   if (s.data.theme) applyTheme(s.data.theme, s.data.custom_theme);
@@ -208,6 +219,39 @@ function afterUnlock() {
   S.period = E.periodOf(today(), s.data);
   renderTabs(); render();
   migrateCloses().catch(() => {});
+}
+
+// Records made before sign-up (/app?local=1) are re-encrypted with the account key and saved to the account.
+async function importLocalScreen() {
+  const rows = (await loadLocal()).filter((r) => !r.deleted);
+  if (!rows.length) { await clearLocal(); return afterUnlock(); }
+  const hasSetup = !!settingsRec();
+  const tx = rows.filter((r) => r.type === "transaction").length;
+  html(`<div class="narrow card">
+    <h1>Bring in what you entered before signing up?</h1>
+    <p>This browser has <strong>${rows.length}</strong> record${rows.length === 1 ? "" : "s"} you added without an account${tx ? `, including ${tx} transaction${tx === 1 ? "" : "s"}` : ""}.
+      Moving them encrypts them with your account's key, so they're backed up and show on your other devices.</p>
+    ${hasSetup ? '<p class="muted">Your account is already set up, so its settings are kept and the browser copy\'s settings are skipped. Accounts from the browser are added as extra accounts.</p>' : ""}
+    <p class="row"><button class="primary" id="imp">Move them into my account</button><button type="button" id="later">Not now</button><button type="button" class="link" id="drop">Discard them</button></p>
+    <p class="error" id="err" role="alert"></p></div>`);
+  $("#imp").onclick = async () => {
+    $("#imp").disabled = true; $("#imp").textContent = "Moving…";
+    try {
+      const items = rows.filter((r) => !(hasSetup && r.type === "settings")).map(({ id, type, period, data }) => {
+        if (hasSetup && type === "account" && data.is_default_spending) data = { ...data, is_default_spending: false, name: `${data.name || "Account"} (from browser)` };
+        return { id, type, period, data };
+      });
+      await store.save(items);
+      await clearLocal();
+      track("local:imported");
+      afterUnlock();
+    } catch (e) { showError(e); $("#imp").disabled = false; $("#imp").textContent = "Move them into my account"; }
+  };
+  $("#later").onclick = () => afterUnlock();
+  $("#drop").onclick = async () => {
+    if (!confirm("Erase the records saved in this browser? This can't be undone.")) return;
+    await clearLocal(); track("local:discarded"); afterUnlock();
+  };
 }
 
 // Existing users: months before this one count as closed with their cards billed as entered. Runs once.
@@ -225,6 +269,18 @@ async function migrateCloses() {
 // First-run setup: a short wizard. Theme, motion, cards etc. use defaults and live in Settings.
 function onboarding() {
   const w = { step: 0, currency: guessCurrency(), fm: "salary", samt: "", sday: "", cycle: false, other: "", ob: "", sv: "" };
+  // Came from a free calculator's "Track this with your real numbers": start with what they typed there.
+  try {
+    const pre = JSON.parse(localStorage.getItem("po-prefill") || "null");
+    localStorage.removeItem("po-prefill");
+    if (pre && Date.now() - pre.at < 24 * 3600e3) {
+      for (const k of ["fm", "samt", "other", "sv"]) if (pre.v && pre.v[k] !== undefined) w[k] = String(pre.v[k]);
+      if (!["salary", "savings", "both"].includes(w.fm)) w.fm = "salary";
+      if (pre.currency && /^[A-Z]{3}$/.test(pre.currency)) w.currency = pre.currency;
+      if (pre.v && Object.keys(pre.v).length) w.from = pre.calc;
+      track("onboard:from-calc");
+    }
+  } catch (e) { /* ignore */ }
   const STEPS = ["Basics", "Income", "Money today"];
   const FUND = [["salary", "Salary", "A regular paycheque"], ["savings", "Savings", "Living off savings, no regular salary"], ["both", "Both", "Salary plus drawing on savings"]];
   const val = (id) => { const el = $("#" + id); return el ? el.value : ""; };
@@ -235,7 +291,7 @@ function onboarding() {
   };
   const body = () => {
     if (w.step === 0) return `<h1>Welcome! Let's set up your month</h1>
-      <p class="muted">Three quick steps. Leave anything blank you're unsure of.</p>
+      <p class="muted">Three quick steps. Leave anything blank you're unsure of.${w.from ? " We've filled in the numbers from the calculator." : ""}</p>
       <label for="cur">Currency</label><select id="cur">${currencyOptions(w.currency)}</select>
       <label>How is your household funded?</label>
       <div class="ob-choices">${FUND.map(([k, t, d]) => `<button type="button" class="ob-choice ${w.fm === k ? "on" : ""}" data-fm="${k}" aria-pressed="${w.fm === k}"><strong>${t}</strong><span class="muted">${d}</span></button>`).join("")}</div>`;
@@ -348,13 +404,13 @@ function moreSheet() {
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
     ${[["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? ADMIN_TABS.map(([k, l]) => [k, "Admin · " + l]) : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
-    <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : "Sign out"}</button></div>`;
+    <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : store.isLocal ? "Exit" : "Sign out"}</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
   back.addEventListener("click", (e) => { if (e.target === back) close(); });
   back.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => {
     close();
-    if (b.dataset.go === "signout") { if (store.isDemo) { location.href = "/"; return; } return document.querySelector("header form").requestSubmit(); }
+    if (b.dataset.go === "signout") { if (store.isDemo || store.isLocal) { location.href = "/"; return; } return document.querySelector("header form").requestSubmit(); }
     goTab(b.dataset.go);
   }));
 }
@@ -1671,6 +1727,13 @@ function viewSettings() {
       <label style="display:flex;gap:8px;align-items:flex-start;color:var(--text);font-size:14px;margin-top:14px"><input type="checkbox" id="rollup" style="width:auto;margin-top:3px" ${s.data.card_rollup ? "checked" : ""}>
         <span>Count each card's monthly spending against my main account, as a read-only row. Months where I record the card bill payment aren't counted twice.</span></label>
       <p><button id="savepm">Save</button></p></div>
+    ${store.isLocal ? `<div class="card"><h2>Back up and sync</h2>
+      <p>You're using PlannedOut without an account. Your entries are encrypted and kept only in this browser, so clearing site data or switching device loses them.</p>
+      <p>Create a free account to keep them safe and use them on your phone. Everything you've entered moves across, still encrypted with a key only you hold.</p>
+      <p><a href="/login/"><button class="primary" type="button">Create free account</button></a></p></div>
+    <div class="card"><h2>Your data</h2>
+      <p class="row"><button id="export">Export everything (JSON)</button></p>
+      <p><button id="dellocal" style="color:var(--bad)">Erase everything in this browser</button></p></div>` : `
     <div class="card"><h2>Recovery keys</h2><p class="muted">Any one of these unlocks your data. Keep at least one.</p>
       ${keys.map((k) => `<div class="row" style="padding:4px 0"><span>${esc(k.label)}</span><span class="muted">created ${k.created_at.slice(0, 10)}</span><span class="spacer"></span>${keys.length > 1 ? `<button data-revoke="${k.id}">Revoke</button>` : ""}</div>`).join("")}
       ${keys.length < 5 ? `<label for="kp">Your passphrase (to add a key)</label><input id="kp" type="password" style="max-width:320px"><p><button id="addkey">Add a recovery key</button></p>` : ""}
@@ -1681,7 +1744,7 @@ function viewSettings() {
       <p><button id="chpass">Change passphrase</button></p></div>
     <div class="card"><h2>Your data</h2>
       <p class="row"><button id="export">Export everything (JSON)</button><button id="lock">Lock now</button><button id="forget">Forget this device</button></p>
-      <p><button id="delacct" style="color:var(--bad)">Delete account and all data</button></p></div>
+      <p><button id="delacct" style="color:var(--bad)">Delete account and all data</button></p></div>`}
     <p class="error" id="err" role="alert"></p>`);
   $("#pm").value = s.data.period_mode || "calendar";
   $("#fm2").value = s.data.funding_mode || "both";
@@ -1725,7 +1788,12 @@ function viewSettings() {
       $("#newkey").innerHTML = `<p class="notice">New key (shown once, save it now):</p><div class="keys">${slot.recoveryKey}</div>`;
     } catch (e) { showError(e); }
   };
-  $("#chpass").onclick = async () => {
+  if ($("#dellocal")) $("#dellocal").onclick = async () => {
+    if (prompt('This erases everything you entered in this browser. Type "delete" to confirm.') !== "delete") return;
+    await clearLocal(); track("local:erased");
+    location.href = "/";
+  };
+  if ($("#chpass")) $("#chpass").onclick = async () => {
     try {
       if ($("#np").value.length < 10) throw new Error("Use at least 10 characters.");
       if (store.isDemo) { $("#op").value = $("#np").value = ""; alert("Passphrase changed (demo mode)."); return; }
@@ -1739,6 +1807,7 @@ function viewSettings() {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(store.records().filter((r) => !r.deleted).map(({ id, type, data }) => ({ id, type, data })), null, 2)], { type: "application/json" }));
     a.download = `cashflow-export-${today()}.json`; a.click();
   };
+  if (store.isLocal) return;
   $("#lock").onclick = () => { store.lock(); tabsEl.hidden = true; unlockScreen(); };
   $("#forget").onclick = async () => { await device.forget(store.email); store.lock(); tabsEl.hidden = true; unlockScreen(); };
   $("#delacct").onclick = async () => {

@@ -313,9 +313,12 @@ def login_page(request):
 @ensure_csrf_cookie
 def app_page(request):
     demo = request.GET.get("demo") == "1"
-    if not request.user.is_authenticated and not demo:
+    local = not demo and request.GET.get("local") == "1"  # using the app before signing up; data stays in the browser
+    if request.user.is_authenticated and local:
+        return redirect("/app")  # signed in: the app offers to move the browser-only data into the account
+    if not request.user.is_authenticated and not (demo or local):
         return redirect(settings.LOGIN_URL)
-    return render(request, "app.html", {"demo": demo})
+    return render(request, "app.html", {"demo": demo, "local": local})
 
 
 @require_GET

@@ -154,6 +154,13 @@ Google Search's **Featured Snippets** and **AI Overviews** heavily favor pages t
 1. ✅ **1-click interactive demo mode from the homepage, header, login page, calculators & guides** (`/app?demo=1` and `/demo/`)
    - **Why it helps**: Visitors arriving from Google Search can immediately explore a realistic 9-month pre-loaded household budget across every screen (Month, Year, Insights, Projections, Accounts, Savings, Import, and Settings including all themes, custom theme editor, screen transitions, currency, recovery keys, and lock/unlock — without the Admin tab). All edits work in browser memory with a 1-click "Reset sample data" button and "Sign up free" CTA.
 
+#### F. Start without an account, and honest traffic numbers (Nov 2026 — Done ✅)
+Admin showed ~1 real visitor a day and 0 sign-ups in 30 days, so the focus moved from traffic to turning visits into use.
+1. ✅ **No-sign-up start** (`/app?local=1`, `static/js/local.js`): every "Start free" button now opens the real app straight away. Data is encrypted with a non-exportable key and kept in the browser (IndexedDB), never sent to the server. A banner and a Settings card offer a free account for backup and sync. After sign-up the app offers to move the browser records into the account (re-encrypted with the account key), then erases the browser copy.
+2. ✅ **Calculator → app hand-off**: each calculator (and its embed) has "Track this with your real numbers →". It opens the app with the setup wizard already filled in from the calculator (savings, income, salary). The numbers go through the browser's storage only, never the URL or server.
+3. ✅ **Scanners no longer counted as people**: requests for `/.env`, `/.aws/credentials`, `/wp-login.php` and similar mark that visitor (for the day) as a bot ("Vulnerability scanner"). Migration `0008` re-labels the old rows, so "People · page views" and "Most viewed pages" are real again.
+4. ✅ **Real-use metric**: Admin → Business now has **Real use today** (signed-in users plus people using the app without an account), its 7-day average and the number of days with 10+. The New/Returning chart has a third stack, "No account yet". No-account use also sends the same anonymous event counts (`save:transaction` etc.) with no user attached; errors are not sent.
+
 ---
 
 ## What you can do now

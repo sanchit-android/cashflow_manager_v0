@@ -26,10 +26,13 @@ export function flush() {
   if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") {
     queue.clear(); errors = []; return;
   }
-  const body = JSON.stringify({ events: Object.fromEntries(queue), errors });
+  // No-account mode (/app?local=1): only the fixed event labels are sent, never errors, and no user is attached.
+  const local = typeof location !== "undefined" && new URLSearchParams(location.search).get("local") === "1";
+  const body = JSON.stringify({ events: Object.fromEntries(queue), errors: local ? [] : errors });
   queue.clear(); errors = [];
-  fetch("/api/telemetry", { method: "POST", credentials: "same-origin", keepalive: true,
-    headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() }, body }).catch(() => {});
+  const headers = { "Content-Type": "application/json", "X-CSRFToken": csrf() };
+  if (local) headers["X-PlannedOut-Local"] = "1";
+  fetch("/api/telemetry", { method: "POST", credentials: "same-origin", keepalive: true, headers, body }).catch(() => {});
 }
 
 // Error messages are kept short and file paths reduced to the file name.

@@ -29,7 +29,8 @@ BENEFITS = [
      "School fees, insurance premiums, property tax and subscriptions are kept apart from day-to-day "
      "spending, so one expensive month doesn't hide your real trend."),
     ("Free, no install",
-     "Works in any modern browser on laptop or phone. Sign in with Google or an email code. "
+     "Works in any modern browser on laptop or phone. Start without signing up, then add a free account "
+     "(Google or an email code) to back up and sync. "
      "15 themes (Excel, dark, Liquid Glass, Metro and more), plus a custom theme builder for your own "
      "colours, font and corner style."),
 ]

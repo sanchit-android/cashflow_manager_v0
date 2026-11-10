@@ -1,6 +1,7 @@
 // Talks to Django, keeps decrypted records in memory, remembers the data key on this device if asked.
 import * as C from "./crypto.js";
 import { buildDemoRecords } from "./demo.js";
+import { isLocalMode, loadLocal, saveLocal } from "./local.js";
 import { track } from "./track.js";
 
 function csrf() {
@@ -49,6 +50,8 @@ export const device = {
 export const store = {
   email: null, vault: null, key: null, isAdmin: false,
   isDemo: typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1",
+  // No account yet: data is kept, encrypted, in this browser only (see local.js).
+  isLocal: !(typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") && isLocalMode(),
   rows: new Map(), // id -> { id, type, period, version, deleted, data }
   lastSync: null,
 
@@ -73,6 +76,11 @@ export const store = {
       this.resetDemo();
       return { vault: this.vault, email: this.email, is_admin: false };
     }
+    if (this.isLocal) {
+      this.email = "local"; this.isAdmin = false;
+      this.vault = { local: true, keys: [] };
+      return { vault: this.vault, email: this.email, is_admin: false };
+    }
     const r = await api("/api/vault");
     this.email = r.email; this.vault = r.vault; this.isAdmin = !!r.is_admin;
     return r;
@@ -84,15 +92,22 @@ export const store = {
       if (!this.rows.size) this.resetDemo();
       return;
     }
+    if (this.isLocal) {
+      this.key = "local";
+      this.rows.clear();
+      for (const r of await loadLocal()) this.rows.set(r.id, r);
+      this.lastSync = new Date().toISOString();
+      return;
+    }
     this.key = key;
     this.rows.clear(); this.lastSync = null;
     await this.pull();
   },
 
-  lock() { this.key = null; if (!this.isDemo) { this.rows.clear(); this.lastSync = null; } },
+  lock() { this.key = null; if (!this.isDemo && !this.isLocal) { this.rows.clear(); this.lastSync = null; } },
 
   async pull() {
-    if (this.isDemo) return;
+    if (this.isDemo || this.isLocal) return;
     const q = this.lastSync ? `?since=${encodeURIComponent(this.lastSync)}` : "";
     const r = await api("/api/records" + q);
     for (const row of r.records) {
@@ -109,17 +124,19 @@ export const store = {
   /** Save one or more { id?, type, period?, data, deleted? }. Returns saved ids. */
   async save(items) {
     items = Array.isArray(items) ? items : [items];
-    if (this.isDemo) {
+    if (this.isDemo || this.isLocal) {
       for (const it of items) {
         const id = it.id || crypto.randomUUID();
         const prev = this.rows.get(id);
         it.id = id;
+        if (this.isLocal) track(`${it.deleted ? "delete" : prev ? "edit" : "save"}:${it.type}`);
         this.rows.set(id, {
           id, type: it.type, period: it.period || "",
           version: (prev ? prev.version : 0) + 1,
           deleted: !!it.deleted, data: it.deleted ? null : it.data,
         });
       }
+      if (this.isLocal) await saveLocal(this.records());
       return items.map((x) => x.id);
     }
     const payload = [], prevVersion = new Map();

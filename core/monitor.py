@@ -92,6 +92,21 @@ def _match(host, table):
     return None
 
 
+# Paths that vulnerability scanners request (/.env, /.aws/credentials, /wp-login.php ...). No real page here
+# looks like these, so a visitor who asks for one is a scanner, and so is everything else they request that day.
+PROBE = re.compile(
+    r"(^/\.|/\.(env|git|svn|hg|aws|ssh|docker|vscode|idea|DS_Store|s3cfg|npmrc|htaccess|htpasswd)"
+    r"|\.(php\d?|asp|aspx|jsp|cgi|pl|bak|old|orig|save|swp|sql|sqlite|db|ini|cfg|conf|yml|yaml|log|tar|gz|zip|rar|7z|pem|key)$"
+    r"|/wp-|/wordpress|/phpmyadmin|/pma/|/cgi-bin|/config\.(json|js)$|/credentials|/secrets?(\.|/|$)|/vendor/|/actuator"
+    r"|/server-status|/xmlrpc|/boaform|/hnap1|/owa/|/solr/|/telescope|/_profiler|/console/?$|/debug/|/backup"
+    r"|/admin(istrator)?(/|\.|$)|/manager/html|/autodiscover|/ecp/|/geoserver|/druid|/jenkins)", re.I)
+SCANNER = "Vulnerability scanner"
+
+
+def is_probe(path):
+    return bool(PROBE.search(path or ""))
+
+
 def bot_name(ua):
     low = ua.lower()
     for key, name in BOTS:
@@ -259,16 +274,30 @@ class MonitorMiddleware:
         if request.method != "GET" or path.startswith(("/api/", "/auth/")) or 300 <= status < 400:
             return
         ua = request.META.get("HTTP_USER_AGENT", "")
+        visitor = visitor_hash(request)
         bot = bot_name(ua)
+        if not bot and user_id is None:
+            if is_probe(path):
+                bot = SCANNER
+                if not cache.get(f"scanner:{visitor}"):
+                    cache.set(f"scanner:{visitor}", 1, 60 * 60 * 26)
+                    # Pages this visitor loaded earlier today were the scanner too.
+                    PageView.objects.filter(visitor=visitor, user_id__isnull=True,
+                                            created_at__gte=timezone.now() - timedelta(hours=26)).exclude(source="bot") \
+                        .update(source="bot", source_name=SCANNER, referrer_host="", utm_campaign="", device="bot", demo=False, local=False)
+            elif cache.get(f"scanner:{visitor}"):
+                bot = SCANNER
         if bot:
             source, name, host, campaign = "bot", bot, "", ""
         else:
             source, name, host, campaign = classify(request.META.get("HTTP_REFERER", ""), request.META.get("QUERY_STRING", ""),
                                                     request.get_host().split(":")[0].lower().removeprefix("www."))
-        PageView.objects.create(path=path[:200], status=status, ms=ms, visitor=visitor_hash(request), user_id=user_id,
+        is_app = path.rstrip("/") == "/app" and not bot
+        PageView.objects.create(path=path[:200], status=status, ms=ms, visitor=visitor, user_id=user_id,
                                 source=source, source_name=name[:64], referrer_host=host[:120], utm_campaign=campaign,
                                 device="bot" if bot else device_of(ua),
-                                demo=path.rstrip("/") == "/app" and request.GET.get("demo") == "1")
+                                demo=is_app and request.GET.get("demo") == "1",
+                                local=is_app and user_id is None and request.GET.get("local") == "1")
 
 
 # ---------- telemetry from the app ----------
@@ -278,7 +307,9 @@ EVENT_RE = re.compile(r"^[a-z0-9:_\-]{1,48}$")
 
 @require_POST
 def telemetry(request):
-    if not request.user.is_authenticated:
+    # Visitors using the app before signing up (/app?local=1) send event counts with no user attached.
+    anonymous = not request.user.is_authenticated
+    if anonymous and request.headers.get("X-PlannedOut-Local") != "1":
         return JsonResponse({"ok": False}, status=401)
     try:
         data = json.loads(request.body or b"{}")
@@ -288,7 +319,9 @@ def telemetry(request):
     if isinstance(events, dict):
         for name, n in list(events.items())[:60]:
             if isinstance(name, str) and EVENT_RE.match(name) and isinstance(n, int) and n > 0:
-                log_event(request.user.id, name, min(n, 500))
+                log_event(None if anonymous else request.user.id, name, min(n, 50 if anonymous else 500))
+    if anonymous:
+        return JsonResponse({"ok": True})
     errors = data.get("errors") or []
     today = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
     if isinstance(errors, list) and errors and \
@@ -653,6 +686,18 @@ def business(request):
         return sum(1 for ds in active_days.values() if any(d >= cutoff for d in ds))
     dau, wau, mau = active_in(1), active_in(7), active_in(30)
 
+    # People using the app before signing up (/app?local=1). Visitor ids change daily, so each is one person-day.
+    local_daily = [0] * len(labels)
+    local_seen = defaultdict(set)
+    for created, visitor in PageView.objects.filter(local=True, created_at__gte=since).values_list("created_at", "visitor"):
+        d = timezone.localtime(created).date()
+        if d in idx:
+            local_seen[d].add(visitor)
+    for d, vs in local_seen.items():
+        local_daily[idx[d]] = len(vs)
+    real_daily = [a + b + c for a, b, c in zip(new_active, returning_active, local_daily)]
+    week_cut = end - timedelta(days=6)
+
     # funnel (all time)
     multi_day = {u for u, ds in active_days.items() if len(ds) >= 2}
     week_active = {u for u, ds in active_days.items() if any(d >= end - timedelta(days=6) for d in ds)}
@@ -732,8 +777,15 @@ def business(request):
                  "vaults": len(vault_users), "with_transactions": len(with_tx), "google_users": len(google),
                  "stalled_signups": stalled, "dormant_users": dormant,
                  "deleted_accounts": sum(u["count"] for u in win if u["event"] == "account:deleted"),
-                 "records": sum(type_totals.values())},
-        "daily": {"signups": signups, "new_active": new_active, "returning_active": returning_active, "saves": saves_daily},
+                 "records": sum(type_totals.values()),
+                 "local_today": local_daily[-1] if local_daily else 0,
+                 "local_week": sum(len(vs) for d, vs in local_seen.items() if d >= week_cut),
+                 "local_window": sum(local_daily),
+                 "real_today": real_daily[-1] if real_daily else 0,
+                 "real_avg_7": round(sum(real_daily[-7:]) / min(7, len(real_daily)), 1) if real_daily else 0,
+                 "real_days_10": sum(1 for n in real_daily if n >= 10)},
+        "daily": {"signups": signups, "new_active": new_active, "returning_active": returning_active, "local": local_daily,
+                  "real": real_daily, "saves": saves_daily},
         "funnel": funnel, "cohorts": cohorts,
         "records_by_type": _top(type_totals, 15),
         "depth": {"transactions": [{"label": l, "value": tx_dist.get(l, 0)} for *_, l in tx_edges],
@@ -748,7 +800,7 @@ def business(request):
         "clicks": feature_rows("click:")[:40],
         "changes": feature_rows("change:")[:40],
         "lifecycle": [r for r in feature_rows("", strip=False)
-                      if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account", "demo")],
+                      if r["event"].split(":")[0] in ("login", "signup", "unlock", "vault", "onboard", "import", "app", "account", "demo", "local")],
         "top_users": top_users,
         "internal_users": len(internal_ids),
     })

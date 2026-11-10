@@ -96,6 +96,7 @@ class PageView(models.Model):
     utm_campaign = models.CharField(max_length=80, blank=True, default="")
     device = models.CharField(max_length=8, default="desktop")  # desktop, mobile, tablet, bot
     demo = models.BooleanField(default=False)  # a view of the live demo (/app?demo=1), counted apart from real use
+    local = models.BooleanField(default=False)  # the app used before signing up (/app?local=1): real use, no account yet
 
 
 class EndpointStat(models.Model):

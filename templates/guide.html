@@ -11,7 +11,7 @@
   <section class="hero">
     <h1>{{ g.h1 }}</h1>
     <p class="lead">{{ g.intro }}</p>
-    <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %} <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
+    <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/app?local=1"><button class="primary">Start free, no sign-up</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %} <span class="muted small">Encrypted in your browser · No bank or SMS access</span></p>
   </section>
   {% if g.templates %}
   <section class="card tpl-box" aria-labelledby="tpl-h">
@@ -58,7 +58,7 @@
     <h2>More guides</h2>
     <ul>{% for slug, o in others.items %}<li><a href="/{{ slug }}/">{{ o.nav }}</a>: {{ o.description }}</li>{% endfor %}</ul>
   </section>
-  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/app?demo=1"><button type="button">Try live demo (no sign-in)</button></a>{% endif %}</p></section>
+  <section class="hero cta"><h2>Try it free. Your data stays encrypted.</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/app?local=1"><button class="primary">Start free, no sign-up</button></a> <a href="/app?demo=1"><button type="button">Try live demo (no sign-in)</button></a>{% endif %}</p></section>
 </main>
 {% include "_footer.html" %}
 {% endblock %}

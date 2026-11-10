@@ -61,7 +61,7 @@
     <h2>Questions</h2>
     {% for q, a in page.faq %}<details class="card" open><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>{% endfor %}
   </section>
-  <section class="hero cta"><h2>Pick a look, then plan your money</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/login/"><button class="primary">Start free</button></a> <a href="/features/"><button type="button">All features</button></a>{% endif %}</p></section>
+  <section class="hero cta"><h2>Pick a look, then plan your money</h2><p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/app?local=1"><button class="primary">Start free, no sign-up</button></a> <a href="/features/"><button type="button">All features</button></a>{% endif %}</p></section>
 </main>
 {% include "_footer.html" %}
 <script src="{% static JS_DIR|add:'/lightbox.js' %}" defer></script>

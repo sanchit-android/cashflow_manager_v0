@@ -644,6 +644,8 @@ html { scroll-padding-top: 72px; scrollbar-gutter: stable; }
 .calc-rows td { padding: 4px; }
 .calc-rows td:first-child { width: 40%; }
 .calc-out { border-top: 1px solid var(--border); padding-top: 12px; }
+.calc-continue { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 14px 0 4px; }
+.calc-continue a { text-decoration: none; }
 .calc-stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); margin-bottom: 12px; }
 .calc-stat { display: flex; flex-direction: column; gap: 2px; padding: 12px; background: var(--surface-2); border-radius: var(--radius); }
 .calc-stat strong { font-size: 22px; }

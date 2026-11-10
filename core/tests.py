@@ -125,6 +125,41 @@ class TrackingTests(TestCase):
                          [("search", False), ("ai", True), ("bot", False)])
         self.assertEqual(UsageDaily.objects.count(), 0)
 
+    def test_vulnerability_scanners_are_bots(self):
+        from django.core.cache import cache
+        ua = "Mozilla/5.0 (X11; Linux x86_64) Scanner-test"
+        self.client.get("/", HTTP_USER_AGENT=ua)  # loaded the home page first...
+        self.client.get("/.env", HTTP_USER_AGENT=ua)  # ...then probed for secrets
+        self.client.get("/about/", HTTP_USER_AGENT=ua)
+        self.client.get("/wp-login.php", HTTP_USER_AGENT="Mozilla/5.0 other")
+        self.client.get("/calculators/", HTTP_USER_AGENT="Mozilla/5.0 real person")
+        rows = list(PageView.objects.order_by("id").values_list("path", "source", "source_name"))
+        self.assertEqual([r[1] for r in rows], ["bot", "bot", "bot", "bot", "direct"])
+        self.assertEqual(rows[0][2], "Vulnerability scanner")
+        cache.clear()
+
+    def test_using_the_app_without_an_account(self):
+        page = self.client.get("/app?local=1", HTTP_USER_AGENT="Mozilla/5.0 local")
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "No account needed")
+        pv = PageView.objects.get(path="/app")
+        self.assertEqual((pv.local, pv.demo), (True, False))
+        # event counts are accepted with no user, only from the no-account app; errors are not
+        self.assertEqual(_post(self.client, "/api/telemetry", {"events": {"save:transaction": 2}}).status_code, 401)
+        r = self.client.post("/api/telemetry", data=json.dumps({"events": {"save:transaction": 2, "x": 999},
+                             "errors": [{"message": "boom"}]}), content_type="application/json", HTTP_X_PLANNEDOUT_LOCAL="1")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(UsageDaily.objects.get(event="save:transaction").user_id, None)
+        self.assertEqual(UsageDaily.objects.get(event="x").count, 50)
+        # signed-in users go to their own app, which offers to move the browser data in
+        u = User.objects.create(username="l@y.com", email="l@y.com")
+        self.client.force_login(u)
+        self.assertEqual(self.client.get("/app?local=1")["Location"], "/app")
+
+    def test_start_free_needs_no_sign_up(self):
+        self.assertContains(self.client.get("/"), 'href="/app?local=1"')
+        self.assertContains(self.client.get("/calculators/emergency-fund/"), "data-continue")
+
     def test_classify(self):
         self.assertEqual(classify("", "utm_source=chatgpt.com", "plannedout.in")[:2], ("ai", "chatgpt"))
         self.assertEqual(classify("https://www.perplexity.ai/search", "", "plannedout.in")[:2], ("ai", "perplexity"))
