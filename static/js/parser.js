@@ -321,13 +321,23 @@ function seedCategory(tokens) {
 }
 
 // ---------------- main ----------------
-/** "add 272 to instamart", "add 1.5k to the existing swiggy row" → { amount, target }: top up a row that's already there. Otherwise null. */
+/** "add 272 to instamart", "100 add to existing instamart", "add to swiggy 1.5k" → { amount, target }: top up a row that's already there. Otherwise null. */
+const ADD_AMT = "(\\d[\\d,]*(?:\\.\\d+)?\\s*(?:k|l|lakhs?|cr|crore)?)", ADD_TO = "(?:to|in|into|on)";
+const ADD_FORMS = [
+  [new RegExp(`^(?:add|plus)\\s+${ADD_AMT}\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],        // add 272 to instamart
+  [new RegExp(`^${ADD_AMT}\\s+(?:add|plus|more)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],  // 100 add to instamart
+  [new RegExp(`^(?:add|plus)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+?)\\s+${ADD_AMT}$`), 2, 1],        // add to instamart 100
+];
 export function parseAddTo(piece) {
-  const m = /^(?:add|plus)\s+(\d[\d,]*(?:\.\d+)?\s*(?:k|l|lakhs?|cr|crore)?)\s+(?:more\s+)?(?:to|in|into|on)\s+(.+)$/.exec(normalize(piece).trim());
-  if (!m) return null;
-  const a = parseAmount(m[1]);
-  const target = m[2].replace(/^(?:(?:the|my|existing|same|earlier|previous)\s+)+/, "").replace(/\s+(?:row|entry|line|item)$/, "").trim();
-  return a && a.value > 0 && target ? { amount: a.value, target } : null;
+  const text = normalize(piece).trim();
+  for (const [re, ai, ti] of ADD_FORMS) {
+    const m = re.exec(text);
+    if (!m) continue;
+    const a = parseAmount(m[ai]);
+    const target = m[ti].replace(/^(?:(?:the|my|existing|same|earlier|previous)\s+)+/, "").replace(/\s+(?:row|entry|line|item)$/, "").trim();
+    if (a && a.value > 0 && target) return { amount: a.value, target };
+  }
+  return null;
 }
 
 export function parseEntry(text, ctx) {

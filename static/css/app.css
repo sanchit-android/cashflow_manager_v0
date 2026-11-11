@@ -1044,7 +1044,7 @@ html.game-on .gcloud { visibility: hidden; }
 .chat-fab svg { width: 20px; height: 20px; }
 @media (max-width: 640px) { .chat-fab { display: none; } }
 
-/* Desktop: floating chat bar at the bottom of the window */
+/* Desktop: floating chat window; drag it by the header, or minimise it to just the header at the bottom right */
 .chat-dock-wrap { position: fixed; left: 0; right: 0; bottom: 16px; z-index: 90; display: flex; justify-content: center; pointer-events: none; padding: 0 16px; }
 .chat-dock { pointer-events: auto; width: min(680px, 100%); display: flex; flex-direction: column; max-height: min(460px, 60vh);
   background: var(--surface); color: var(--text); border-radius: 18px; overflow: hidden;
@@ -1059,6 +1059,14 @@ body.chat-docked { padding-bottom: 300px; }
 .chat-head-hint { flex: 1; font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-x { margin-left: auto; border: 0; background: transparent; color: inherit; padding: 2px 8px; min-height: 0; font-size: 16px; cursor: pointer; border-radius: 999px; }
 .chat-x:hover { background: rgba(255, 255, 255, .18); }
+.chat-x + .chat-x { margin-left: 0; }
+.chat-min { display: inline-grid; place-items: center; padding: 4px 8px; } .chat-min svg { width: 16px; height: 16px; }
+.chat-dock .chat-head { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
+.chat-dock-wrap.dragging .chat-head { cursor: grabbing; }
+.chat-dock-wrap.mini { justify-content: flex-end; }
+.chat-dock-wrap.mini .chat-dock { translate: none !important; width: auto; animation: none; }
+.chat-dock-wrap.mini .chat-head { cursor: pointer; padding-right: 8px; }
+.chat-dock-wrap.mini :is(.chat-thread, .chat-suggest, .chat-bar, .chat-head-hint) { display: none; }
 .chat-thread { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
   background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
 .msg { max-width: 82%; padding: 7px 12px; border-radius: 16px; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }

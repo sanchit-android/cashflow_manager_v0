@@ -185,6 +185,10 @@ test("add to an existing row", () => {
   assert.deepEqual(parseAddTo("add 272 to instamart"), { amount: 272, target: "instamart" });
   assert.deepEqual(parseAddTo("Add 272 to existing Instamart row"), { amount: 272, target: "instamart" });
   assert.deepEqual(parseAddTo("add 1.5k more to the swiggy entry"), { amount: 1500, target: "swiggy" });
+  assert.deepEqual(parseAddTo("100 add to existing instamart"), { amount: 100, target: "instamart" });
+  assert.deepEqual(parseAddTo("100 more to instamart"), { amount: 100, target: "instamart" });
+  assert.deepEqual(parseAddTo("add to the instamart row 1.5k"), { amount: 1500, target: "instamart" });
   assert.equal(parseAddTo("450 swiggy"), null);
+  assert.equal(parseAddTo("100 to mummy"), null);
   assert.equal(parseAddTo("added milk 60"), null);
 });
