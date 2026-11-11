@@ -321,6 +321,15 @@ function seedCategory(tokens) {
 }
 
 // ---------------- main ----------------
+/** "add 272 to instamart", "add 1.5k to the existing swiggy row" → { amount, target }: top up a row that's already there. Otherwise null. */
+export function parseAddTo(piece) {
+  const m = /^(?:add|plus)\s+(\d[\d,]*(?:\.\d+)?\s*(?:k|l|lakhs?|cr|crore)?)\s+(?:more\s+)?(?:to|in|into|on)\s+(.+)$/.exec(normalize(piece).trim());
+  if (!m) return null;
+  const a = parseAmount(m[1]);
+  const target = m[2].replace(/^(?:(?:the|my|existing|same|earlier|previous)\s+)+/, "").replace(/\s+(?:row|entry|line|item)$/, "").trim();
+  return a && a.value > 0 && target ? { amount: a.value, target } : null;
+}
+
 export function parseEntry(text, ctx) {
   return splitEntries(text).map((piece) => parseOne(piece, ctx));
 }

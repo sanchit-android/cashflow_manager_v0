@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseEntry, parseAmount, parseDate, splitEntries, answer, ready } from "../static/js/parser.js";
+import { parseAddTo, parseEntry, parseAmount, parseDate, splitEntries, answer, ready } from "../static/js/parser.js";
 
 const ctx = {
   today: "2026-11-07",
@@ -179,4 +179,12 @@ test("future date is flagged", () => {
 test("withdrew cash", () => {
   const d = one("withdrew 5000");
   assert.equal(d.direction, "transfer"); assert.equal(d.account_id, "main"); assert.equal(d.to_account_id, "cash");
+});
+
+test("add to an existing row", () => {
+  assert.deepEqual(parseAddTo("add 272 to instamart"), { amount: 272, target: "instamart" });
+  assert.deepEqual(parseAddTo("Add 272 to existing Instamart row"), { amount: 272, target: "instamart" });
+  assert.deepEqual(parseAddTo("add 1.5k more to the swiggy entry"), { amount: 1500, target: "swiggy" });
+  assert.equal(parseAddTo("450 swiggy"), null);
+  assert.equal(parseAddTo("added milk 60"), null);
 });

@@ -393,6 +393,11 @@ body.xl-resizing, body.xl-resizing * { cursor: col-resize !important; user-selec
   .acct-select { display: block; }
   .acct-sum { font-size: 13px; gap: 2px 12px; }
   .xl-help { display: none; }
+  /* the spreadsheet stays a spreadsheet on phones: full-width columns, sideways scroll, taller rows for fingers */
+  .xl-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .xl-table { touch-action: pan-x pan-y; }
+  .xl-table tbody th, .xl-table td { height: 32px; }
+  .xl-editor, .xl-formula { font-size: 16px !important; } /* stops iOS zooming into the cell */
   .proj-form { grid-template-columns: 1fr 1fr; }
   .chart-legend { gap: 10px; font-size: 12px; }
   .row > button { min-height: 40px; }
@@ -1063,6 +1068,8 @@ body.chat-docked { padding-bottom: 300px; }
 .msg.undone, .msg.undone .msg-link { color: var(--muted); text-decoration: line-through; }
 .msg-link { border: 0; background: none; padding: 0; min-height: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .msg-link:hover { text-decoration: underline; }
+.msg-ok { color: var(--good); display: block; font-size: 12px; margin-bottom: 2px; }
+.msg-warn { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border); font-size: 13px; }
 .msg-undo { border: 0; background: none; padding: 0 0 0 6px; min-height: 0; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .msg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chat-chip { border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--surface); color: var(--text); border-radius: 999px;

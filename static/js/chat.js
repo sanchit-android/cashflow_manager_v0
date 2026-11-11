@@ -1,17 +1,19 @@
 // Chat entry: type a sentence, it's saved straight away, and the new row flashes in the grid.
 // Corrections happen in the grid itself. The chat only stops to ask when it can't save at all
 // (no amount, a transfer with nowhere to go, "rent" that could be money in or out).
-// Desktop: a floating chat bar at the bottom of the window. Phone: a full-height sheet.
-import { parseEntry, answer, parseAmount, normalize } from "./parser.js";
+// Desktop: a floating chat bar at the bottom of the window. Phone: a full-height sheet that confirms each
+// entry in a plain sentence (with any warnings) and stays in the chat instead of jumping to the grid.
+import { parseEntry, answer, parseAmount, normalize, splitEntries, parseAddTo } from "./parser.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "paid maid", "salary 1.8 lakh on 31 oct", "invested 50k in mutual fund"];
 const isPhone = () => window.matchMedia("(max-width: 640px)").matches;
 
-// deps: { ctx(), save(drafts) -> { ids, txIds, summaries }, undo(ids), reveal(txIds), suggestions(prefix) }
+// deps: { ctx(), save(drafts) -> { ids, txIds, summaries, sentences, notes }, undo(ids), reveal(txIds), refresh(), suggestions(prefix),
+//         addTo(target, amount) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before) }
 let deps = null;
 // The conversation lives for the whole session, across opening and closing.
-const msgs = [];          // { who: "me" | "bot", text, ids?, txIds?, undone?, ask? }
+const msgs = [];          // { who: "me" | "bot", text, ids?, txIds?, undone?, ask?, ok?, notes?, restore? }
 let pending = null;       // { draft, rest: [drafts still to save after this one] }
 let ui = null;            // the open chat: { el, input, close }
 
@@ -39,14 +41,11 @@ export function openChat({ accountId } = {}) {
   document.body.classList.add(phone ? "ml-open" : "chat-docked");
   const panel = wrap.firstElementChild, thread = wrap.querySelector(".chat-thread"), input = wrap.querySelector(".chat-in"), sugEl = wrap.querySelector(".chat-suggest");
   const prevFocus = document.activeElement;
-  let lastTx = null;
 
   const close = () => {
     wrap.remove(); document.body.classList.remove("ml-open", "chat-docked"); ui = null;
     if (window.visualViewport) window.visualViewport.removeEventListener("resize", fit);
-    // On phones the sheet covered the page; show the last saved row now.
-    if (phone && lastTx) deps.reveal(lastTx);
-    else if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true });
+    if (!phone && prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true });
   };
   ui = { el: wrap, input, close };
   wrap.querySelector(".chat-x").onclick = close;
@@ -65,7 +64,7 @@ export function openChat({ accountId } = {}) {
 
   function render() {
     if (!msgs.length) {
-      thread.innerHTML = `<div class="chat-empty"><p>Type what you spent or received, in plain words. It's saved straight away and highlighted in the grid.</p>
+      thread.innerHTML = `<div class="chat-empty"><p>Type what you spent or received, in plain words. It's saved straight away and ${phone ? "I'll confirm what was added" : "highlighted in the grid"}.</p>
         <div class="chat-examples">${EXAMPLES.map((e) => `<button type="button" class="chat-chip" data-ex="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`;
       thread.querySelectorAll("[data-ex]").forEach((b) => (b.onclick = () => { input.value = b.dataset.ex; keepFocus(); }));
       return;
@@ -74,11 +73,16 @@ export function openChat({ accountId } = {}) {
     thread.innerHTML = msgs.map((m, i) => m.who === "me"
       ? `<div class="msg me">${esc(m.text)}</div>`
       : `<div class="msg bot${m.undone ? " undone" : ""}${m.err ? " err" : ""}">
-          ${m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${esc(m.text)}</button>` : esc(m.text)}
+          ${m.ok ? `<strong class="msg-ok">${m.notes && m.notes.length ? "✓ Confirmed, with a note" : "✓ Confirmed"}</strong> ` : ""}${m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${esc(m.text)}</button>` : esc(m.text)}
+          ${(m.notes || []).map((n) => `<div class="msg-warn">⚠ ${esc(n)}</div>`).join("")}
           ${m === lastSaved ? ` <button type="button" class="msg-undo" data-undo="${i}">Undo</button>` : ""}
           ${m.ask && pending && m === msgs[msgs.length - 1] && m.ask.options.length ? `<div class="msg-chips">${m.ask.options.map(([v, l]) => `<button type="button" class="chat-chip" data-ans="${esc(v)}">${esc(l)}</button>`).join("")}</div>` : ""}
         </div>`).join("");
-    thread.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => { deps.reveal(msgs[+b.dataset.show].txIds); keepFocus(); }));
+    thread.querySelectorAll("[data-show]").forEach((b) => (b.onclick = () => {
+      const ids = msgs[+b.dataset.show].txIds;
+      if (phone) close(); // the sheet covers the grid
+      deps.reveal(ids); if (!phone) keepFocus();
+    }));
     thread.querySelectorAll("[data-undo]").forEach((b) => (b.onclick = () => undo(msgs[+b.dataset.undo])));
     thread.querySelectorAll("[data-ans]").forEach((b) => (b.onclick = () => { msgs.push({ who: "me", text: b.textContent }); reply(b.dataset.ans); }));
     thread.scrollTop = thread.scrollHeight;
@@ -86,15 +90,16 @@ export function openChat({ accountId } = {}) {
 
   // Fill in what we can guess so the entry can be saved now; the grid is where it gets corrected.
   function autoFill(d) {
-    const c = ctx();
+    const c = ctx(), notes = [...(d.notes || [])];
     for (let n = 0; d.ask && n < 6; n++) {
       const { slot, options } = d.ask;
-      if (slot === "category") d = answer(d, "category", "Other", c);
-      else if (slot === "new_account") d = answer(d, "new_account", "create", c);
-      else if (slot === "account" && options.length) d = answer(d, "account", (options.find(([v]) => v === c.defaultAccountId) || options[0])[0], c);
-      else if (slot === "to_account" && options.length && /^Which /.test(d.ask.text)) d = answer(d, "to_account", options[0][0], c);
+      if (slot === "category") { d = answer(d, "category", "Other", c); notes.push("I couldn't tell the category, so it's under Other."); }
+      else if (slot === "new_account") { const nm = d.new_account && d.new_account.name; d = answer(d, "new_account", "create", c); if (nm) notes.push(`I created a new account “${nm}” for this.`); }
+      else if (slot === "account" && options.length) { const o = options.find(([v]) => v === c.defaultAccountId) || options[0]; d = answer(d, "account", o[0], c); notes.push(`You didn't say which account, so I used ${o[1]}.`); }
+      else if (slot === "to_account" && options.length && /^Which /.test(d.ask.text)) { const o = options[0]; d = answer(d, "to_account", o[0], c); notes.push(`You didn't say where it went, so I used ${o[1]}.`); }
       else break;
     }
+    if (notes.length) d.notes = notes;
     return d;
   }
 
@@ -120,11 +125,12 @@ export function openChat({ accountId } = {}) {
     if (!drafts.length) return;
     try {
       const res = await deps.save(drafts);
-      res.summaries.forEach((s, i) => msgs.push({ who: "bot", text: "✓ " + s, ids: i === res.summaries.length - 1 ? res.ids : null, txIds: [res.txIds[i]] }));
       // Undo removes the whole batch; keep the ids on the last line of it.
-      lastTx = res.txIds;
+      res.summaries.forEach((s, i) => msgs.push({ who: "bot", ids: i === res.summaries.length - 1 ? res.ids : null, txIds: [res.txIds[i]],
+        notes: res.notes[i], ...(phone ? { text: res.sentences[i], ok: true } : { text: "✓ " + s }) }));
       render();
-      deps.reveal(res.txIds);
+      // Phone: stay in the conversation; the grid behind is only brought up to date.
+      if (phone) deps.refresh(); else deps.reveal(res.txIds);
       keepFocus(); setTimeout(keepFocus, 450);
     } catch (e) {
       msgs.push({ who: "bot", text: "Couldn't save: " + (e.message || e), err: true }); render();
@@ -138,9 +144,23 @@ export function openChat({ accountId } = {}) {
     run([d, ...rest]);
   }
 
+  /** "add 272 to instamart": put +272 on the row that's already there. Returns false when it should be a normal entry instead. */
+  async function addTo(piece, hit) {
+    try {
+      const res = await deps.addTo(hit.target, hit.amount);
+      if (res.skip) return false;
+      if (res.none) { msgs.push({ who: "bot", err: true, text: `Nothing was changed. I couldn't find a row matching “${hit.target}” in ${res.month}. To add it as a new entry, type “${hit.amount} ${hit.target}”.` }); render(); return true; }
+      msgs.push({ who: "bot", ids: [], txIds: [res.id], restore: { id: res.id, before: res.before }, notes: res.notes, ...(phone ? { text: res.sentence, ok: true } : { text: "✓ " + res.sentence }) });
+      render();
+      if (phone) deps.refresh(); else deps.reveal([res.id]);
+      keepFocus(); setTimeout(keepFocus, 450);
+    } catch (e) { msgs.push({ who: "bot", text: "Couldn't save: " + (e.message || e), err: true }); render(); }
+    return true;
+  }
+
   async function undo(m) {
     if (!m || !m.ids) return;
-    await deps.undo(m.ids);
+    if (m.restore) await deps.restore(m.restore.id, m.restore.before); else await deps.undo(m.ids);
     // Strike out every line of that batch.
     const set = new Set(m.ids);
     for (const x of msgs) if (x.txIds && x.txIds.some((id) => set.has(id))) x.undone = true;
@@ -163,7 +183,15 @@ export function openChat({ accountId } = {}) {
       if (hit) return reply(hit[0]);
     }
     if (pending) { msgs.push({ who: "bot", text: `Skipped “${pending.draft.raw}”.` }); pending = null; }
-    run(parseEntry(text, ctx()));
+    enter(text);
+  }
+  async function enter(text) {
+    const rest = [];
+    for (const piece of splitEntries(text)) {
+      const hit = parseAddTo(piece);
+      if (!hit || !(await addTo(piece, hit))) rest.push(piece);
+    }
+    if (rest.length) run(parseEntry(rest.join("; "), ctx())); else keepFocus();
   }
 
   // Suggestions for the word being typed: accounts, planned items, past descriptions.

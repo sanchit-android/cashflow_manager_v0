@@ -4,7 +4,7 @@ import { api, device, store } from "./store.js";
 import { readXlsx } from "./xlsx.js";
 import * as I from "./importer.js";
 import { mountGrid, isPhone } from "./grid.js";
-import { buildSuggest } from "./cells.js";
+import { buildSuggest, parseAmountInput } from "./cells.js";
 import * as P from "./plan.js";
 import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
@@ -360,7 +360,7 @@ const isAdminTab = (k) => k.startsWith("admin-");
 const tabList = () => (store.isAdmin ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS);
 // Phones: a bottom tab bar with the four main screens and "More" for the rest.
 const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
-  ["add", "Add", '<path d="M12 5v14M5 12h14"/>'],
+  ["add", "Add", '<path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9.5h8M8 12.5h5"/>'],
   ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'],
   ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
 function syncTabIndicator(nav) {
@@ -426,6 +426,23 @@ const viewAccount = () => {
   return a && (a.role === "spending" || a.role === "card") ? id : null;
 };
 const txSummary = (t) => `${t.direction === "in" ? "+" : t.direction === "transfer" ? "⇄ " : "−"}${inr(Math.abs(+t.amount || 0))}${+t.amount < 0 ? " back" : ""} ${t.description || ""} · ${store.rows.get(t.account_id)?.data?.name || ""}${t.direction === "transfer" && t.to_account_id ? " → " + (store.rows.get(t.to_account_id)?.data?.name || "") : ""}`;
+/** "today", "yesterday" or "on 7 Nov". */
+function friendlyDay(date) {
+  const day = (off) => { const x = new Date(today() + "T12:00:00"); x.setDate(x.getDate() + off); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+  const [y, m, dd] = String(date || today()).split("-");
+  return date === today() ? "today" : date === day(-1) ? "yesterday" : date === day(1) ? "tomorrow"
+    : `on ${+dd} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m - 1]}${y !== today().slice(0, 4) ? " " + y : ""}`;
+}
+/** The same entry as a plain sentence, for the phone chat's confirmation. */
+function txSentence(t) {
+  const name = (id) => store.rows.get(id)?.data?.name || "your account";
+  const amt = inr(Math.abs(+t.amount || 0)), desc = String(t.description || "").trim(), q = desc ? `“${desc}”` : "";
+  const when = friendlyDay(t.date);
+  if (t.direction === "transfer") return `Moved ${amt} from ${name(t.account_id)} to ${t.to_account_id ? name(t.to_account_id) : "another account"} ${when}${q ? `, noted as ${q}` : ""}.`;
+  if (t.direction === "in") return `Received ${amt}${q ? ` as ${q}` : ""} into ${name(t.account_id)} ${when}.`;
+  if (+t.amount < 0) return `Got ${amt} back${q ? ` for ${q}` : ""} into ${name(t.account_id)} ${when}.`;
+  return `Spent ${amt}${q ? ` on ${q}` : ""} using ${name(t.account_id)} ${when}, under ${t.category || "Other"}.`;
+}
 function afterChatChange() {
   saves++;
   if (S.tab === "month" && $("#txgrid")) { monthSummary(); mountTxGrid(); monthCloseBar(); }
@@ -469,7 +486,15 @@ initChat({
     const txIds = await store.save(txs.map((data) => ({ type: "transaction", period: data.period, data })));
     ids.push(...txIds);
     saves++;
-    return { ids, txIds, summaries: txs.map((t, i) => txSummary(t) + (drafts[i].warn ? ` (${drafts[i].warn.toLowerCase()})` : "")) };
+    return { ids, txIds, summaries: txs.map(txSummary),
+      sentences: txs.map(txSentence),
+      notes: txs.map((t, i) => [
+        ...(drafts[i].warn ? [drafts[i].warn + "."] : []),
+        ...(drafts[i].notes || []),
+        ...(drafts[i].approx_date ? ["The date is my best guess."] : []),
+        ...(t.date > today() ? ["That date is in the future."] : []),
+        ...(t.period !== S.period ? [`It's in ${monthName(t.period)}, not the month you're looking at.`] : []),
+      ]) };
   },
   async undo(ids) {
     const live = ids.filter((id) => store.rows.get(id) && !store.rows.get(id).deleted);
@@ -477,6 +502,34 @@ initChat({
     afterChatChange();
   },
   reveal: revealTx,
+  refresh: afterChatChange,
+  /** "add 272 to instamart": append +272 to the amount of a row already in the month, keeping the parts as a formula. */
+  async addTo(target, amount) {
+    const words = target.split(/\s+/).filter(Boolean);
+    const period = S.tab === "month" ? S.period : E.currentPeriod(db(), today());
+    const hits = store.ofType("transaction").filter((r) => (r.data.period || r.period) === period && words.every((w) => String(r.data.description || "").toLowerCase().includes(w)));
+    if (!hits.length) {
+      const isAcct = chatAccounts().some((a) => [a.name, ...(a.aliases || [])].some((n) => String(n).toLowerCase() === target));
+      return isAcct ? { skip: true } : { none: true, month: monthName(period) };
+    }
+    const va = viewAccount(), rank = (r) => (va && r.data.account_id === va ? "1" : "0") + (r.data.date || "");
+    const r = hits.map((x, i) => [x, i]).sort((a, b) => (rank(a[0]) < rank(b[0]) ? 1 : rank(a[0]) > rank(b[0]) ? -1 : b[1] - a[1]))[0][0];
+    const before = { ...r.data, period: r.data.period || r.period }, has = before.amount !== null && before.amount !== undefined && before.amount !== "";
+    const formula = before.amount_formula ? `${before.amount_formula}+${amount}` : has ? `=${+before.amount}+${amount}` : null;
+    let value = Math.round(((+before.amount || 0) + amount) * 100) / 100;
+    if (formula) { try { value = parseAmountInput(formula).value; } catch (e) { /* keep the plain sum */ } }
+    await saveRec("transaction")(r.id, { ...before, amount: value, amount_formula: formula });
+    saves++;
+    const acct = store.rows.get(before.account_id)?.data?.name;
+    return { id: r.id, before,
+      sentence: `Added ${inr(amount)} to “${before.description}” (${friendlyDay(before.date).replace(/^on /, "")}${acct ? ", " + acct : ""}). It's now ${inr(value)}${formula ? `, kept as ${formula}` : ""}.`,
+      notes: hits.length > 1 ? [`${hits.length} rows match “${target}” in ${monthName(period)}; I used the latest one.`] : [] };
+  },
+  async restore(id, before) {
+    const r = store.rows.get(id);
+    if (r && !r.deleted) await saveRec("transaction")(id, before);
+    afterChatChange();
+  },
   suggestions(word) {
     const out = new Set(), starts = (s) => s && String(s).toLowerCase().split(/\s+/).some((w) => w.startsWith(word));
     for (const a of chatAccounts()) { if (starts(a.name)) out.add(a.name); for (const al of a.aliases || []) if (starts(al)) out.add(al); }
