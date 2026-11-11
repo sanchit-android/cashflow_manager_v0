@@ -60,13 +60,19 @@ One pure JS module, `parseEntry(text, context) → [Draft]`. `context` is the de
 
    | Intent | Keywords |
    |---|---|
-   | out | spent, paid, bought, gave, bill, pay, for |
+   | out | spent, paid, bought, gave, bill, pay |
    | in | received, got, credited, salary, rent came, income, interest |
-   | transfer | moved, transferred, invested, sip, withdrew, deposited, lent, returned |
+   | transfer | moved, transferred, invested, sip, withdrew, deposited, lent, got back (from a receivable) |
    | refund | refund, cashback, reversed, returned (with a merchant) |
-   | statement | statement, bill is, due |
+   | statement | statement, bill is, `<card> due <amount>` |
 
    No verb → **out** (most entries are spends).
+
+   Collisions to avoid:
+   - `for` is not an intent word: it marks a period (`for october`) or a purpose (`for school`).
+   - `returned` means refund only when a merchant is present; money coming back from a person uses `got back`.
+   - Words that are both an income stream and a likely expense (`rent`) resolve by the verb (`received` → in, `paid` → out); with no verb, ask.
+   - `due` only counts as a statement when a card and an amount sit next to it, so later questions like "what's due this week" stay free.
 6. **Account** — match against account names and their aliases (`infinia`, `atlas`, `amazon card`, `hdfc swiggy`). Prepositions help: `with/on/via/using X` = paying account; `from X to Y` = transfer pair. Fuzzy match (Levenshtein ≤ 2, or Fuse.js) for typos. Missing → default spending account. Two equally good matches → ask (§4).
 7. **Link to planned items** — match remaining words against recurring commitments, annual obligations and income streams by label/alias. A match sets the link, the `nature`, and pre-fills a missing amount with the expected one.
 8. **Merchant / description** — the words left after removing amount, date, account, intent and filler (`on, at, for, the, to, with`).
@@ -80,7 +86,7 @@ The parser never writes anything. It only returns drafts; Save creates records t
 
 ## 4. When it's unsure
 
-Ask one short follow-up as tap chips instead of guessing:
+Ask one short follow-up as tap chips instead of guessing. The question appears inside the chat thread as a reply bubble, never as a blocking pop-up, so the user can ignore it and keep typing:
 
 ```
 > 1200 petrol hdfc
@@ -109,12 +115,72 @@ All of this is encrypted with the rest of the user's data. Settings page lists l
 
 ## 6. UI
 
-- A chat bar fixed to the bottom of every app page (dashboard, month grid, account view). On the account view it defaults the account to that one.
-- Typing shows autocomplete chips for account names, commitments and recent merchants (prefix match, no network).
-- History pane above the bar: the user's own lines with the saved result under each, so it reads like a chat. Tapping a past result opens the record for editing.
-- `undo` (or the Undo button on the last card) removes the last saved batch.
-- Enter = Save when every chip is explicit or inferred; if anything is missing, Enter focuses the first missing chip.
-- Works the same on phone width; this is the main reason the chat exists, since the grid is awkward on mobile.
+No bar fixed to the bottom of every page. On phones the bottom tab bar already lives there, and a second bar plus a history pane would take about 120px of a small screen (more once the keyboard opens). On desktop the month grid needs the full height. So each screen size gets its own entry point.
+
+### 6.1 Phone (≤ 640px): ＋ in the tab bar → chat sheet
+
+The bottom tab bar becomes **Month · Year · ＋ · Insights · More** (Savings moves into More). ＋ opens a full-height chat sheet built on the existing bottom-sheet style (grab handle, swipe down to close).
+
+```
+ Month view                       Chat sheet (keyboard up)
+┌───────────────────────┐        ┌───────────────────────┐
+│ ← November 2026 ▾  →  │        │ ━━  Add entries     ✕ │
+│ [summary tiles]       │        │ ── Today ───────────  │
+│ Transactions          │        │            450 swiggy │
+│ [Infinia][HDFC][Cash] │        │ ✓ −₹450 Swiggy · Food │
+│  ...grid rows...      │        │   Infinia · 11 Nov  ↶ │
+│                       │        │                       │
+│                       │        │      1200 petrol hdfc │
+│                       │        │ Which HDFC?           │
+│                       │        │ [Infinia][Swiggy][Sav]│
+├───────────────────────┤        ├───────────────────────┤
+│Month Year (＋) Ins More│        │[paid maid][rent][450] │ ← suggestions
+└───────────────────────┘        │ ┌──────────────────┐ ➤│
+                                 │ │ spent 450 on…    │  │
+                                 │ └──────────────────┘  │
+                                 │      [ keyboard ]     │
+                                 └───────────────────────┘
+```
+
+- The text box stays just above the keyboard (track `visualViewport`), with suggestion chips above it.
+- First ➤ (or Enter) shows the preview card as a bubble; a second ➤ saves it. Inferred chips get a dotted outline, missing ones a red outline.
+- Follow-up questions (§4) are reply bubbles with tap chips.
+- When the sheet is closed, the page underneath shows a toast: "Saved ₹450 Swiggy · Undo".
+- Opened from an account view, the sheet starts with a removable "on Infinia ✕" pill above the text box, setting the default account.
+
+### 6.2 Desktop: text box in the Transactions card, `/` from anywhere
+
+A one-line text box sits at the top of the Transactions card, under the account bar. Unsaved entries appear as highlighted draft rows above the grid, with tappable chips, so the user sees exactly where each entry will land.
+
+```
+┌ PlannedOut   Month Year Insights Plan Accounts Savings …        Sign out ┐
+│ ← November 2026 ▾ →                                                       │
+│ [ summary tiles ................................................. ]      │
+│ ┌ Transactions ─────────────────────────────────────────────────────────┐ │
+│ │ [Infinia] [HDFC Savings] [Atlas] [Cash]                               │ │
+│ │ ┌───────────────────────────────────────────────────────┐ [History ⌄] │ │
+│ │ │ ✎ Type an entry… e.g. "450 swiggy, 1200 petrol atlas" │   press /   │ │
+│ │ └───────────────────────────────────────────────────────┘             │ │
+│ │ ┌ 2 drafts ───────────────────────────────────────── [Save all ⏎] ┐  │ │
+│ │ │ −₹450  Swiggy  [Infinia] [11 Nov] [Food] [Variable]        ✕    │  │ │
+│ │ │ −₹1200 Petrol  [Atlas]   [11 Nov] [Vehicle?]               ✕    │  │ │
+│ │ └──────────────────────────────────────────────────────────────────┘  │ │
+│ │ Date   Description   Category   Amount   …   (new rows flash briefly) │ │
+│ └───────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+- `/` or Ctrl/⌘+K focuses the text box from anywhere. On tabs without a grid (Plan, Accounts, Savings) it opens as a centred dialog instead.
+- Keys: Tab moves between chips, Enter saves all drafts when nothing is missing (otherwise it focuses the first missing chip), Esc clears the drafts.
+- **History** is a collapsible drawer on the right (about 320px), not a pane above the text box. The grid already shows what was saved; the drawer shows what was typed, with Undo.
+- Saved rows flash briefly in the grid and carry a small 💬 marker (`source: chat`). Clicking it shows the original sentence.
+
+### 6.3 Both
+
+- Typing shows suggestion chips for account names, commitments and recent merchants (prefix match, no network).
+- `undo`, or the Undo button on the last card or toast, removes the last saved batch.
+- Tapping a past result in the history opens the record for editing.
+- Phone is the main reason the chat exists, since the grid is awkward on mobile.
 
 ---
 
@@ -146,6 +212,6 @@ Server schema (§10.3 of v4) doesn't change — these are just more encrypted re
 
 ## 9. Open questions
 
-1. **Confirm every entry, or auto-save when fully confident** (with a 5-second Undo)? Auto-save is faster; confirm-always is safer for a finance app.
+1. **Confirm every entry, or auto-save when fully confident** (with a 5-second Undo)? Auto-save is faster; confirm-always is safer for a finance app. *Suggested:* confirm always at launch; add auto-save with a 5-second Undo toast as a Settings toggle once the golden test set shows the parser is accurate.
 2. **Future-dated entries** — save as planned items in Upcoming, or reject?
 3. **Should learned aliases ask first** ("Always use Infinia for 'hdfc'?") or apply silently?
