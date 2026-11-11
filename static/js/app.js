@@ -15,7 +15,7 @@ import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
 import { mountGamesCloud } from "./games.js";
 import { loadLocal, hasLocal, clearLocal } from "./local.js";
-import { initChat, mountComposer, openChatSheet } from "./chat.js";
+import { initChat, openChat, CHAT_ICON } from "./chat.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -389,7 +389,7 @@ function renderBottomNav() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
     nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
       if (b.dataset.ptab === "more") return moreSheet();
-      if (b.dataset.ptab === "add") return openChat();
+      if (b.dataset.ptab === "add") return startChat();
       goTab(b.dataset.ptab);
     }));
     document.body.appendChild(nav);
@@ -431,22 +431,33 @@ function afterChatChange() {
   if (S.tab === "month" && $("#txgrid")) { monthSummary(); mountTxGrid(); monthCloseBar(); }
   else if (S.tab !== "month") render();
 }
+/** Show saved chat entries: switch to their month and account, scroll to the rows and flash them. */
+function revealTx(txIds) {
+  const recs = (txIds || []).map((id) => store.rows.get(id)).filter((r) => r && !r.deleted);
+  if (!recs.length) return;
+  const t = recs[recs.length - 1].data, d = db();
+  const inBar = (id) => id && barAccounts(d).some((a) => a.id === id);
+  const acct = inBar(t.account_id) ? t.account_id : inBar(t.to_account_id) ? t.to_account_id : S.account;
+  const full = S.tab !== "month" || S.period !== t.period || !$("#txgrid");
+  if (acct !== S.account) { S.account = acct; try { localStorage.setItem("account", acct); } catch (e) { /* ignore */ } }
+  if (full) { S.tab = "month"; S.period = t.period; renderTabs(); render(); }
+  else { monthSummary(); mountTxGrid(); monthCloseBar(); }
+  requestAnimationFrame(() => { for (const r of recs) if (S.grid && S.grid.flash) S.grid.flash(r.id); });
+}
 initChat({
-  categories: E.CATEGORIES,
-  accounts: () => chatAccounts().filter((a) => a.role !== "long_term"),
   ctx: () => ({
     today: today(), settings: settingsRec().data, categories: E.CATEGORIES,
     accounts: chatAccounts(), annual: rowsOf("annual"), income: rowsOf("income"),
-    // Mark commitments already paid in the current period so a second payment gets a warning.
+    // Commitments already paid this period, so "paid maid" twice is noticeable.
     commitments: (() => { const d = db(), p = E.currentPeriod(d, today()), paid = new Set(d.transaction.filter((t) => t.period === p && t.recurring_id).map((t) => t.recurring_id));
       return rowsOf("commitment").map((c) => ({ ...c, paid: paid.has(c.id) })); })(),
     defaultAccountId: viewAccount() || (mainAccount() || {}).id, infer: (desc) => suggest.infer(desc),
   }),
   async save(drafts) {
-    const newAccts = new Map(), batchIds = [];
+    const newAccts = new Map(), ids = [];
     for (const d of drafts) if (d.new_account && !newAccts.has(d.new_account.name)) {
       const [id] = await store.save({ type: "account", data: { name: d.new_account.name, role: d.new_account.role } });
-      newAccts.set(d.new_account.name, id); batchIds.push(id);
+      newAccts.set(d.new_account.name, id); ids.push(id);
     }
     const txs = drafts.map((d) => prepTx({
       date: d.date, description: d.description, account_id: d.account_id, direction: d.direction,
@@ -455,20 +466,17 @@ initChat({
       ...(d.recurring_id ? { recurring_id: d.recurring_id } : {}), ...(d.annual_id ? { annual_id: d.annual_id } : {}),
       ...(d.income_id ? { income_id: d.income_id } : {}), ...(d.approx_date ? { approx_date: true } : {}),
     }));
-    const ids = await store.save(txs.map((data) => ({ type: "transaction", period: data.period, data })));
-    batchIds.push(...ids);
-    afterChatChange();
-    const total = txs.reduce((x, t) => x + Math.abs(+t.amount || 0), 0);
-    return { batch: { ids: batchIds }, summary: txs.length === 1 ? txSummary(txs[0]) : `${txs.length} entries · ${inr(total)}` };
+    const txIds = await store.save(txs.map((data) => ({ type: "transaction", period: data.period, data })));
+    ids.push(...txIds);
+    saves++;
+    return { ids, txIds, summaries: txs.map((t, i) => txSummary(t) + (drafts[i].warn ? ` (${drafts[i].warn.toLowerCase()})` : "")) };
   },
-  async undo(batch) {
-    const live = batch.ids.filter((id) => store.rows.get(id) && !store.rows.get(id).deleted);
+  async undo(ids) {
+    const live = ids.filter((id) => store.rows.get(id) && !store.rows.get(id).deleted);
     if (live.length) await store.save(live.map((id) => ({ id, type: store.rows.get(id).type, deleted: true })));
     afterChatChange();
   },
-  recent: (n) => store.ofType("transaction").filter((r) => r.data.source === "chat" && r.data.raw_text)
-    .sort((a, b) => String(b.data.date).localeCompare(String(a.data.date))).slice(0, n)
-    .map((r) => ({ raw: r.data.raw_text, summary: `${txSummary(r.data)} · ${r.data.date}` })),
+  reveal: revealTx,
   suggestions(word) {
     const out = new Set(), starts = (s) => s && String(s).toLowerCase().split(/\s+/).some((w) => w.startsWith(word));
     for (const a of chatAccounts()) { if (starts(a.name)) out.add(a.name); for (const al of a.aliases || []) if (starts(al)) out.add(al); }
@@ -477,17 +485,15 @@ initChat({
     return [...out];
   },
 });
-function openChat() { if (!store.key || !settingsRec()) return; openChatSheet({ accountId: viewAccount() }); }
-// "/" (when not typing somewhere) or Ctrl/⌘+K: jump to the chat box.
+function startChat() { if (!store.key || !settingsRec()) return; openChat({ accountId: viewAccount() }); }
+// "/" (when not typing somewhere) or Ctrl/⌘+K opens the chat, or focuses it if open.
 document.addEventListener("keydown", (e) => {
   if (!store.key || !settingsRec() || document.querySelector(".ml-back:not(.chat-back)")) return;
   const k = (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k";
   const t = e.target, typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.closest?.("[role='grid'], .xl, .ml-list"));
   if (!k && !(e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey)) return;
   e.preventDefault();
-  const inline = $("#chatbox .chat-in");
-  if (inline && !isPhone()) { inline.focus(); inline.scrollIntoView({ block: "center", behavior: "smooth" }); }
-  else openChat();
+  startChat();
 });
 
 // Re-lay out when crossing the phone breakpoint (e.g. rotating a tablet).
@@ -496,13 +502,6 @@ window.matchMedia("(max-width: 640px)").addEventListener("change", () => { if (s
 function renderTabs() {
   renderBottomNav();
   tabsEl.hidden = false;
-  if (!document.getElementById("chat-open")) {
-    const b = document.createElement("button");
-    b.id = "chat-open"; b.type = "button"; b.className = "chat-open";
-    b.innerHTML = '＋ Add <kbd>/</kbd>'; b.title = "Type an entry (/ or Ctrl+K)";
-    b.onclick = () => { const inline = $("#chatbox .chat-in"); if (inline) inline.focus(); else openChat(); };
-    tabsEl.after(b);
-  }
   const list = tabList(), keys = list.map(([k]) => k).join(",");
   if (tabsEl.dataset.keys !== keys) {
     tabsEl.dataset.keys = keys;
@@ -673,9 +672,9 @@ function viewMonth() {
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   html(`
-    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<span id="gcloud"></span></div>
+    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<span id="gcloud"></span><button type="button" id="chatbtn" class="chat-fab" title="Quick add — type an entry (/ or Ctrl+K)" aria-label="Quick add">${CHAT_ICON}</button></div>
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div>${isPhone() ? "" : '<div id="chatbox"></div>'}<div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
+    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
@@ -692,8 +691,8 @@ function viewMonth() {
   monthCloseBar();
   monthSummary();
   mountTxGrid();
-  if ($("#chatbox")) S.chat = mountComposer($("#chatbox"), { mode: "inline" });
   mountGamesCloud($("#gcloud"), { track });
+  $("#chatbtn").onclick = startChat;
 }
 
 /** Tidy a transaction before saving, the same way for the grid and the chat box. */

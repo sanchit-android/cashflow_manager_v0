@@ -641,6 +641,15 @@ function mountSheet(host, cfg) {
     refreshRow(id, data) { const r = rows.findIndex((x) => x.id === id); if (r >= 0) { rows[r].data = { ...data }; renderRow(r); } },
     clearFilters() { filters = {}; sort = null; renderBody(true); say("Ready"); },
     idle: () => queue,
+    /** Scroll a saved row into view and highlight it briefly (used after a chat entry). Doesn't move focus. */
+    flash(id) {
+      const r = rows.findIndex((x) => x.id === id), tr = r >= 0 && tbody.children[r];
+      if (!tr) return false;
+      tr.scrollIntoView({ block: "center", behavior: "smooth" });
+      tr.classList.remove("row-flash"); void tr.offsetWidth; tr.classList.add("row-flash");
+      setTimeout(() => tr.classList.remove("row-flash"), 2600);
+      return true;
+    },
   };
 }
 
@@ -778,5 +787,13 @@ function mountList(host, cfg) {
   host.querySelector(".ml-sort").addEventListener("change", (e) => { sortKey = e.target.value; render(); });
   host.querySelector(".ml-add").onclick = () => openSheet(null);
   render();
-  return { focus() {}, refreshRow(id, data) { const it = items.find((x) => x.id === id); if (it) { it.data = { ...data }; render(); } }, clearFilters() { query = ""; sortKey = ""; render(); }, idle: () => Promise.resolve() };
+  return { focus() {}, refreshRow(id, data) { const it = items.find((x) => x.id === id); if (it) { it.data = { ...data }; render(); } }, clearFilters() { query = ""; sortKey = ""; render(); }, idle: () => Promise.resolve(),
+    flash(id) {
+      const i = view().findIndex((x) => x.id === id), b = i >= 0 && list.querySelector(`.ml-row[data-i="${i}"]`);
+      if (!b) return false;
+      b.scrollIntoView({ block: "center", behavior: "smooth" });
+      b.classList.remove("row-flash"); void b.offsetWidth; b.classList.add("row-flash");
+      setTimeout(() => b.classList.remove("row-flash"), 2600);
+      return true;
+    } };
 }
