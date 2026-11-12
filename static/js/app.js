@@ -15,7 +15,7 @@ import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
 import { mountGamesCloud } from "./games.js";
 import { loadLocal, hasLocal, clearLocal } from "./local.js";
-import { initChat, openChat, CHAT_ICON } from "./chat.js";
+import { initChat, openChat, CHAT_ICON, ensureDock, runPinned } from "./chat.js";
 
 const root = document.getElementById("root");
 const tabsEl = document.getElementById("tabs");
@@ -201,6 +201,7 @@ function unlockScreen(mode = "pass") {
 }
 
 // ================= after unlock =================
+const isMonthTab = () => S.tab === "month" || S.tab === "ledger";
 const S = { tab: "month", period: E.periodOf(today()) };
 const db = () => E.index(store.records());
 const settingsRec = () => store.ofType("settings")[0];
@@ -264,7 +265,7 @@ async function migrateCloses() {
     await store.save([...items, { id: s.id, type: "settings", data: { ...s.data, closing_migrated: true } }]);
   }
   const cur = E.currentPeriod(db(), today());
-  if (cur !== S.period) { S.period = cur; if (S.tab === "month") render(); }
+  if (cur !== S.period) { S.period = cur; if (isMonthTab()) render(); }
 }
 
 // First-run setup: a short wizard. Theme, motion, cards etc. use defaults and live in Settings.
@@ -354,15 +355,21 @@ function onboarding() {
 }
 
 // ================= tabs =================
-const BASE_TABS = [["month", "Month"], ["year", "Year"], ["insights", "Insights"], ["plan", "Plan"], ["accounts", "Accounts"], ["savings", "Savings"], ["import", "Import"], ["settings", "Settings"]];
+// Four job-based destinations. Everything else lives in the menu or inside a destination.
+const BASE_TABS = [["month", "Home"], ["ledger", "Ledger"], ["review", "Review"], ["plan", "Plan"]];
+const MENU_TABS = [["accounts", "Accounts & cards"], ["import", "Import a file"], ["settings", "Settings"]];
+// Old screens that now live inside a destination: [destination, sub-view].
+const TAB_HOME = { year: ["review", "year"], insights: ["review", "insights"], savings: ["plan", "savings"] };
+const navTab = (k) => (TAB_HOME[k] ? TAB_HOME[k][0] : k);
 const ADMIN_TABS = ADMIN_VIEWS.map(([k, l]) => ["admin-" + k, l]);
 const isAdminTab = (k) => k.startsWith("admin-");
-const tabList = () => (store.isAdmin ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS);
+const tabList = () => [...BASE_TABS, ...MENU_TABS, ...(store.isAdmin ? ADMIN_TABS : [])];
+const inMenu = (k) => isAdminTab(k) || MENU_TABS.some(([t]) => t === k);
 // Phones: a bottom tab bar with the four main screens and "More" for the rest.
-const PHONE_TABS = [["month", "Month", '<path d="M4 6h16v14H4zM4 10h16M9 3v4m6-4v4"/>'], ["year", "Year", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
+const PHONE_TABS = [["month", "Home", '<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'], ["ledger", "Ledger", '<path d="M4 6h16M4 12h16M4 18h16"/>'],
   ["add", "Add", '<path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9.5h8M8 12.5h5"/>'],
-  ["insights", "Insights", '<path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3ZM9.5 19h5M10.5 21.5h3"/>'],
-  ["more", "More", '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>']];
+  ["review", "Review", '<path d="M5 20V10m5 10V4m5 16v-7m5 7V8"/>'],
+  ["plan", "Plan", '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>']];
 function syncTabIndicator(nav) {
   if (!nav || nav.hidden) return;
   const b = nav.querySelector(":scope > button.on, :scope > details > summary.on");
@@ -394,9 +401,8 @@ function renderBottomNav() {
     }));
     document.body.appendChild(nav);
   }
-  const inMore = !["month", "year", "insights"].includes(S.tab);
   nav.querySelectorAll("[data-ptab]").forEach((b) => {
-    const k = b.dataset.ptab, on = k === S.tab || (k === "more" && inMore);
+    const k = b.dataset.ptab, on = k === navTab(S.tab);
     b.classList.toggle("on", on);
     b.setAttribute("aria-current", k === S.tab ? "page" : "false");
   });
@@ -406,7 +412,7 @@ function moreSheet() {
   const back = document.createElement("div");
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
-    ${[["savings", "Savings"], ["plan", "Plan"], ["accounts", "Accounts"], ["import", "Import"], ["settings", "Settings"], ...(store.isAdmin ? ADMIN_TABS.map(([k, l]) => [k, "Admin · " + l]) : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${[...MENU_TABS, ...(store.isAdmin ? ADMIN_TABS.map(([k, l]) => [k, "Admin · " + l]) : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
     <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : store.isLocal ? "Exit" : "Sign out"}</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
@@ -421,7 +427,7 @@ function moreSheet() {
 const chatAccounts = () => store.ofType("account").filter((a) => !a.data.closed_from || a.data.closed_from > today().slice(0, 7)).map((a) => ({ id: a.id, ...a.data }));
 // The account in view on the Month tab, if it's one people pay from.
 const viewAccount = () => {
-  if (S.tab !== "month") return null;
+  if (!isMonthTab()) return null;
   const id = selectedAccount(), a = id && store.rows.get(id)?.data;
   return a && (a.role === "spending" || a.role === "card") ? id : null;
 };
@@ -457,7 +463,7 @@ function txCard(t, extra) {
 }
 function afterChatChange() {
   saves++;
-  if (S.tab === "month" && $("#txgrid")) { accountBar(); monthSummary(); mountTxGrid(); monthCloseBar(); }
+  if (isMonthTab() && $("#txgrid")) { accountBar(); monthSummary(); mountTxGrid(); monthCloseBar(); }
   else render();
 }
 /** Show saved chat entries: switch to their month and account, scroll to the rows and flash them. */
@@ -466,10 +472,10 @@ function revealTx(txIds) {
   if (!recs.length) return;
   const t = recs[recs.length - 1].data, d = db();
   const inBar = (id) => id && barAccounts(d).some((a) => a.id === id);
-  const acct = inBar(t.account_id) ? t.account_id : inBar(t.to_account_id) ? t.to_account_id : S.account;
-  const full = S.tab !== "month" || S.period !== t.period || !$("#txgrid");
+  const acct = S.account === ALL ? ALL : inBar(t.account_id) ? t.account_id : inBar(t.to_account_id) ? t.to_account_id : S.account;
+  const full = !isMonthTab() || S.period !== t.period || !$("#txgrid");
   if (acct !== S.account) { S.account = acct; try { localStorage.setItem("account", acct); } catch (e) { /* ignore */ } }
-  if (full) { S.tab = "month"; S.period = t.period; renderTabs(); render(); }
+  if (full) { if (!isMonthTab()) S.tab = "month"; S.period = t.period; renderTabs(); render(); }
   else { monthSummary(); mountTxGrid(); monthCloseBar(); }
   requestAnimationFrame(() => { for (const r of recs) if (S.grid && S.grid.flash) S.grid.flash(r.id); });
 }
@@ -516,12 +522,19 @@ initChat({
   reveal: revealTx,
   refresh: afterChatChange,
   command: (cmd) => runCommand(cmd),
+  pin: async (text, title) => {
+    const pins = settingsRec().data.pins || [];
+    if (pins.some((p) => p.cmd === text)) return;
+    await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, pins: [...pins, { id: Math.random().toString(36).slice(2, 9), cmd: text, title }] } });
+    track("pin:add");
+    if (S.tab === "month" || S.tab === "review") render();
+  },
   commandCtx: () => ({ period: E.currentPeriod(db(), today()) }),
   openMonth(p) { S.tab = "month"; S.period = p; renderTabs(); render(); },
   /** "add 272 to instamart": append +272 to the amount of a row already in the month, keeping the parts as a formula. */
   async addTo(target, amount, accountIds) {
     const words = target.split(/\s+/).filter(Boolean);
-    const period = S.tab === "month" ? S.period : E.currentPeriod(db(), today());
+    const period = isMonthTab() ? S.period : E.currentPeriod(db(), today());
     // Any account works, not just the one in view; "… on infinia" narrows it to that account's rows.
     const inAcct = (r) => !accountIds || accountIds.includes(r.data.account_id) || accountIds.includes(r.data.to_account_id);
     const hits = store.ofType("transaction").filter((r) => !r.deleted && (r.data.period || r.period) === period && inAcct(r) && words.every((w) => String(r.data.description || "").toLowerCase().includes(w)));
@@ -577,7 +590,7 @@ function findRows(f, period) {
 }
 /** Rows for edit / remove: the month named, else the current month, else the month in view. Latest (and in-view account) first. */
 function findRowsAny(f) {
-  const ps = f.period ? [f.period] : [...new Set([curPeriod(), S.tab === "month" ? S.period : null].filter(Boolean))];
+  const ps = f.period ? [f.period] : [...new Set([curPeriod(), isMonthTab() ? S.period : null].filter(Boolean))];
   for (const p of ps) {
     const hits = findRows(f, p);
     if (hits.length) {
@@ -704,7 +717,7 @@ function queryCommand(cmd, d) {
     case "spend": return { ...base, title: `Spending · ${mn}`, text: `${inr(spendOf(s))} in all: ${inr(s.regular_expense)} regular, ${inr(s.oneoff_expense)} one-off, ${inr(s.annual_expense)} annual items.${s.investments ? ` Investments of ${inr(s.investments)} aren't counted.` : ""}${vsAvg(spendOf(s), spendOf)}` };
     case "income": return { ...base, title: `Income · ${mn}`, text: `${inr(s.regular_inflow)} regular income${s.oneoff_inflow ? ` and ${inr(s.oneoff_inflow)} one-off` : ""}.${s.drawn_from_savings ? ` ${inr(s.drawn_from_savings)} was drawn from savings.` : ""}` };
     case "net": case "summary": {
-      const v = s.verdict, line = v.kind === "ahead" ? `${inr(v.amount)} ahead: income covers this month's spending.` : `${inr(v.amount)} from savings: spending is more than comes in.`;
+      const v = s.verdict, line = v.kind === "ahead" ? `${inr(v.amount)} free to spend: income covers this month's spending and investing.` : `${inr(v.amount)} from savings: spending is more than comes in.`;
       if (cmd.what === "net") return { ...base, title: mn, text: line + (s.commitments_pending ? ` ${inr(s.commitments_pending)} of commitments is still due.` : "") };
       return { ...base, title: `${mn} at a glance`, text: line, table: { rows: [["Opening balance", inr(s.opening)], ["Regular income", inr(s.regular_inflow)], ["One-off income", inr(s.oneoff_inflow)],
         ["Regular expense", inr(s.regular_expense)], ["One-off expense", inr(s.oneoff_expense)], ["Annual items", inr(s.annual_expense)], ["Investments", inr(s.investments)],
@@ -841,9 +854,12 @@ function renderTabs() {
     tabsEl.dataset.keys = keys;
     tabsEl.classList.remove("ready");
     const btn = ([k, l]) => `<button type="button" data-tab="${k}" data-label="${l}">${l}</button>`;
-    const admin = list.filter(([k]) => isAdminTab(k));
-    tabsEl.innerHTML = list.filter(([k]) => !isAdminTab(k)).map(btn).join("")
-      + (admin.length ? `<details class="tab-dd"><summary data-label="Admin">Admin</summary><div class="dd-panel" role="menu">${admin.map(btn).join("")}</div></details>` : "");
+    const menu = list.filter(([k]) => inMenu(k)).map(([k, l]) => [k, isAdminTab(k) ? "Admin · " + l : l]);
+    const out = store.isDemo ? "Exit demo" : store.isLocal ? "Exit" : "Sign out";
+    tabsEl.innerHTML = list.filter(([k]) => !inMenu(k)).map(btn).join("")
+      + `<details class="tab-dd tab-menu"><summary data-label="Menu" aria-label="Menu: accounts, import, settings${store.isAdmin ? ", admin" : ""}, sign out">☰</summary><div class="dd-panel" role="menu">${menu.map(btn).join("")}<button type="button" data-signout>${out}</button></div></details>`;
+    tabsEl.querySelector("[data-signout]").onclick = () => { if (store.isDemo || store.isLocal) { location.href = "/"; return; } document.querySelector("header form").requestSubmit(); };
+    document.body.classList.add("menu-signout");
     tabsEl.querySelectorAll("button[data-tab]").forEach((b) => (b.onclick = () => { const dd = b.closest("details"); if (dd) dd.open = false; goTab(b.dataset.tab, false); }));
     const dd = tabsEl.querySelector(".tab-dd");
     if (dd) {
@@ -858,12 +874,12 @@ function renderTabs() {
     }
   }
   tabsEl.querySelectorAll("button[data-tab]").forEach((b) => {
-    const on = b.dataset.tab === S.tab;
+    const on = b.dataset.tab === navTab(S.tab);
     b.classList.toggle("on", on);
     b.setAttribute("aria-current", on ? "page" : "false");
   });
   const sum = tabsEl.querySelector(".tab-dd > summary");
-  if (sum) sum.classList.toggle("on", isAdminTab(S.tab));
+  if (sum) sum.classList.toggle("on", inMenu(S.tab));
   syncTabIndicator(tabsEl);
 }
 // ================= motion =================
@@ -878,6 +894,7 @@ function applyMotion(m) {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let switching = 0;
 async function goTab(k, scroll = true) {
+  if (TAB_HOME[k]) { const [t, sub] = TAB_HOME[k]; S.sub = { ...S.sub, [t]: sub }; if (S.tab === t) { render(); return; } k = t; }
   if (k === S.tab) return;
   const order = tabList().map(([t]) => t), dir = order.indexOf(k) >= order.indexOf(S.tab) ? "m-fwd" : "m-back";
   const n = ++switching, animate = motion() !== "none";
@@ -922,8 +939,66 @@ function countUp(el, value, fmt, ms = 600) {
 let lastTracked = null;
 function render() {
   if (S.tab !== lastTracked) { lastTracked = S.tab; if (!isAdminTab(S.tab)) track("tab:" + S.tab); }
-  try { (({ month: viewMonth, year: viewYear, insights: viewInsights, plan: viewPlan, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab] || (() => viewAdmin(root, S.tab.slice(6))))(); }
+  try { (({ month: viewHome, ledger: viewLedger, review: viewReview, plan: viewPlanHub, year: viewYear, insights: viewInsights, accounts: viewAccounts, savings: viewSavings, import: viewImport, settings: viewSettings })[S.tab] || (() => viewAdmin(root, S.tab.slice(6))))(); }
   catch (e) { html(`<p class="error">${esc(e.message)}</p>`); console.error(e); }
+  ensureDock({ accountId: viewAccount() });
+}
+
+// ================= pins (answers pinned from the assistant) =================
+const pinsList = () => settingsRec()?.data.pins || [];
+async function removePin(id) {
+  await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, pins: pinsList().filter((p) => p.id !== id) } });
+  render();
+}
+/** Pinned answers as small cards, each re-run for the month in view. */
+function mountPins(host, { max = 99, period, rows = 6 } = {}) {
+  const pins = pinsList().slice(0, max);
+  if (!host || !pins.length) { if (host) host.hidden = true; return; }
+  host.hidden = false;
+  host.innerHTML = pins.map((p) => `<div class="pin-card" data-pid="${p.id}"><div class="pin-head"><strong>${esc(p.title)}</strong><span class="spacer"></span><button type="button" class="pin-x" data-unpin="${p.id}" title="Unpin" aria-label="Unpin ${esc(p.title)}">✕</button></div><div class="pin-body muted">…</div><small class="pin-src">“${esc(p.cmd)}”</small></div>`).join("");
+  host.querySelectorAll("[data-unpin]").forEach((b) => (b.onclick = () => removePin(b.dataset.unpin)));
+  for (const p of pins) {
+    const body = host.querySelector(`[data-pid="${p.id}"] .pin-body`);
+    runPinned(p.cmd, period).then((r) => {
+      if (!r || r.err) { body.textContent = r?.text || "This question no longer works. Unpin it or ask again."; return; }
+      const t = r.table;
+      body.classList.remove("muted");
+      body.innerHTML = `${r.text ? `<p class="pin-text">${esc(r.text)}</p>` : ""}${t && t.rows.length ? `<table class="msg-table"><tbody>${t.rows.slice(0, rows).map(([l, v]) => `<tr><td>${esc(l)}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody>${t.total ? `<tfoot><tr><td>${esc(t.total[0])}</td><td class="num">${esc(t.total[1])}</td></tr></tfoot>` : ""}</table>${t.rows.length > rows ? `<small class="muted">+${t.rows.length - rows} more</small>` : ""}` : ""}${r.chart ? '<div class="msg-chart"></div>' : ""}`;
+      if (r.chart) try { r.chart(body.querySelector(".msg-chart")); } catch (e) { /* ignore */ }
+    }).catch(() => { body.textContent = "Couldn't work this out."; });
+  }
+}
+
+// ================= destinations =================
+function viewHome() {
+  root.dataset.view = "home"; viewMonth(); $("#cats").hidden = true;
+  const host = document.createElement("div"); host.className = "pins pins-home"; host.setAttribute("aria-label", "Pinned answers");
+  $("#summary").after(host); mountPins(host, { max: 3, period: S.period, rows: 3 });
+}
+function viewLedger() { root.dataset.view = "ledger"; viewMonth(); $("#summary").hidden = true; }
+/** A row of sub-view buttons at the top of a destination. */
+function subNav(tab, items, cur) {
+  const el = document.createElement("div");
+  el.className = "seg subnav"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "View");
+  el.innerHTML = items.map(([k, l]) => `<button type="button" data-sub="${k}" class="${k === cur ? "on" : ""}" aria-pressed="${k === cur}">${l}</button>`).join("");
+  root.prepend(el);
+  el.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { S.sub = { ...S.sub, [tab]: b.dataset.sub }; track(`sub:${tab}:${b.dataset.sub}`); render(); }));
+}
+function viewReview() {
+  root.dataset.view = "review";
+  const cur = (S.sub && S.sub.review) || "insights";
+  (cur === "year" ? viewYear : viewInsights)();
+  if (cur === "insights") {
+    const host = document.createElement("div"); host.className = "pins pins-review"; host.setAttribute("aria-label", "Pinned answers");
+    root.prepend(host); mountPins(host);
+  }
+  subNav("review", [["insights", "Overview"], ["year", "Year by month"]], cur);
+}
+function viewPlanHub() {
+  root.dataset.view = "plan";
+  const cur = (S.sub && S.sub.plan) || "plan";
+  (cur === "savings" ? viewSavings : viewPlan)();
+  subNav("plan", [["plan", "Commitments & annual"], ["savings", "Projection & checkpoints"]], cur);
 }
 
 const accountOptions = (filter = () => true) => store.ofType("account").filter((a) => filter(a.data)).map((a) => [a.id, a.data.name]);
@@ -979,10 +1054,13 @@ function acctIcon(a) {
 }
 
 // ================= Month =================
+const ALL = "__all";
 function selectedAccount() {
   const accts = store.ofType("account");
+  if (S.account === ALL) return ALL;
   if (!S.account || !store.rows.get(S.account) || store.rows.get(S.account).deleted) {
     let saved = null; try { saved = localStorage.getItem("account"); } catch (e) { /* ignore */ }
+    if (saved === ALL || !saved) { S.account = ALL; return ALL; }
     const def = accts.find((a) => a.id === saved) || accts.find((a) => a.data.is_default_spending) || accts[0];
     S.account = def ? def.id : null;
   }
@@ -1006,9 +1084,9 @@ function viewMonth() {
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   html(`
-    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<span id="gcloud"></span><button type="button" id="chatbtn" class="chat-fab" title="Quick add — type an entry (/ or Ctrl+K)" aria-label="Quick add">${CHAT_ICON}</button></div>
+    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<button type="button" id="menubtn" class="menu-btn" aria-label="Menu">☰</button></div>
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div>${SHORTCUTS}</div>
+    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div><details class="xl-help-d"><summary>Keyboard shortcuts</summary>${SHORTCUTS}</details></div>
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
@@ -1025,8 +1103,7 @@ function viewMonth() {
   monthCloseBar();
   monthSummary();
   mountTxGrid();
-  mountGamesCloud($("#gcloud"), { track });
-  $("#chatbtn").onclick = startChat;
+  $("#menubtn").onclick = moreSheet;
 }
 
 /** Tidy a transaction before saving, the same way for the grid and the chat box. */
@@ -1045,7 +1122,7 @@ const barAccounts = (d) => store.ofType("account").filter((a) => a.data.role !==
 function accountBar() {
   const d = db();
   const accts = barAccounts(d);
-  if (S.account && !accts.some((a) => a.id === S.account)) S.account = (accts.find((a) => a.data.is_default_spending) || accts[0] || {}).id || null;
+  if (S.account && S.account !== ALL && !accts.some((a) => a.id === S.account)) S.account = (accts.find((a) => a.data.is_default_spending) || accts[0] || {}).id || null;
   const sel = selectedAccount();
   const info = (a) => {
     const m = E.accountMonth(d, a.id, S.period);
@@ -1070,9 +1147,10 @@ function accountBar() {
     const { n, hint } = info(a);
     return `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${esc(a.data.name)}${n ? ` · ${money(hint)}` : ""}</option>`;
   };
+  const allChip = `<div class="acct-group"><div class="acct-chips"><button type="button" data-acct="${ALL}" class="${sel === ALL ? "on" : ""}" aria-pressed="${sel === ALL}">All accounts</button></div></div>`;
   $("#acctbar").innerHTML = groups.length
-    ? groups.map(([label, list]) => `<div class="acct-group"><span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div></div>`).join("")
-      + `<select class="acct-select" id="acctselect" aria-label="Account">${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`
+    ? allChip + groups.map(([label, list]) => `<div class="acct-group"><span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div></div>`).join("")
+      + `<select class="acct-select" id="acctselect" aria-label="Account"><option value="${ALL}"${sel === ALL ? " selected" : ""}>All accounts</option>${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`
     : '<span class="muted">Add an account on the Accounts tab first.</span>';
   const pick = (id) => {
     S.account = id; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
@@ -1086,6 +1164,12 @@ function accountBar() {
 
 /** Totals for the selected account, shown above its grid. */
 function accountSummary(d, sel) {
+  if (sel === ALL && $("#acctsum")) {
+    const s = E.summarize(d, S.period), it = (k, v, cls = "") => `<span><span class="k">${k}</span><strong class="${cls}">${money(v)}</strong></span>`;
+    $("#acctsum").innerHTML = `<strong>All accounts</strong>${it("Money in", s.regular_inflow + s.oneoff_inflow, "good")}${it("Spent", s.monthly_expense + s.annual_expense)}${it("Invested", s.investments)}${it("Bank opening", s.opening)}${it("Bank closing", s.closing, s.closing < 0 ? "bad" : "")}`;
+    if ($("#rollask")) $("#rollask").innerHTML = "";
+    return;
+  }
   const a = store.rows.get(sel); if (!a || !$("#acctsum")) return;
   const m = E.accountMonth(d, sel, S.period), role = a.data.role;
   const item = (k, v, cls = "") => `<span><span class="k">${k}</span><strong class="${cls}">${money(v)}</strong></span>`;
@@ -1238,22 +1322,25 @@ function mountTxGrid() {
   const sel = selectedAccount(), host = $("#txgrid");
   if (!sel) { host.innerHTML = ""; return; }
   const d = db();
-  const incoming =(t) => t.direction === "transfer" && t.to_account_id === sel && t.account_id !== sel;
-  const rows = d.transaction.filter((t) => t.period === S.period && (t.account_id === sel || t.to_account_id === sel))
+  const all = sel === ALL;
+  const incoming = (t) => !all && t.direction === "transfer" && t.to_account_id === sel && t.account_id !== sel;
+  const rows = d.transaction.filter((t) => t.period === S.period && (all ? store.rows.has(t.account_id) : (t.account_id === sel || t.to_account_id === sel)))
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
     .map(({ period, ...t }) => t);
   const name = (id) => (store.rows.get(id)?.data?.name) || "";
-  const isMain = store.rows.get(sel)?.data?.is_default_spending;
+  const isMain = !all && store.rows.get(sel)?.data?.is_default_spending;
   const rolled = isMain ? E.cardRollups(d, S.period).map((r) => ({ date: today().slice(0, 7) === S.period ? today() : `${S.period}-${String(new Date(+S.period.slice(0, 4), +S.period.slice(5), 0).getDate()).padStart(2, "0")}`, description: `${r.name} — card total for the month`, _card: true, to_account_id: r.card_id, amount: r.amount })) : [];
-  const openAccts = () => accountOptions().filter(([v]) => { const a = store.rows.get(v)?.data || {}; return v !== sel && (!a.closed_from || S.period < a.closed_from); });
+  const openAccts = () => accountOptions().filter(([v]) => { const a = store.rows.get(v)?.data || {}; return (all || v !== sel) && (!a.closed_from || S.period < a.closed_from); });
+  if (isPhone()) { S.grid = null; return mountTxList(host, rows, { all, sel, incoming, rolled }); }
   const grid = mountGrid(host, {
-    id: "tx", label: `Transactions for ${name(sel)}`, readonlyRows: rolled,
+    id: all ? "tx-all" : "tx", label: all ? "Transactions, all accounts" : `Transactions for ${name(sel)}`, readonlyRows: rolled,
     rows, blankRows: 10, period: () => S.period, suggest,
-    newRow: () => ({ date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
+    newRow: () => ({ date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: all ? (mainAccount() || {}).id : sel, direction: "out", to_account_id: "", category: "Other", nature: "variable" }),
     meaningful: (x) => !!(String(x.description || "").trim() || (x.amount !== null && x.amount !== undefined && x.amount !== "")),
     columns: [
       { key: "date", label: "Date", type: "date", width: 96 },
       { key: "description", label: "Description", type: "text", width: 210, autocomplete: true },
+      ...(all ? [{ key: "account_id", label: "Account", type: "select", width: 140, options: () => accountOptions((a) => !a.closed_from || S.period < a.closed_from) }] : []),
       { key: "direction", label: "Type", type: "select", width: 96, options: () => [["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]],
         readonlyIf: incoming, display: (x) => (x._card ? "Card total" : incoming(x) ? "Transfer in" : null) },
       { key: "to_account_id", label: "To / from", type: "select", width: 140, options: () => [["", ""], ...openAccts()],
@@ -1275,19 +1362,83 @@ function mountTxGrid() {
   S.grid = grid;
 }
 
+// ================= phone: transactions as a list, edited in a sheet =================
+const signed = (t, sel, incoming) => (t.direction === "in" || incoming(t) ? 1 : -1) * Math.abs(+t.amount || 0) * (+t.amount < 0 ? -1 : 1);
+function mountTxList(host, rows, { all, sel, incoming, rolled }) {
+  const byDay = {};
+  for (const t of [...rows].sort((a, b) => (b.date || "").localeCompare(a.date || ""))) (byDay[t.date] = byDay[t.date] || []).push(t);
+  const dayLabel = (d) => new Date(d + "T00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+  const meta = (t) => [t.direction === "transfer" ? `→ ${acctName(t.to_account_id) || "?"}` : t.category, all || incoming(t) ? acctName(t.account_id) : ""].filter(Boolean).join(" · ");
+  host.innerHTML = `<div class="ml-list" role="list">
+    <button type="button" class="ml-add" id="ml-add">＋ Add a row</button>
+    ${Object.entries(byDay).map(([d, list]) => {
+      const tot = list.reduce((x, t) => x + (t.direction === "transfer" && !incoming(t) ? 0 : signed(t, sel, incoming)), 0);
+      return `<div class="ml-day"><span>${esc(dayLabel(d))}</span><span class="num ${tot < 0 ? "" : "good"}">${tot ? (tot > 0 ? "+" : "−") + money(Math.abs(tot)) : ""}</span></div>`
+        + list.map((t) => { const v = signed(t, sel, incoming); return `<button type="button" class="ml-row" role="listitem" data-tx="${t.id}">
+          <span class="ml-main"><span class="ml-desc">${catIcon(t.direction === "transfer" ? "Other" : t.category)}${esc(t.description || "(no description)")}</span><small>${esc(meta(t))}</small></span>
+          <span class="num ml-amt ${v > 0 ? "good" : ""}">${v > 0 ? "+" : t.direction === "transfer" ? "⇄ " : "−"}${money(Math.abs(+t.amount || 0))}</span></button>`; }).join("");
+    }).join("") || '<p class="muted" style="padding:12px">Nothing this month yet. Tap ＋ or use Add below.</p>'}
+    ${rolled.length ? `<p class="muted small" style="padding:8px 4px">Card totals counted on this account: ${rolled.map((r) => `${esc(acctName(r.to_account_id))} ${money(r.amount)}`).join(", ")}</p>` : ""}
+  </div>`;
+  host.querySelector("#ml-add").onclick = () => txSheet(null, all ? (mainAccount() || {}).id : sel);
+  host.querySelectorAll("[data-tx]").forEach((b) => (b.onclick = () => txSheet(b.dataset.tx)));
+}
+/** Edit one transaction (or add one) in a bottom sheet. */
+function txSheet(id, accountId) {
+  const r = id && store.rows.get(id), t = r ? { ...r.data } : { date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: accountId, direction: "out", category: "Other", nature: "variable", description: "", amount: "" };
+  const selOpts = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
+  const accts = accountOptions((a) => !a.closed_from || S.period < a.closed_from);
+  const back = document.createElement("div");
+  back.className = "ml-back";
+  back.innerHTML = `<form class="ml-sheet tx-sheet" role="dialog" aria-modal="true" aria-label="${r ? "Edit" : "Add"} transaction"><div class="ml-grab" aria-hidden="true"></div>
+    <div class="tx-sheet-top"><input name="description" placeholder="Description" value="${esc(t.description || "")}" aria-label="Description" autocomplete="off">
+      <input name="amount" inputmode="decimal" placeholder="₹ 0" value="${esc(t.amount_formula || t.amount || "")}" aria-label="Amount (you can type 120+340)"></div>
+    <div class="seg tx-dir" role="group" aria-label="Type">${[["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]].map(([v, l]) => `<button type="button" data-dir="${v}" class="${t.direction === v ? "on" : ""}">${l}</button>`).join("")}</div>
+    <label>Date<input type="date" name="date" value="${esc(t.date || "")}"></label>
+    <label>Account<select name="account_id">${selOpts(accts, t.account_id)}</select></label>
+    <label class="tx-to"${t.direction === "transfer" ? "" : " hidden"}>To<select name="to_account_id"><option value=""></option>${selOpts(accts, t.to_account_id)}</select></label>
+    <label>Category<select name="category">${selOpts(opts(E.CATEGORIES), t.category)}</select></label>
+    <label>Kind<select name="nature">${selOpts(NATURE_LABELS, t.nature)}</select></label>
+    <p class="error" id="tx-err" role="alert"></p>
+    <div class="tx-sheet-btns">${r ? '<button type="button" id="tx-del" class="danger-link">Delete</button>' : ""}<span class="spacer"></span><button type="button" id="tx-cancel">Cancel</button><button type="submit" class="primary">Save</button></div></form>`;
+  document.body.appendChild(back); document.body.classList.add("ml-open");
+  const f = back.querySelector("form"), close = () => { back.remove(); document.body.classList.remove("ml-open"); };
+  let dir = t.direction;
+  f.querySelectorAll("[data-dir]").forEach((b) => (b.onclick = () => {
+    dir = b.dataset.dir; f.querySelectorAll("[data-dir]").forEach((x) => x.classList.toggle("on", x === b));
+    f.querySelector(".tx-to").hidden = dir !== "transfer";
+  }));
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  f.querySelector("#tx-cancel").onclick = close;
+  if (r) f.querySelector("#tx-del").onclick = async () => { if (!confirm("Delete this row?")) return; await removeRec(id); close(); afterChatChange(); };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const raw0 = f.amount.value.trim(), raw = /\d\s*[+*/-]\s*\d/.test(raw0) && !raw0.startsWith("=") ? "=" + raw0 : raw0;
+    let pa = null; try { pa = parseAmountInput(raw); } catch (err) { /* shown below */ }
+    const amt = pa ? pa.value : NaN;
+    if (!raw || !isFinite(amt)) { f.querySelector("#tx-err").textContent = "Enter an amount."; return; }
+    if (dir === "transfer" && !f.to_account_id.value) { f.querySelector("#tx-err").textContent = "Pick where the money went."; return; }
+    const data = prepTx({ ...t, description: f.description.value.trim(), amount: Math.round(amt * 100) / 100, ...(pa && typeof pa === "object" && pa.formula ? { amount_formula: pa.formula } : {}), direction: dir, date: f.date.value, account_id: f.account_id.value, to_account_id: f.to_account_id.value, category: f.category.value, nature: f.nature.value });
+    try { await saveRec("transaction")(id, data); close(); afterChatChange(); track(r ? "list:edit" : "list:add"); }
+    catch (err) { f.querySelector("#tx-err").textContent = err.message || String(err); }
+  };
+  setTimeout(() => (r ? null : f.description.focus()), 50);
+}
+
 function monthSummary() {
   const d = db(), s = E.summarize(d, S.period), v = s.verdict;
   const r = E.runway(d, S.period);
   const pending = s.commitments.filter((c) => !c.paid);
+  const inv = s.investments ? ` after investing ${inr(s.investments)}` : "";
   const verdict = v.kind === "ahead"
-    ? `<span class="big good" data-count="${v.amount}" data-suffix=" ahead">${inr(v.amount)} ahead</span>Income covers this month's spending. ${s.commitments_pending ? `After ${inr(s.commitments_pending)} of commitments still due, you can spend up to <strong>${inr(Math.max(0, s.headroom))}</strong> more without touching savings.` : `You can spend up to <strong>${inr(v.amount)}</strong> more without touching savings.`}`
-    : `<span class="big bad" data-count="${v.amount}" data-suffix=" from savings">${inr(v.amount)} from savings</span>This month spends more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
+    ? `<span class="big good" data-count="${Math.max(0, s.headroom)}" data-suffix=" free to spend">${inr(Math.max(0, s.headroom))} free to spend</span>Left this month${inv}${s.commitments_pending ? ` and ${inr(s.commitments_pending)} of commitments still due` : ""}, without touching savings.`
+    : `<span class="big bad" data-count="${v.amount}" data-suffix=" from savings">${inr(v.amount)} from savings</span>This month spends${s.investments ? " and invests" : ""} more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
   $("#summary").innerHTML = `
     <div class="card verdict">${verdict}
       ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
-    ${balanceFlow(s)}
+    <details class="flow-d"><summary>How your balance moved · opening ${inr(s.opening)} → closing ${inr(s.closing)}</summary>${balanceFlow(s)}</details>
     ${extraMetrics(s, r)}
-    ${pending.length ? `<div class="card"><h2>Still to pay this month</h2>${pending.map((c) => `<div class="row" style="padding:4px 0"><span>${esc(c.label)}</span><span class="spacer"></span><span class="num">${inr(c.amount)}</span><button data-pay="${c.id}">Mark paid</button></div>`).join("")}</div>` : ""}`;
+    ${pending.length ? `<div class="todo-line" aria-label="Still to pay this month"><strong>To pay</strong>${pending.map((c) => `<span class="todo-chip">${esc(c.label)} <span class="num">${inr(c.amount)}</span><button type="button" data-pay="${c.id}" title="Mark paid">✓ Paid</button></span>`).join("")}</div>` : ""}`;
   cardCategoryChart(d);
   const saveMx = async (on) => { await saveMxLayout({ month_metrics: on }); monthSummary(); };
   const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
@@ -2140,6 +2291,7 @@ function viewSettings() {
   const s = settingsRec();
   const keys = store.vault.keys;
   html(`
+    <div class="card row" style="align-items:center"><h2 style="margin:0">Games</h2><span class="muted" style="margin-left:8px">A short break between entries.</span><span class="spacer"></span><span id="gcloud"></span></div>
     <div class="card"><h2>Look</h2>${themePicker(s.data.theme || "paper", s.data.custom_theme)}
       <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div>
       <label>Screen transitions</label><div class="motion-pick">${MOTIONS.map(([k, l]) => `<button type="button" data-motion-pick="${k}" class="${motion() === k ? "on" : ""}">${l}</button>`).join("")}</div>
@@ -2172,6 +2324,7 @@ function viewSettings() {
       <p class="row"><button id="export">Export everything (JSON)</button><button id="lock">Lock now</button><button id="forget">Forget this device</button></p>
       <p><button id="delacct" style="color:var(--bad)">Delete account and all data</button></p></div>`}
     <p class="error" id="err" role="alert"></p>`);
+  mountGamesCloud($("#gcloud"), { track });
   $("#pm").value = s.data.period_mode || "calendar";
   $("#fm2").value = s.data.funding_mode || "both";
   wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: t } }); }, s.data.custom_theme);

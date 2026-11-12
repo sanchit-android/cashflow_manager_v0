@@ -7,6 +7,7 @@ import { catIcon } from "./icons.js";
 import { parseEntry, answer, parseAmount, normalize, splitEntries, parseAddTo } from "./parser.js";
 import { parseCommand, HELP } from "./commands.js";
 import { logMiss } from "./chatlog.js";
+import { isBankAlert, parseBankAlerts } from "./bankalert.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "change swiggy to 500", "totals by category", "spend trend", "help"];
@@ -37,6 +38,7 @@ function richHtml(m, i) {
     ${m.chart ? `<div class="msg-chart" data-chart="${i}"></div>` : ""}
     ${m.examples ? m.examples.map(([g, ex]) => `<div class="msg-help"><small>${esc(g)}</small><div class="msg-chips">${ex.map((e) => `<button type="button" class="chat-chip" data-try="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`).join("") : ""}
     ${m.actions && !m.acted ? `<div class="msg-chips">${m.actions.map((a, j) => `<button type="button" class="chat-chip" data-act="${i}:${j}">${esc(a.label)}</button>`).join("")}</div>` : ""}
+    ${pinnable(m) ? `<button type="button" class="msg-pin" data-pin="${i}" title="Pin this answer to Home and Review">📌 Pin</button>` : ""}
     ${m.month || (m.reveal && m.reveal.length) ? `<button type="button" class="msg-open" ${m.reveal && m.reveal.length ? `data-show="${i}"` : `data-month="${esc(m.month)}"`}>Show in the grid</button>` : ""}`;
 }
 let current = "";         // the message being handled, kept on bot replies (src) so an undo can report it
@@ -46,40 +48,69 @@ let pos = { x: 0, y: 0 }; // desktop: how far the window has been dragged from i
 let mini = false;         // desktop: minimised to just the header, bottom right
 
 export function initChat(d) { deps = d; }
+// Read-only answers (tables or charts) can be pinned; they re-run for the month being viewed.
+const pinnable = (m) => m.rich && m.src && (m.table || m.chart) && !m.revert && !m.changed && !m.err && !m.examples && deps.pin;
+/** Re-run a pinned question. Returns the Reply, or null if the text no longer parses as a question. */
+export async function runPinned(text, period) {
+  const cmd = parseCommand(text, { ...deps.ctx(), ...deps.commandCtx(), ...(period ? { period } : {}) });
+  if (!cmd || cmd.kind === "help") return null;
+  return deps.command(cmd);
+}
 export const chatOpen = () => !!ui;
 
 /** Open the chat, or focus it if it's already open. */
-export function openChat({ accountId } = {}) {
+// Desktop: the assistant is a column docked on the right of every screen. Collapsing it leaves a slim rail.
+const DOCK_KEY = "po.dock";
+export const dockCollapsed = () => { try { return localStorage.getItem(DOCK_KEY) === "closed"; } catch { return false; } };
+const setCollapsed = (on) => { try { on ? localStorage.setItem(DOCK_KEY, "closed") : localStorage.removeItem(DOCK_KEY); } catch {} };
+function showRail(open) {
+  if (isPhone() || document.querySelector(".chat-rail")) return;
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chat-rail"; b.title = "Open the assistant (/ or Ctrl+K)"; b.setAttribute("aria-label", "Open the assistant");
+  b.innerHTML = `${BUBBLE}<span>Ask</span>`;
+  b.onclick = () => { b.remove(); setCollapsed(false); open(); };
+  document.body.appendChild(b); document.body.classList.add("chat-railed");
+}
+/** Desktop only: open the docked assistant unless the user collapsed it (then show the rail). */
+export function ensureDock(opts) {
+  if (isPhone()) { document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed"); if (ui && !ui.phone) ui.close(true); return; }
+  if (ui) return;
+  if (dockCollapsed()) showRail(() => openChat({ ...opts, focus: true }));
+  else openChat({ ...opts, focus: false });
+}
+
+export function openChat({ accountId, focus = true } = {}) {
   if (ui) { ui.expand(); ui.input.focus(); return; }
+  document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed");
   const phone = isPhone();
   const wrap = document.createElement("div");
-  wrap.className = phone ? "ml-back chat-back" : "chat-dock-wrap";
-  wrap.innerHTML = `<section class="${phone ? "ml-sheet chat-panel" : "chat-dock"}" role="dialog" aria-label="Quick add" ${phone ? 'aria-modal="true"' : ""}>
+  wrap.className = phone ? "ml-back chat-back" : "chat-side";
+  wrap.innerHTML = `<section class="${phone ? "ml-sheet chat-panel" : "chat-dock"}" ${phone ? 'role="dialog" aria-modal="true"' : 'role="complementary"'} aria-label="Assistant">
     ${phone ? '<div class="ml-grab" aria-hidden="true"></div>' : ""}
-    <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>Quick add</strong>
-      <span class="chat-head-hint">Add, change or ask · type “help” for examples</span>
-      ${phone ? "" : `<button type="button" class="chat-x chat-min" aria-label="Minimise chat" title="Minimise">${MINIMISE}</button>`}
-      <button type="button" class="chat-x chat-close" aria-label="Close chat" title="Close">✕</button></header>
+    <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>${phone ? "Quick add" : "Assistant"}</strong>
+      <span class="chat-head-hint">${phone ? "Add, change or ask · type “help” for examples" : "Log, change, ask or go · runs on your device"}</span>
+      <button type="button" class="chat-x chat-close" aria-label="${phone ? "Close chat" : "Collapse the assistant"}" title="${phone ? "Close" : "Collapse"}">${phone ? "✕" : COLLAPSE}</button></header>
     <div class="chat-thread" aria-live="polite"></div>
     <div class="chat-suggest" aria-label="Suggestions"></div>
     <form class="chat-bar" autocomplete="off">
-      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="e.g. “450 swiggy”, “change swiggy to 500”, “food trend”">
+      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="${phone ? "e.g. “450 swiggy”, “change swiggy to 500”, “food trend”" : "Ask or log…  e.g. 450 swiggy · food trend   (/)"}">
       <button type="submit" class="chat-send" aria-label="Save">${SEND}</button>
     </form></section>`;
   document.body.appendChild(wrap);
-  document.body.classList.add(phone ? "ml-open" : "chat-docked");
+  document.body.classList.add(phone ? "ml-open" : "chat-side-open");
   const panel = wrap.firstElementChild, thread = wrap.querySelector(".chat-thread"), input = wrap.querySelector(".chat-in"), sugEl = wrap.querySelector(".chat-suggest");
   const prevFocus = document.activeElement;
 
-  const close = () => {
-    wrap.remove(); document.body.classList.remove("ml-open", "chat-docked"); ui = null; mini = false;
+  const close = (silent) => {
+    wrap.remove(); document.body.classList.remove("ml-open", "chat-docked", "chat-side-open"); ui = null; mini = false;
+    if (!phone && silent !== true) { setCollapsed(true); showRail(() => openChat({ accountId, focus: true })); }
     if (window.visualViewport) window.visualViewport.removeEventListener("resize", fit);
     window.removeEventListener("resize", place);
     if (!phone && prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true });
   };
   // Desktop: put the window where it was dragged to, kept fully on screen (it grows upwards as the conversation gets longer).
   const place = () => {
-    if (phone || mini) return;
+    if (phone || mini || true) return; // docked: nothing to place
     const W = document.documentElement.clientWidth, H = document.documentElement.clientHeight, m = 8;
     const w = panel.offsetWidth, h = panel.offsetHeight, left = (W - w) / 2, top = H - 16 - h; // where it sits undragged
     pos = { x: Math.max(m - left, Math.min(W - m - w - left, pos.x)), y: Math.max(m - top, Math.min(H - m - h - top, pos.y)) };
@@ -93,27 +124,8 @@ export function openChat({ accountId } = {}) {
     b.innerHTML = on ? RESTORE : MINIMISE; b.title = on ? "Open" : "Minimise"; b.setAttribute("aria-label", on ? "Open chat" : "Minimise chat");
     if (on) input.blur(); else { place(); thread.scrollTop = thread.scrollHeight; input.focus({ preventScroll: true }); }
   };
-  ui = { el: wrap, input, close, expand: () => setMini(false) };
-  wrap.querySelector(".chat-close").onclick = close;
-  if (!phone) {
-    const head = wrap.querySelector(".chat-head");
-    // Stop here: setMini swaps the button's icon, so the header's click handler below would see a detached target and reopen straight away.
-    wrap.querySelector(".chat-min").onclick = (e) => { e.stopPropagation(); setMini(!mini); };
-    head.addEventListener("click", (e) => { if (mini && !e.target.closest("button")) setMini(false); });
-    // Drag the window by its header.
-    head.addEventListener("pointerdown", (e) => {
-      if (mini || e.button !== 0 || e.target.closest("button")) return;
-      const sx = e.clientX - pos.x, sy = e.clientY - pos.y;
-      head.setPointerCapture(e.pointerId); wrap.classList.add("dragging");
-      const move = (ev) => { pos = { x: ev.clientX - sx, y: ev.clientY - sy }; place(); };
-      const up = () => {
-        for (const t of ["pointermove", "pointerup", "pointercancel"]) head.removeEventListener(t, t === "pointermove" ? move : up);
-        wrap.classList.remove("dragging"); input.focus({ preventScroll: true });
-      };
-      head.addEventListener("pointermove", move); head.addEventListener("pointerup", up); head.addEventListener("pointercancel", up);
-    });
-    window.addEventListener("resize", place);
-  }
+  ui = { el: wrap, input, close, phone, expand: () => {} };
+  wrap.querySelector(".chat-close").onclick = () => close();
   if (phone) {
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
     let y0 = null; const grab = wrap.querySelector(".ml-grab");
@@ -161,6 +173,10 @@ export function openChat({ accountId } = {}) {
     }));
     thread.querySelectorAll("[data-month]").forEach((b) => (b.onclick = () => { if (phone) close(); deps.openMonth(b.dataset.month); }));
     thread.querySelectorAll("[data-try]").forEach((b) => (b.onclick = () => { input.value = b.dataset.try; keepFocus(); }));
+    thread.querySelectorAll("[data-pin]").forEach((b) => (b.onclick = async () => {
+      const m = msgs[+b.dataset.pin];
+      try { await deps.pin(m.src, m.title || m.src); b.textContent = "📌 Pinned"; b.disabled = true; } catch (e) { b.textContent = "Couldn't pin"; }
+    }));
     thread.querySelectorAll("[data-undo]").forEach((b) => (b.onclick = () => undo(msgs[+b.dataset.undo])));
     thread.querySelectorAll("[data-ans]").forEach((b) => (b.onclick = () => { msgs.push({ who: "me", text: b.textContent }); reply(b.dataset.ans); }));
     thread.scrollTop = thread.scrollHeight;
@@ -283,6 +299,21 @@ export function openChat({ accountId } = {}) {
     try { reply_({ kind: cmd.kind, ...(await deps.command(cmd)) }); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); miss("error", "", cmd.kind); }
   }
   async function enter(text) {
+    // A pasted bank SMS / UPI alert: rewrite each alert as a plain sentence the entry parser already understands.
+    if (isBankAlert(text)) {
+      const c = ctx(), MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const alerts = parseBankAlerts(text, { today: c.today, accounts: c.accounts || [] });
+      if (alerts.length) {
+        const sentences = alerts.map((a) => {
+          const accs = c.accounts || [], isCard = /\bcard\b/i.test(a.raw), low = a.raw.toLowerCase();
+          // No last-4 match: fall back to an account whose bank name appears in the alert (a card for card alerts).
+          const acc = accs.find((x) => x.id === a.account_id) || accs.find((x) => (isCard ? x.role === "card" : x.role !== "card") && low.includes(String(x.name || "").split(" ")[0].toLowerCase())), day = `${+a.date.slice(8)} ${MON[+a.date.slice(5, 7) - 1]}`;
+          return a.direction === "out" ? `spent ${a.amount} on ${a.merchant || "payment"}${acc ? " with " + acc.name : ""} on ${day}`
+            : `received ${a.amount} ${a.merchant || "credit"}${acc ? " on " + acc.name : ""} on ${day}`;
+        });
+        return run(sentences.flatMap((t) => parseEntry(t, c)));
+      }
+    }
     const cmd = parseCommand(text, { ...ctx(), ...deps.commandCtx() });
     if (cmd) return command(cmd);
     const rest = [];
@@ -309,14 +340,15 @@ export function openChat({ accountId } = {}) {
   input.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     e.preventDefault(); e.stopPropagation();
-    if (input.value) { input.value = ""; sugEl.innerHTML = ""; } else close();
+    if (input.value) { input.value = ""; sugEl.innerHTML = ""; } else if (phone) close(); else input.blur();
   });
   render();
-  setTimeout(keepFocus, 30);
+  if (focus) setTimeout(keepFocus, 30);
 }
 
 const BUBBLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9.5h8M8 12.5h5"/></svg>';
 const SEND = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>';
 const MINIMISE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 18h12"/></svg>';
 const RESTORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+const COLLAPSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 export const CHAT_ICON = BUBBLE;

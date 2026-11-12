@@ -45,7 +45,7 @@ test("month summary separates monthly, annual and investments", () => {
   assert.equal(s.card_payments, 185970);
   assert.equal(s.net_position, 47250 - 39970);
   assert.equal(s.verdict.kind, "drawing");
-  assert.equal(s.verdict.amount, 160000 - 7280);
+  assert.equal(s.verdict.amount, 160000 - 7280 + 44837, "money invested this month is no longer spendable");
   assert.equal(s.closing, 1483611 + 47250 - 14000 - 44837 - 185970);
   assert.equal(s.commitments_pending, 7100, "tuition not yet paid");
 });
@@ -174,4 +174,19 @@ test("legacy closes cover months before today", () => {
   assert.deepEqual(closes.map((c) => c.period), ["2026-10"]);
   assert.equal(closes[0].cards.card.amount, 185970);
   assert.equal(E.legacyCloses(d, "2026-10-05", "x").length, 0);
+});
+
+test("free to spend excludes money already invested this month", () => {
+  const db = E.index([
+    rec("account", "m", { role: "spending", opening_balance: 900000, opening_period: "2026-11" }),
+    rec("account", "mf", { role: "investment", opening_balance: 0, opening_period: "2026-11" }),
+    rec("transaction", "s", { date: "2026-11-05", account_id: "m", amount: 100500, direction: "in", nature: "income" }),
+    rec("transaction", "e", { date: "2026-11-10", account_id: "m", amount: 9917, direction: "out", nature: "variable" }),
+    rec("transaction", "i", { date: "2026-11-12", account_id: "m", to_account_id: "mf", amount: 10000, direction: "transfer", nature: "investment" }),
+  ]);
+  const s = E.summarize(db, "2026-11");
+  assert.equal(s.net_with_annual, 90583);           // earned surplus, before investing
+  assert.deepEqual(s.verdict, { kind: "ahead", amount: 80583 });
+  assert.equal(s.headroom, 80583);
+  assert.equal(s.closing - s.opening, 80583);       // hero now matches the balance change
 });

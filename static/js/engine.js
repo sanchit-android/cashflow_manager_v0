@@ -153,14 +153,17 @@ export function summarize(db, period) {
 
   s.net_position = round(s.regular_inflow - s.monthly_expense);
   s.net_with_annual = round(s.net_position - s.annual_expense);
-  s.verdict = s.net_with_annual >= 0
-    ? { kind: "ahead", amount: s.net_with_annual }
-    : { kind: "drawing", amount: -s.net_with_annual };
+  // What's actually left to spend: money already moved to savings/investments this month isn't spendable.
+  // (Before investing, the surplus is net_with_annual — kept as "earned surplus".)
+  s.net_after_investing = round(s.net_with_annual - s.investments);
+  s.verdict = s.net_after_investing >= 0
+    ? { kind: "ahead", amount: s.net_after_investing }
+    : { kind: "drawing", amount: -s.net_after_investing };
 
   s.commitments = commitmentStatus(db, period, txns);
   s.commitments_pending = round(s.commitments.filter((c) => !c.paid).reduce((x, c) => x + num(c.amount), 0));
   // Spend still expected this period reduces the headroom.
-  s.headroom = round(s.net_with_annual - s.commitments_pending);
+  s.headroom = round(s.net_after_investing - s.commitments_pending);
   for (const k of ["regular_inflow", "oneoff_inflow", "monthly_expense", "annual_expense", "investments",
     "drawn_from_savings", "card_payments"]) s[k] = round(s[k]);
   return s;
