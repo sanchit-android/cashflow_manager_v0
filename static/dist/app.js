@@ -150,7 +150,7 @@ var Kt=globalThis.crypto.subtle,ta=new TextEncoder,qc=new TextDecoder,ir={alg:"p
       <label>Lines <select id="tr-split">${n("none","Totals",Q.split)}${n("source","By source",Q.split)}${n("device","By device",Q.split)}${n("page","By landing page",Q.split)}${n("bot","By bot",Q.split)}</select></label>
       <label>Site <select id="tr-name">${n("","Any site",Q.name)}</select></label>
       <label>Device <select id="tr-device">${n("","All",Q.device)}${n("desktop","Desktop",Q.device)}${n("mobile","Mobile",Q.device)}${n("tablet","Tablet",Q.device)}</select></label>
-      <label>Page starts with <input id="tr-path" value="${ee(Q.path)}" placeholder="/calculators/" style="max-width:160px"></label>
+      <label>Page starts with <input id="tr-path" value="${ee(Q.path)}" style="max-width:160px"></label>
     </div>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-end">
       <div class="msel-wrap"><span>Count traffic from</span>

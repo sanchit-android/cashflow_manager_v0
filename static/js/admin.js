@@ -326,7 +326,7 @@ async function traffic(box) {
       <label>Lines <select id="tr-split">${opt("none", "Totals", T.split)}${opt("source", "By source", T.split)}${opt("device", "By device", T.split)}${opt("page", "By landing page", T.split)}${opt("bot", "By bot", T.split)}</select></label>
       <label>Site <select id="tr-name">${opt("", "Any site", T.name)}</select></label>
       <label>Device <select id="tr-device">${opt("", "All", T.device)}${opt("desktop", "Desktop", T.device)}${opt("mobile", "Mobile", T.device)}${opt("tablet", "Tablet", T.device)}</select></label>
-      <label>Page starts with <input id="tr-path" value="${esc(T.path)}" placeholder="/calculators/" style="max-width:160px"></label>
+      <label>Page starts with <input id="tr-path" value="${esc(T.path)}" style="max-width:160px"></label>
     </div>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-end">
       <div class="msel-wrap"><span>Count traffic from</span>
