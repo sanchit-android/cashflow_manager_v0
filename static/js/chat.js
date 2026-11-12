@@ -6,6 +6,7 @@
 import { catIcon } from "./icons.js";
 import { parseEntry, answer, parseAmount, normalize, splitEntries, parseAddTo } from "./parser.js";
 import { parseCommand, HELP } from "./commands.js";
+import { logMiss } from "./chatlog.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "change swiggy to 500", "totals by category", "spend trend", "help"];
@@ -38,6 +39,7 @@ function richHtml(m, i) {
     ${m.actions && !m.acted ? `<div class="msg-chips">${m.actions.map((a, j) => `<button type="button" class="chat-chip" data-act="${i}:${j}">${esc(a.label)}</button>`).join("")}</div>` : ""}
     ${m.month || (m.reveal && m.reveal.length) ? `<button type="button" class="msg-open" ${m.reveal && m.reveal.length ? `data-show="${i}"` : `data-month="${esc(m.month)}"`}>Show in the grid</button>` : ""}`;
 }
+let current = "";         // the message being handled, kept on bot replies (src) so an undo can report it
 let pending = null;       // { draft, rest: [drafts still to save after this one] }
 let ui = null;            // the open chat: { el, input, close, expand }
 let pos = { x: 0, y: 0 }; // desktop: how far the window has been dragged from its usual spot (kept while the page is open)
@@ -124,6 +126,8 @@ export function openChat({ accountId } = {}) {
 
   const ctx = () => ({ ...deps.ctx(), ...(accountId ? { defaultAccountId: accountId } : {}) });
   const keepFocus = () => input.focus({ preventScroll: true });
+  // Failed or undone messages are logged (redacted) to improve the parser.
+  const miss = (reason, text, kind = "") => logMiss(reason, text || current, { kind, accounts: ctx().accounts || [] });
 
   function render() {
     if (!msgs.length) {
@@ -201,7 +205,8 @@ export function openChat({ accountId } = {}) {
     try {
       const res = await deps.save(drafts);
       // Undo removes the whole batch; keep the ids on the last line of it.
-      res.summaries.forEach((s, i) => msgs.push({ who: "bot", ids: i === res.summaries.length - 1 ? res.ids : null, txIds: [res.txIds[i]],
+      drafts.forEach((d) => { if ((d.notes || []).some((n) => /couldn't tell the category/.test(n))) miss("guessed", d.raw, "entry"); });
+      res.summaries.forEach((s, i) => msgs.push({ who: "bot", src: current, kind: "entry", ids: i === res.summaries.length - 1 ? res.ids : null, txIds: [res.txIds[i]],
         notes: res.notes[i], card: res.cards && res.cards[i], ...(phone ? { text: res.sentences[i], ok: true } : { text: "✓ " + s }) }));
       render();
       // Phone: stay in the conversation; the grid behind is only brought up to date.
@@ -209,6 +214,7 @@ export function openChat({ accountId } = {}) {
       keepFocus(); setTimeout(keepFocus, 450);
     } catch (e) {
       msgs.push({ who: "bot", text: "Couldn't save: " + (e.message || e), err: true }); render();
+      miss("error", "", "entry");
     }
   }
 
@@ -224,17 +230,18 @@ export function openChat({ accountId } = {}) {
     try {
       const res = await deps.addTo(hit.target, hit.amount, hit.account_ids);
       if (res.skip) return false;
-      if (res.none) { msgs.push({ who: "bot", err: true, text: `Nothing was changed. I couldn't find a row matching “${hit.target}” in ${res.month}${res.account ? ` on ${res.account}` : ""}. To add it as a new entry, type “${hit.amount} ${hit.target}”.` }); render(); return true; }
-      msgs.push({ who: "bot", ids: [], txIds: [res.id], restore: { id: res.id, before: res.before }, notes: res.notes, card: res.card, ...(phone ? { text: res.sentence, ok: true } : { text: "✓ " + res.sentence }) });
+      if (res.none) { miss("no_match", piece, "add_to"); msgs.push({ who: "bot", err: true, text: `Nothing was changed. I couldn't find a row matching “${hit.target}” in ${res.month}${res.account ? ` on ${res.account}` : ""}. To add it as a new entry, type “${hit.amount} ${hit.target}”.` }); render(); return true; }
+      msgs.push({ who: "bot", src: current, kind: "add_to", ids: [], txIds: [res.id], restore: { id: res.id, before: res.before }, notes: res.notes, card: res.card, ...(phone ? { text: res.sentence, ok: true } : { text: "✓ " + res.sentence }) });
       render();
       if (phone) deps.refresh(); else deps.reveal([res.id]);
       keepFocus(); setTimeout(keepFocus, 450);
-    } catch (e) { msgs.push({ who: "bot", text: "Couldn't save: " + (e.message || e), err: true }); render(); }
+    } catch (e) { msgs.push({ who: "bot", text: "Couldn't save: " + (e.message || e), err: true }); render(); miss("error", piece, "add_to"); }
     return true;
   }
 
   async function undo(m) {
     if (!m || !m.ids) return;
+    if (m.src) miss("undone", m.src, m.kind || "");
     if (m.revert) { try { await m.revert(); } catch (e) { msgs.push({ who: "bot", text: "Couldn't undo: " + (e.message || e), err: true }); render(); return; } deps.refresh(); }
     else if (m.restore) await deps.restore(m.restore.id, m.restore.before); else await deps.undo(m.ids);
     // Strike out every line of that batch.
@@ -258,20 +265,22 @@ export function openChat({ accountId } = {}) {
       const hit = pending.draft.ask.options.find(([v, l]) => l.toLowerCase().includes(text.toLowerCase()) || String(v).toLowerCase() === text.toLowerCase());
       if (hit) return reply(hit[0]);
     }
-    if (pending) { msgs.push({ who: "bot", text: `Skipped “${pending.draft.raw}”.` }); pending = null; }
+    if (pending) { miss("skipped", pending.draft.raw, "entry_" + pending.draft.ask.slot); msgs.push({ who: "bot", text: `Skipped “${pending.draft.raw}”.` }); pending = null; }
+    current = text;
     enter(text);
   }
   /** Show a command's answer; changes are undoable and shown in the grid. */
   function reply_(r) {
     r = r || { text: "Done." };
-    msgs.push({ who: "bot", rich: true, ...r, ...(r.revert ? { ids: [] } : {}), ...(r.reveal ? { txIds: r.reveal } : {}) });
+    if (r.err || r.unknown) miss(r.unknown ? "unknown" : "failed", "", r.kind || "");
+    msgs.push({ who: "bot", rich: true, src: current, ...r, ...(r.revert ? { ids: [] } : {}), ...(r.reveal ? { txIds: r.reveal } : {}) });
     render();
     if (r.reveal && r.reveal.length && !phone) deps.reveal(r.reveal); else if (r.changed || r.revert) deps.refresh();
     keepFocus();
   }
   async function command(cmd) {
     if (cmd.kind === "help") return reply_({ title: "Things you can type", examples: HELP });
-    try { reply_(await deps.command(cmd)); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); }
+    try { reply_({ kind: cmd.kind, ...(await deps.command(cmd)) }); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); miss("error", "", cmd.kind); }
   }
   async function enter(text) {
     const cmd = parseCommand(text, { ...ctx(), ...deps.commandCtx() });

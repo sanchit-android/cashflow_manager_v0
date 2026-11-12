@@ -22,7 +22,7 @@ const table = (heads, rows, empty = "Nothing yet.") => rows.length
 const bars = (id) => `<div id="${id}"></div>`;
 const drawBars = (id, items, color) => { const el = host.querySelector("#" + id); if (el) { if (items.length) hbars(el, { items, color, fmt: num }); else el.innerHTML = '<p class="muted">Nothing yet.</p>'; } };
 
-export const ADMIN_VIEWS = [["business", "Business"], ["traffic", "Traffic"], ["tech", "Technical"], ["indexing", "Indexing"], ["admins", "Admins"]];
+export const ADMIN_VIEWS = [["business", "Business"], ["traffic", "Traffic"], ["tech", "Technical"], ["indexing", "Indexing"], ["chat", "Chat stats"], ["admins", "Admins"]];
 
 // Each admin view is its own tab ("admin-business", "admin-tech", ...).
 export async function viewAdmin(root, view) {
@@ -41,8 +41,41 @@ export async function viewAdmin(root, view) {
     if (view === "traffic") return traffic(box);
     const d = await api(`/api/admin/${view}?days=${A.days}`);
     if (host.querySelector("#adm") !== box || A.view !== view) return; // user left the tab
-    (view === "business" ? business : tech)(box, d);
+    (view === "business" ? business : view === "chat" ? chat : tech)(box, d);
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+
+// ================= chat stats =================
+// Chat messages that failed or were undone (redacted in the browser, no user stored, kept 30 days). Material for parser rules.
+const REASON_HINT = {
+  failed: "Understood as a command, but the answer was an error (no row, unknown card or formula…)",
+  unknown: "Looked like a question or command, but no rule matched",
+  no_match: "“add X to …” found no row to add to",
+  skipped: "The chat asked a follow-up question and the user moved on",
+  guessed: "Saved, but the category couldn't be worked out (filed under Other)",
+  error: "Saving failed",
+  undone: "Saved, then the user pressed Undo: probably read wrongly",
+};
+function chat(box, d) {
+  const labels = d.labels.map(short), byKey = Object.fromEntries(d.reasons.map((r) => [r.key, r]));
+  const shown = d.reasons.filter((r) => r.count).sort((a, b) => b.count - a.count);
+  const reasonName = (k) => (byKey[k] || { label: k }).label;
+  const tag = (k) => `<span class="adm-tag" title="${esc(REASON_HINT[k] || "")}">${esc(reasonName(k))}</span>`;
+  box.innerHTML = `
+    <p class="muted">Messages in the chat that didn't get a useful answer, or that the user undid. Amounts, dates, numbers and account names were replaced in the browser before sending (<code>&lt;amt&gt;</code>, <code>&lt;date&gt;</code>, <code>&lt;acct&gt;</code>), and no user is stored. Rows are deleted after ${d.retention_days} days.</p>
+    <div class="kpis">${metric("Logged", num(d.total), `in ${d.days} days`)}${d.reasons.map((r) => metric(r.label, num(r.count), esc(REASON_HINT[r.key] || ""))).join("")}</div>
+    ${card("By day", bars("c-days"))}
+    <div class="adm-2">
+      ${card("Read as", bars("c-kinds"), "What the message was taken for: entry, add_to, edit, remove, query, chart, bill, account, metric. entry_amount / entry_account… are follow-up questions that were skipped.")}
+      ${card("Most repeated", table(["Message", "Why", "Times", "Last"], d.top.map((r) => [esc(r.text), tag(r.reason), num(r.count), when(r.last)])), "The same redacted text more than once is the best place to add a rule.")}
+    </div>
+    ${card("Latest", table(["Message", "Why", "Read as", "Device", "When"], d.recent.map((r) => [esc(r.text), tag(r.reason), esc(r.kind || ""), esc(r.device), when(r.created_at)]), "Nothing logged yet."))}`;
+  const el = host.querySelector("#c-days");
+  // Four colours: the top three reasons and "Other" when there are more than four.
+  const groups = shown.length <= 4 ? shown : [...shown.slice(0, 3), { label: "Other", series: labels.map((_, i) => shown.slice(3).reduce((x, r) => x + r.series[i], 0)) }];
+  if (shown.length) lines(el, { labels, series: groups.map((r, i) => ({ name: r.label, color: C[i], values: r.series })), title: "Chat misses by day", everyNth: Math.ceil(labels.length / 10), fmt: num, axis: num });
+  else el.innerHTML = '<p class="muted">Nothing yet.</p>';
+  drawBars("c-kinds", d.kinds.map((k) => ({ label: k.label, value: k.value })), C[1]);
 }
 
 // ================= business =================

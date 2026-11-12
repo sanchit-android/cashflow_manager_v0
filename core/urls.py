@@ -41,4 +41,6 @@ urlpatterns = [
     path("api/admin/indexing", monitor.indexing),
     path("api/admin/internal", monitor.internal),
     path("api/admin/traffic", monitor.traffic),
+    path("api/admin/chat", monitor.chat_stats),
+    path("api/chat-miss", monitor.chat_miss),
 ] + [path(f"{slug}/", views.guide, {"slug": slug}) for slug in seo.GUIDES]

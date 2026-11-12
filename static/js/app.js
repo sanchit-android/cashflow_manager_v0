@@ -668,7 +668,7 @@ async function runCommand(cmd) {
   if (cmd.kind === "metric") return metricCommand(cmd);
   if (cmd.kind === "chart") return chartCommand(cmd, d);
   if (cmd.kind === "query") return queryCommand(cmd, d);
-  return { text: "I didn't understand that. Type “help” for examples." };
+  return { unknown: true, text: "I didn't understand that. Type “help” for examples." };
 }
 
 const METRIC_ALIASES = { income: "regular_income", spend: "all_spending", spending: "all_spending", expenses: "all_spending", expense: "regular_expense",
@@ -763,7 +763,7 @@ function queryCommand(cmd, d) {
         return [l, fmtValue(fmt, v), c ? "custom" : ""]; }) }, text: customMetrics().length ? "" : "Add your own with “add metric name = formula”." };
     }
   }
-  return { text: "I didn't understand that. Type “help” for examples." };
+  return { unknown: true, text: "I didn't understand that. Type “help” for examples." };
 }
 
 function chartCommand(cmd, d) {
@@ -816,7 +816,7 @@ function chartCommand(cmd, d) {
     return { title: `Savings rate · ${span}`, text: sr.rate == null ? "No regular income recorded, so there's no savings rate." : `You kept ${sr.rate}% of regular income overall${sr.best ? `; best was ${P.periodLabel(sr.best.period)} at ${sr.best.rate}%` : ""}${sr.overspent ? `. ${sr.overspent} month${sr.overspent > 1 ? "s" : ""} spent more than came in` : ""}.`,
       chart: (host) => lines(host, { labels, series: [{ name: "Savings rate", color: COLORS[2], values: sr.rows.map((r) => r.rate), dots: true }], title: "Savings rate", fmt: (n) => `${n}%`, axis: (n) => `${n}%` }) };
   }
-  return { text: "I didn't understand that. Type “help” for examples." };
+  return { unknown: true, text: "I didn't understand that. Type “help” for examples." };
 }
 
 function startChat() { if (!store.key || !settingsRec()) return; openChat({ accountId: viewAccount() }); }

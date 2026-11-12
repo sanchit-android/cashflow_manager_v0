@@ -158,3 +158,17 @@ class IndexStatus(models.Model):
     last_crawl = models.DateTimeField(null=True, blank=True)
     google_canonical = models.CharField(max_length=500, blank=True)
     checked_at = models.DateTimeField(auto_now=True)
+
+
+class ChatMiss(models.Model):
+    """A chat message the app couldn't handle well, or one the user undid. Used to improve the parser.
+    The text is redacted in the browser before it's sent (amounts, dates and account names replaced) and no user is stored.
+    Kept 30 days: indexed on created_at and purged by monitor._purge_old."""
+    REASONS = [("failed", "No useful answer"), ("unknown", "Not understood"), ("no_match", "No matching row"), ("skipped", "Question skipped"),
+               ("guessed", "Category guessed"), ("error", "Error"), ("undone", "Undone")]
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reason = models.CharField(max_length=12, choices=REASONS)
+    text = models.CharField(max_length=300)
+    kind = models.CharField(max_length=24, blank=True, default="")  # what it was read as: entry, add_to, edit, query, chart…
+    device = models.CharField(max_length=8, default="desktop")
+    local = models.BooleanField(default=False)  # sent from the app before signing up

@@ -6,6 +6,7 @@ What gets recorded (none of it financial; record contents stay encrypted):
 - EndpointStat: per-hour request counts, errors and timings per route.
 - ErrorEvent: server errors, failed API calls and browser errors reported by the app.
 - UsageDaily: per user per day counts of named actions (screen opened, button used) sent by the app.
+- ChatMiss: chat messages that failed or were undone, redacted in the browser (no amounts, dates, account names), no user. 30 days.
 """
 import hashlib
 import json
@@ -29,7 +30,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .models import (AdminGrant, Boot, EndpointStat, ErrorEvent, GoogleIdentity, IndexStatus, LoginCode, PageView, Record,
+from .models import (AdminGrant, Boot, ChatMiss, EndpointStat, ErrorEvent, GoogleIdentity, IndexStatus, LoginCode, PageView, Record,
                      UsageDaily, UserFlag, Vault)
 
 User = get_user_model()
@@ -201,7 +202,7 @@ def _bump_endpoint(route, status, ms):
         EndpointStat.objects.filter(hour=hour, route=route).update(**vals)
 
 
-RETENTION = {PageView: 90, ErrorEvent: 90, EndpointStat: 35, Boot: 120, UsageDaily: 400}
+RETENTION = {PageView: 90, ErrorEvent: 90, EndpointStat: 35, Boot: 120, UsageDaily: 400, ChatMiss: 30}
 
 
 def _purge_old():
@@ -332,6 +333,59 @@ def telemetry(request):
             ErrorEvent.objects.create(kind="client", path=str(e.get("where", ""))[:200], message=str(e.get("message", ""))[:300],
                                       detail=str(e.get("stack", ""))[:2000], user_id=request.user.id)
     return JsonResponse({"ok": True})
+
+
+# ---------- chat misses ----------
+
+CHAT_REASONS = {r for r, _ in ChatMiss.REASONS}
+CHAT_KIND_RE = re.compile(r"^[a-z_]{0,24}$")
+
+
+@require_POST
+def chat_miss(request):
+    """Store one redacted chat message that failed or was undone. Anonymous use is allowed only from the no-account app."""
+    anonymous = not request.user.is_authenticated
+    local = request.headers.get("X-PlannedOut-Local") == "1"
+    if anonymous and not local:
+        return JsonResponse({"ok": False}, status=401)
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Bad JSON."}, status=400)
+    reason, text, kind = data.get("reason"), str(data.get("text") or "").strip()[:300], str(data.get("kind") or "")
+    if reason not in CHAT_REASONS or not text or not CHAT_KIND_RE.match(kind):
+        return JsonResponse({"error": "Bad request."}, status=400)
+    key = f"chatmiss:{visitor_hash(request)}"  # at most 100 a day per visitor
+    if (cache.get(key) or 0) >= 100:
+        return JsonResponse({"ok": True})
+    cache.set(key, (cache.get(key) or 0) + 1, 60 * 60 * 24)
+    ChatMiss.objects.create(reason=reason, text=text, kind=kind, device=device_of(request.META.get("HTTP_USER_AGENT", "")),
+                            local=anonymous and local)
+    _purge_old()
+    return JsonResponse({"ok": True})
+
+
+@require_GET
+@admin_required
+def chat_stats(request):
+    days, start, end = _window(request)
+    qs = ChatMiss.objects.filter(created_at__gte=_since(start))
+    labels = _day_labels(start, end)
+    per_day = defaultdict(Counter)
+    for day, reason, n in qs.annotate(day=TruncDate("created_at")).values_list("day", "reason").annotate(n=Count("id")):
+        per_day[reason][day] = n
+    by_reason = Counter(dict(qs.values_list("reason").annotate(n=Count("id"))))
+    by_kind = Counter(dict(qs.values_list("kind").annotate(n=Count("id"))))
+    top = (qs.values("text", "reason").annotate(n=Count("id"), last=Max("created_at")).order_by("-n", "-last")[:40])
+    recent = qs.order_by("-created_at").values("created_at", "reason", "kind", "text", "device")[:150]
+    return JsonResponse({
+        "days": days, "total": qs.count(), "labels": [d.isoformat() for d in labels],
+        "reasons": [{"key": k, "label": l, "count": by_reason.get(k, 0), "series": [per_day[k].get(d, 0) for d in labels]} for k, l in ChatMiss.REASONS],
+        "kinds": _top(by_kind),
+        "top": [{"text": r["text"], "reason": r["reason"], "count": r["n"], "last": r["last"].isoformat()} for r in top],
+        "recent": [{**r, "created_at": r["created_at"].isoformat()} for r in recent],
+        "retention_days": RETENTION[ChatMiss],
+    })
 
 
 # ---------- admin: manage admins ----------

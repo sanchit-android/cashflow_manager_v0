@@ -347,3 +347,47 @@ class IndexingTests(TestCase):
             self.assertEqual(gsc.access_token(), "abc")
         h, c, s = sent["assertion"].split(".")
         k.public_key().verify(base64.urlsafe_b64decode(s + "=="), f"{h}.{c}".encode(), padding.PKCS1v15(), hashes.SHA256())
+
+
+@override_settings(OWNER_EMAIL=OWNER)
+class ChatMissTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.owner = User.objects.create(username=OWNER, email=OWNER)
+        self.user = User.objects.create(username="c@d.com", email="c@d.com")
+
+    def test_logs_redacted_misses_without_user(self):
+        from .models import ChatMiss
+        self.client.force_login(self.user)
+        self.assertEqual(_post(self.client, "/api/chat-miss", {"reason": "undone", "text": "<amt> swiggy <acct>", "kind": "entry"}).status_code, 200)
+        self.assertEqual(_post(self.client, "/api/chat-miss", {"reason": "nope", "text": "x"}).status_code, 400)
+        self.assertEqual(_post(self.client, "/api/chat-miss", {"reason": "failed", "text": ""}).status_code, 400)
+        m = ChatMiss.objects.get()
+        self.assertEqual((m.reason, m.text, m.kind, m.local), ("undone", "<amt> swiggy <acct>", "entry", False))
+        self.assertFalse(any(f.name.startswith("user") for f in ChatMiss._meta.fields))
+
+    def test_anonymous_only_from_no_account_app(self):
+        self.assertEqual(_post(self.client, "/api/chat-miss", {"reason": "unknown", "text": "hi"}).status_code, 401)
+        r = self.client.post("/api/chat-miss", data=json.dumps({"reason": "unknown", "text": "hi"}), content_type="application/json", HTTP_X_PLANNEDOUT_LOCAL="1")
+        self.assertEqual(r.status_code, 200)
+
+    def test_rows_expire_after_30_days_and_admin_sees_stats(self):
+        from datetime import timedelta
+        from django.core.cache import cache
+        from django.utils import timezone
+        from .models import ChatMiss
+        old = ChatMiss.objects.create(reason="failed", text="old", kind="query")
+        ChatMiss.objects.filter(id=old.id).update(created_at=timezone.now() - timedelta(days=31))
+        cache.delete("monitor:purged")
+        self.client.force_login(self.user)
+        for _ in range(2):
+            _post(self.client, "/api/chat-miss", {"reason": "unknown", "text": "how r my cards", "kind": "query"})
+        self.assertFalse(ChatMiss.objects.filter(text="old").exists())
+        self.assertEqual(self.client.get("/api/admin/chat").status_code, 404)  # not an admin
+        self.client.force_login(self.owner)
+        d = self.client.get("/api/admin/chat?days=30").json()
+        self.assertEqual(d["total"], 2)
+        self.assertEqual(d["top"][0], {**d["top"][0], "text": "how r my cards", "count": 2})
+        self.assertEqual(d["retention_days"], 30)
+        self.assertEqual(sum(d["reasons"][[r["key"] for r in d["reasons"]].index("unknown")]["series"]), 2)
