@@ -321,12 +321,15 @@ function seedCategory(tokens) {
 }
 
 // ---------------- main ----------------
-/** "add 272 to instamart", "100 add to existing instamart", "add to swiggy 1.5k" → { amount, target }: top up a row that's already there. Otherwise null. */
+/** "add 272 to instamart", "100 add to existing instamart", "181 existing instamart", "add to swiggy 1.5k" → { amount, target }: top up a row that's already there. Otherwise null. */
 const ADD_AMT = "(\\d[\\d,]*(?:\\.\\d+)?\\s*(?:k|l|lakhs?|cr|crore)?)", ADD_TO = "(?:to|in|into|on)";
 const ADD_FORMS = [
   [new RegExp(`^(?:add|plus)\\s+${ADD_AMT}\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],        // add 272 to instamart
   [new RegExp(`^${ADD_AMT}\\s+(?:add|plus|more)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],  // 100 add to instamart
   [new RegExp(`^(?:add|plus)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+?)\\s+${ADD_AMT}$`), 2, 1],        // add to instamart 100
+  // The word "existing" on its own is enough: "181 existing instamart", "add 181 existing instamart", "existing instamart 181".
+  [new RegExp(`^(?:(?:add|plus)\\s+)?${ADD_AMT}\\s+(?:(?:add|plus|more)\\s+)?(?:${ADD_TO}\\s+)?((?:(?:the|my)\\s+)?existing\\s+.+)$`), 1, 2],
+  [new RegExp(`^(?:(?:add|plus)\\s+)?(?:${ADD_TO}\\s+)?((?:(?:the|my)\\s+)?existing\\s+.+?)\\s+${ADD_AMT}$`), 2, 1],
 ];
 export function parseAddTo(piece) {
   const text = normalize(piece).trim();
