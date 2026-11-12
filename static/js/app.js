@@ -1908,7 +1908,8 @@ function viewAccounts() {
       { key: "opening_balance", label: "Opening balance", type: "number", width: 130 },
       { key: "opening_period", label: "From (YYYY-MM)", type: "text", width: 120 },
       { key: "balance", label: "Current balance (savings)", type: "number", width: 170 },
-      { key: "closed_from", label: "Closed from (YYYY-MM)", type: "text", width: 150 }] });
+      { key: "closed_from", label: "Closed from (YYYY-MM)", type: "text", width: 150 },
+      { key: "last4", label: "Last 4 digits (for SMS)", type: "text", width: 160 }] });
   logoList();
 }
 
@@ -1938,9 +1939,8 @@ function viewYear() {
       <div class="metric"><div class="label">Invested</div><div class="value">${money(t.investments)}</div><div class="sub">not counted as spending</div></div>
     </div>
     <div class="card"><h2>Spending and money in, by month</h2>
-      <p class="muted">Two charts, each with its own scale so neither is flattened by the other. Months line up vertically.</p>
-      <h3 class="chart-h">Spending</h3><div id="ychart"></div>
-      <h3 class="chart-h">Money in</h3><div id="ichart"></div>
+      <p class="muted">Bars are what went out; the line is what came in. Where the line sits above a bar, that month added to savings.</p>
+      <div id="ychart"></div>
       <h3 class="chart-h">Net monthly burn</h3><div id="bchart"></div></div>
     <div class="card"><h2>Year at a glance</h2><p class="muted">Click a month to open it. Notes save as you type.</p>
       <div class="yt-wrap"><table class="yt"><thead><tr><th class="rowh"></th>${ms.map((m) => `<th><a href="#" data-goto="${m.period}">${m.label}</a></th>`).join("")}<th>${year}</th></tr></thead><tbody>
@@ -1961,18 +1961,14 @@ function viewYear() {
       else if (text) await store.save({ id: existing ? existing.id : undefined, type: "note", period, data: { period, text } });
     }, 600);
   }));
+  // One chart, one scale: spending stacked as bars, money in as a line, so the gap between them is the month's surplus.
   stackedBars($("#ychart"), {
-    title: `Regular expense, one-offs and annual items, ${year}`,
+    title: `Spending against money in, ${year}`, height: 280,
     labels: ms.map((m) => m.label.slice(0, 3)),
     stacks: [{ name: "Regular expense", color: "var(--series-1)", values: ms.map((m) => v(m, "regular_expense")) },
              { name: "One-off expense", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_expense")) },
              { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
-  });
-  stackedBars($("#ichart"), {
-    title: `Regular income and additional inflow, ${year}`, height: 190,
-    labels: ms.map((m) => m.label.slice(0, 3)),
-    stacks: [{ name: "Regular income", color: "var(--series-3)", values: ms.map((m) => v(m, "regular_inflow")) },
-             { name: "Additional inflow", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_inflow")) }],
+    line: { name: "Money in (regular + additional)", color: "var(--series-3)", values: ms.map((m) => { const a = v(m, "regular_inflow"), b = v(m, "oneoff_inflow"); return a == null && b == null ? null : (a || 0) + (b || 0); }) },
   });
   // Net burn bars + running average. Months after the last one with data are projected:
   // a straight-line trend of the actual burns fills them in, and the average carries on (dashed).

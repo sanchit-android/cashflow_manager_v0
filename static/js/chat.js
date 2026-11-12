@@ -337,6 +337,13 @@ export function openChat({ accountId, focus = true } = {}) {
 
   wrap.querySelector("form").onsubmit = (e) => { e.preventDefault(); submit(); };
   input.addEventListener("input", suggest);
+  // Pasting bank alerts: a single-line box would glue several alerts together, so read the clipboard ourselves.
+  input.addEventListener("paste", (e) => {
+    const t = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+    if (!/\n/.test(t.trim()) || !isBankAlert(t)) return;
+    e.preventDefault(); input.value = ""; sugEl.innerHTML = "";
+    msgs.push({ who: "me", text: t.trim() }); current = t.trim(); render(); enter(t);
+  });
   input.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     e.preventDefault(); e.stopPropagation();
