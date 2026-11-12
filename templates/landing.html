@@ -1,20 +1,20 @@
 {% extends "base.html" %}{% load static %}
 {% block title %}PlannedOut — Free Private Budget &amp; Cash-Flow Planner (Spreadsheet-Style, Encrypted){% endblock %}
-{% block description %}Know if this month adds to your savings or eats into them. Excel-like entry, monthly analytics, savings projections and runway, with data encrypted in your browser. Free. No bank linking, no SMS reading.{% endblock %}
+{% block description %}Know if this month adds to your savings or eats into them. Log spending by typing a sentence or in an Excel-like grid, monthly analytics, savings projections and runway, with data encrypted in your browser. Free. No bank linking, no SMS reading.{% endblock %}
 {% block body %}
 {% include "_site_header.html" %}
 {% include "_banner.html" %}
 <main class="wrap landing">
   <section class="hero hero-split"><div>
     <h1>Know whether this month adds to your savings or eats into them.</h1>
-    <p class="lead">PlannedOut is a free, private cash-flow planner. Enter money like you would in Excel, get analytics and future projections automatically, and keep your data encrypted so only you can read it.</p>
+    <p class="lead">PlannedOut is a free, private cash-flow planner. Type “450 swiggy, 230 uber” or enter money like you would in Excel, get analytics and future projections automatically, and keep your data encrypted so only you can read it.</p>
     <p class="muted">Earning a salary? See how much more you can safely spend. Living off savings? See exactly how long they last.</p>
     <p class="hero-actions">{% if user.is_authenticated %}<a href="/app"><button class="primary">Open Dashboard</button></a>{% else %}<a href="/app?local=1"><button class="primary">Start free, no sign-up</button></a> <a href="/app?demo=1"><button type="button">Try live demo</button></a>{% endif %} <span class="muted small">No bank login · No SMS access · No ads</span></p>
   </div>{% include "illus/hero.html" %}</section>
 
   <section aria-labelledby="inside">
     <h2 id="inside">What a month looks like inside PlannedOut</h2>
-    <p class="lead">One screen tells you whether the month added to your savings or drew them down, how your balance moved from opening to closing, and lets you enter or paste transactions in an Excel-like sheet across bank accounts, credit cards and investments.</p>
+    <p class="lead">Home leads with one number, how much is free to spend this month after investing, plus a short to-do list of cards to bill and payments still due. Below it sits one ledger for all your bank accounts, credit cards and investments, and beside it an assistant you can type entries and questions into.</p>
     <div class="shots-grid">
       {% include "illus/shot_month.html" with eager=True %}
       {% include "illus/shot_sheet.html" %}
@@ -29,11 +29,22 @@
     <p><a href="/features/">See every feature →</a> · <a href="/themes/">Browse all 15 themes →</a> · <a href="/changelog/">What's new →</a></p>
   </section>
 
+  <section aria-labelledby="chat" class="card gsec">
+    <div>
+      <h2 id="chat">Log it and ask it in plain words</h2>
+      <p>Type <code>450 swiggy hdfc yesterday, 230 uber</code> and both rows are saved, categorised and flashed in your sheet, with one-tap Undo. Paste a bank SMS or UPI alert and it becomes a row, matched to your account by its last 4 digits.</p>
+      <p>Ask <code>food this month vs october</code>, <code>top merchants</code>, <code>runway</code> or <code>what's left to pay</code> and get an answer with a chart and a <em>Show rows</em> button. Pin any answer to Home and it updates every month.</p>
+      <p>The assistant runs on your device. Nothing you type is sent to ChatGPT or any other AI service.</p>
+      <p class="hero-actions"><a href="/app?demo=1"><button type="button" class="primary">Try it in the live demo</button></a> <a href="/features/#assistant">Everything it understands →</a></p>
+    </div>
+    {% include "illus/chat.html" %}
+  </section>
+
   <section aria-labelledby="future" class="card gsec">
     <div>
       <h2 id="future">See where your money is heading</h2>
       <p>Most apps only show where your money went. PlannedOut also projects your savings year by year, up to any year you choose, using your real spending, yearly bills and inflation.</p>
-      <p>Try a what-if, such as spending 20% less, dropping a fixed commitment or adding income, and see the difference straight away.</p>
+      <p>Drag the what-if sliders beside the chart (spend less on flexible items, add an expense, add income) and see the difference straight away.</p>
       <p><a href="/savings-runway-calculator/">Planning a career break or sabbatical? →</a></p>
       <p><a href="/calculators/">Free calculators:</a> <a href="/calculators/savings-runway/">Savings runway</a> · <a href="/calculators/emergency-fund/">Emergency fund</a> · <a href="/calculators/sinking-fund/">Sinking fund</a> · <a href="/calculators/50-30-20-budget/">50/30/20 split</a></p>
     </div>
@@ -55,6 +66,7 @@
     <table class="compare">
       <thead><tr><th scope="col"></th><th scope="col">Excel / Google Sheets</th><th scope="col">Typical expense apps</th><th scope="col">PlannedOut</th></tr></thead>
       <tbody>
+        <tr><th scope="row">Log by typing a sentence</th><td>No</td><td>Some, via a cloud AI</td><td>Yes, on your device</td></tr>
         <tr><th scope="row">Fast, grid-style entry</th><td>Yes</td><td>One form per expense</td><td>Yes, with formulas and paste</td></tr>
         <tr><th scope="row">Automatic monthly analytics</th><td>Build it yourself</td><td>Mostly</td><td>Yes</td></tr>
         <tr><th scope="row">Future projections and runway</th><td>Build it yourself</td><td>Rarely</td><td>Yes, with what-ifs</td></tr>
@@ -90,8 +102,8 @@
     <h2 id="how">How it works</h2>
     <ol class="steps">
       <li><strong>Start right away</strong>: no sign-up. Your data is encrypted and kept in your browser. Create a free account (Google or an email code) whenever you want backup and sync.</li>
-      <li><strong>Add your month</strong>: type, paste from Excel, or import a CSV / .xlsx / bank statement.</li>
-      <li><strong>Read the verdict</strong>: surplus or shortfall, where it went, and what's trending up.</li>
+      <li><strong>Add your month</strong>: type a sentence like “450 swiggy”, paste a bank alert or rows from Excel, or import a CSV / .xlsx / bank statement.</li>
+      <li><strong>Read the verdict</strong>: free to spend, where it went, and what's trending up. Or just ask.</li>
       <li><strong>Plan ahead</strong>: project savings year by year and try what-ifs.</li>
     </ol>
     </div>
@@ -101,7 +113,7 @@
   <section aria-labelledby="play" class="card gsec">
     <div>
     <h2 id="play">Bored of budgeting? Smash it.</h2>
-    <p>A little cloud on the Month screen opens a game of Pong played with your own month. Every figure, row and card becomes a brick, and bigger amounts score more. Press Reset and it's all back, untouched and still encrypted.</p>
+    <p>A little cloud in Settings opens a game of Pong played with your own month. Every figure, row and card becomes a brick, and bigger amounts score more. Press Reset and it's all back, untouched and still encrypted.</p>
     <p class="hero-actions"><a href="/app?demo=1"><button type="button" class="primary">Play it in the live demo</button></a> <a href="/budget-games/">How the games work →</a></p>
     </div>
     {% include "illus/pong.html" %}

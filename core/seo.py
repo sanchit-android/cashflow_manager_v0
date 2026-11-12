@@ -13,12 +13,17 @@ TAGLINE = "Private cash-flow planner: spreadsheet-style entry, real analytics, f
 
 # The core benefits, reused on the landing page and in llms.txt.
 BENEFITS = [
+    ("Just type it, like a message",
+     "Type \"450 swiggy hdfc yesterday, 230 uber\" and both rows are saved, categorised and flashed in your sheet, "
+     "with one-tap Undo. Ask \"food this month vs october\" or \"what's left to pay\" and get an answer with a chart. "
+     "The assistant runs on your device, so nothing you type is sent to an AI service."),
     ("Easy as a spreadsheet",
      "Type into an Excel-like grid: formulas like =1200+340, copy-paste from Excel or Google Sheets, "
      "fill-down, undo. Bring your old sheet with you: import .xlsx or CSV files and bank statements."),
     ("Analytics that answer real questions",
      "Each month gets a clear verdict: did it add to your savings or eat into them? See fixed vs day-to-day "
-     "spending, categories trending up, top merchants, savings rate and a full year at a glance."),
+     "spending, categories trending up, top merchants, savings rate and a full year at a glance. Home leads with "
+     "one number, free to spend after investing, plus a to-do list of cards to bill and payments still due."),
     ("See your future, not just your past",
      "Project your savings year by year until any year you choose. See how many months your money lasts, "
      "and try what-ifs: cut spending 20%, drop a commitment, add income."),
@@ -48,6 +53,13 @@ HOME_FAQ = [
     ("Do I need to link my bank account or allow SMS access?",
      "No. PlannedOut never asks for bank logins, account aggregator consent or SMS permissions. You type "
      "entries, paste them, or import a CSV / Excel file that you downloaded yourself."),
+    ("Can I add expenses by typing a sentence?",
+     "Yes. The assistant sits beside your sheet on every page (and behind the ＋ button on a phone). Type entries like "
+     "\"450 swiggy, 230 uber\", paste a bank SMS or UPI alert, or ask questions like \"top merchants this month\" "
+     "or \"runway\". It is a rule-based parser that runs in your browser: your words are never sent to ChatGPT or any other AI service."),
+    ("Can I paste bank SMS or UPI alerts?",
+     "Yes, by copy and paste. Paste one or several alerts (\"Rs.450.00 debited from A/c XX1234 … to SWIGGY\") and PlannedOut "
+     "matches the account by its last 4 digits or bank name and saves the rows. It never asks for permission to read your SMS inbox."),
     ("Can I import my existing Excel budget?",
      "Yes. You can import .xlsx and CSV files, including a workbook with one sheet per month and bank "
      "statement exports. The file is read inside your browser and never uploaded as-is."),
@@ -59,7 +71,7 @@ HOME_FAQ = [
      "day-to-day spending and annual bills, then projects your savings into future years and shows how many "
      "months your money would last if income stopped."),
     ("Is there anything fun in PlannedOut?",
-     "Yes. A small cloud on the Month screen opens a games menu. Pong turns every figure and box on screen into "
+     "Yes. A small cloud on the Games card in Settings opens a games menu. Pong turns every figure and box on screen into "
      "bricks you smash with a ball. Reset puts everything back, and your data is never changed. Try it in the live demo."),
     ("What happens if I forget my passphrase?",
      "Use one of your recovery keys. If you lose the passphrase and every recovery key, nobody can decrypt "
@@ -325,6 +337,8 @@ GUIDES = {
             ("Fast ways to add your spending without SMS scraping",
              ["Type into an Excel-like monthly grid with formulas like =1200+340",
               "Copy and paste rows straight from Excel, Google Sheets or a bank table",
+              "Paste a bank SMS or UPI alert yourself and it becomes a row, matched to your account by its last 4 digits",
+              "Type a sentence like \"450 swiggy hdfc, 230 uber\" into the on-device assistant",
               "Import .xlsx workbooks or CSV bank statement exports right in your browser",
               "Repeat fixed monthly items (rent, EMIs, SIPs, staff salaries) in seconds"]),
             ("Encrypted before it leaves your device",
@@ -339,7 +353,7 @@ GUIDES = {
             "rows": [
                 ["Phone SMS inbox permission", "Required (reads bank alerts & messages)", "Often requested alongside AA", "Never requested"],
                 ["Bank login / OTP consent", "Sometimes", "Required to link accounts", "Never requested"],
-                ["How transactions are added", "Auto-parsed from SMS alerts", "Pulled from linked bank feeds", "Type, copy-paste from Excel, or import CSV / .xlsx in browser"],
+                ["How transactions are added", "Auto-parsed from SMS alerts", "Pulled from linked bank feeds", "Type a sentence, paste an alert yourself, copy-paste from Excel, or import CSV / .xlsx in browser"],
                 ["Can the company read your spending?", "Yes — stored in plaintext on server", "Yes — decrypted by the FIU app", "No — encrypted in browser (AES-256-GCM)"],
                 ["Personal loan & credit card spam", "Common revenue model", "Common cross-selling", "Zero ads, zero cross-selling"],
             ],
@@ -830,15 +844,15 @@ GUIDES = {
     "budget-games": {
         "title": "Budget Games: Play Pong With Your Monthly Spending (Free, Private)",
         "h1": "Budgeting is serious. Smashing your spending with a ball isn't.",
-        "description": "PlannedOut turns your month screen into a game of Pong: every figure and box becomes a brick "
+        "description": "PlannedOut turns your screen into a game of Pong: every figure and box becomes a brick "
                        "you can smash. A fun, free budget app with a game mode. Nothing is changed, nothing leaves your browser.",
         "nav": "Budget games",
-        "intro": "Most budget apps are about as fun as a tax form. PlannedOut has a small cloud on the Month screen. "
+        "intro": "Most budget apps are about as fun as a tax form. PlannedOut has a small games cloud in Settings. "
                  "Hover it, pick Pong, and every rupee figure, row and card on screen becomes a brick to smash. "
                  "Press Reset and your month is back exactly as it was.",
         "sections": [
             ("How the game works",
-             ["Hover or tap the little cloud next to the month title and pick Pong",
+             ["Open Settings, hover or tap the little cloud on the Games card and pick Pong",
               "Your paddle follows your mouse or finger; the computer plays the other side",
               "The ball breaks every piece of text, number and box it hits",
               "Bigger amounts are worth more points: smashing ₹18,460 earns 185",
@@ -846,7 +860,7 @@ GUIDES = {
               "Clear the whole screen to win; three balls per game"]),
             ("Your data is never touched",
              ["The game draws a copy of your screen on a canvas; your entries are only hidden while you play",
-              "Reset, Escape or 'Back to month' restores the screen instantly",
+              "Reset or Escape restores the screen instantly",
               "Key presses are blocked while you play, so nothing in your sheet can be edited by accident",
               "Nothing about the game is sent anywhere: no amounts, no screenshots, no scores",
               "Your data stays encrypted in your browser, as always"]),
@@ -861,7 +875,7 @@ GUIDES = {
             "intro": "Works on laptop and phone. On a tall phone screen the paddles run along the top and bottom.",
             "headers": ["Action", "Laptop", "Phone"],
             "rows": [
-                ["Open the games menu", "Hover the cloud next to the month title", "Tap the cloud"],
+                ["Open the games menu", "Settings → hover the cloud on the Games card", "Settings → tap the cloud"],
                 ["Serve", "Click or press Space", "Tap the screen"],
                 ["Move your paddle", "Move the mouse, or arrow keys", "Drag your finger"],
                 ["Stop and restore the screen", "Reset button or Escape", "Reset button"],
@@ -872,7 +886,7 @@ GUIDES = {
              "No. The game only draws a copy of what's on screen and hides the originals while you play. Reset puts "
              "everything back. It never reads or writes your saved records."),
             ("Can I try the game without signing up?",
-             "Yes. Open the live demo, go to the Month screen and hover the cloud next to the month title. The demo "
+             "Yes. Open the live demo, open Settings from the ☰ menu and hover the cloud on the Games card. The demo "
              "is loaded with sample household data you can smash."),
             ("Is anything about the game sent to PlannedOut?",
              "Only an anonymous count that the game was opened, the same way we count which screens are used. "
@@ -890,151 +904,151 @@ GUIDE_SHOTS = {
     "budget-planner-india": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly budget overview in Indian rupees showing ₹1,54,743 drawn from savings, 3-month average burn and runway, opening to closing balance movement across regular income, regular expenses and annual items, and card bills paid",
-            "caption": "Monthly verdict & balance bridge in ₹: see whether the month added to savings, how your balance moved across regular income, regular expenses and annual items, plus custom tiles like card bills paid.",
+            "alt": "PlannedOut Home in Indian rupees showing ₹18,460 free to spend after investing ₹45,000, ₹14,200 of commitments still due, a to-do list to bill ICICI and SBI cards, and the assistant logging '450 swiggy hdfc yesterday, 230 uber'",
+            "caption": "Home in ₹: one free-to-spend number after your SIPs, a to-do list for card bills and dues like school fees, and an assistant you can type entries into.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut Indian household transactions sheet showing Main account, HDFC, ICICI, SBI and Axis credit cards, Investments, Fixed Savings, ETF/MF, and monthly fixed rows for Rent, Househelps, Tuitions and Family in rupees",
-            "caption": "Transactions sheet below the summary: filter by bank account, Indian credit cards (HDFC, ICICI, SBI, Axis) or investments (ETF, MF, Fixed Savings), and log rent, househelp salaries, tuitions and card bills in an Excel-like grid.",
+            "alt": "PlannedOut Indian household ledger with Main account, HDFC Regalia, ICICI Amazon Pay and SBI Cashback cards, an emergency liquid fund and a Nifty 50 MF, and rows for rent, cook and househelp, parents' support and SIPs in rupees",
+            "caption": "One ledger for every account: bank, HDFC / ICICI / SBI cards and investments together, with an Account column. Log rent, househelp, family support and SIPs in an Excel-like grid.",
         },
     ],
     "excel-budget-alternative": [
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut Excel-style transactions grid with cell reference A1, fx formula bar, column letters A to G, filter dropdowns, and rows for Card total, Regular income and Monthly fixed expenses",
-            "caption": "Familiar Excel-like grid: cell references (A1), formula bar (fx), column filters on Date, Description, Type, Category, Kind and Amount, plus account and card tabs above.",
+            "alt": "PlannedOut Excel-style ledger with cell reference A1, fx formula bar, column letters A to H, filter dropdowns, and Date, Description, Account, Type, To/from, Category, Kind and Amount columns",
+            "caption": "A familiar Excel-like grid: cell references (A1), a formula bar (fx), column filters, and an Account column so every account sits in one sheet.",
         },
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut automatic monthly summary showing savings verdict, balance movement from opening to closing, 2026 averages and custom formula tiles",
-            "caption": "Built automatically from your sheet: monthly savings verdict, opening-to-closing balance movement, yearly averages and custom metric tiles — no manual chart or formula upkeep.",
+            "alt": "PlannedOut Home built automatically from the sheet: free to spend after investing, regular expense and savings rate tiles with 2026 averages, a to-do list and pinned answers",
+            "caption": "Built automatically from your sheet: free to spend, metric tiles with yearly averages, a to-do list and pinned answers, with no charts or formulas to maintain.",
         },
     ],
     "private-expense-tracker": [
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut encrypted transactions sheet in the browser showing bank accounts, credit cards, investments and an Excel-style expense grid",
-            "caption": "Inside PlannedOut: every description, category, card total and balance you enter in the sheet is encrypted in your browser (AES-256-GCM) before it is saved.",
+            "alt": "PlannedOut encrypted ledger in the browser showing bank accounts, credit cards, investments and an Excel-style expense grid beside an assistant that runs on your device",
+            "caption": "Inside PlannedOut: every row is encrypted in your browser (AES-256-GCM) before it's saved, and the assistant beside it runs on your device, not on an AI server.",
         },
     ],
     "savings-runway-calculator": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut month view showing ₹1,54,743 from savings and a 3-month average burn of ₹2,64,141 with savings runway in months",
-            "caption": "Inside PlannedOut: when a month spends more than comes in, the top card immediately shows your 3-month average burn and how many months your bank and savings balances will last.",
+            "alt": "PlannedOut Home showing free to spend after investing, In, Out and Due for the month, a day-of-month progress bar and an assistant that answers questions like 'runway'",
+            "caption": "Inside PlannedOut: Home tells you what's left this month. Ask the assistant “runway”, or pin it, to see how many months your savings last at your 3-month average burn.",
         },
     ],
     "annual-expenses-planner": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut balance movement card separating annual items from regular monthly expenses between opening and closing balance",
-            "caption": "Inside PlannedOut: 'How your balance moved' keeps Annual items (−₹34,635) separate from Regular expense (−₹1,67,358), so yearly bills never distort your monthly spending average.",
+            "alt": "PlannedOut Home with free to spend, commitments still due, a to-do list for school tuition and card bills, and a 'How your balance moved' breakdown from opening to closing balance",
+            "caption": "Inside PlannedOut: Home shows what's still due this month, and “How your balance moved” keeps annual items apart from regular spending, so yearly bills don't distort your average.",
         },
     ],
     "budget-app-without-sms-india": [
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut manual and spreadsheet-style entry for Indian bank accounts and HDFC, ICICI, SBI and Axis credit cards without SMS reading",
-            "caption": "No SMS scraping needed: track your bank account, HDFC / ICICI / SBI / Axis credit card totals, and recurring monthly items (rent, househelps, tuitions) in a fast Excel-style grid.",
+            "alt": "PlannedOut ledger for Indian bank accounts and HDFC, ICICI and SBI credit cards, filled by typing and pasting instead of reading SMS",
+            "caption": "No SMS scraping: type “450 swiggy hdfc” into the assistant, paste a bank alert yourself, or enter rows in the grid. Every account sits in one ledger.",
         },
     ],
     "emi-budget-planner-india": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut month summary showing regular income minus regular expense, card bills paid with 2026 average, and opening to closing balance movement",
-            "caption": "Monthly verdict & card bills: see regular income minus regular expense, card bills paid against your yearly average, and how opening balance moved to closing.",
+            "alt": "PlannedOut Home showing free to spend, regular income minus regular expense, commitments still due and card bills paid with 2026 averages, plus a to-do list to bill cards",
+            "caption": "Fixed commitments at a glance: see what's still due, card bills paid against your yearly average, and what's free to spend once commitments are covered.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut transactions grid showing HDFC, ICICI, SBI and Axis credit card bills rolled into the main bank account alongside monthly fixed commitments",
-            "caption": "Credit cards & fixed commitments in one place: see each card's bill (HDFC, ICICI, SBI, Axis) alongside monthly fixed expenses so fixed outflows never sneak up on you.",
+            "alt": "PlannedOut ledger showing HDFC, ICICI and SBI credit card spending alongside the main bank account's monthly fixed commitments like rent and maintenance",
+            "caption": "Cards and fixed commitments in one ledger: card spends and monthly fixed rows like rent and society maintenance side by side, so fixed outflows never sneak up on you.",
         },
     ],
     "private-ynab-mint-alternative": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut cash-flow dashboard showing monthly savings verdict, opening-to-closing balance movement, and customizable metric tiles",
-            "caption": "Cash-flow verdict & balance bridge: see whether the month added to savings or drew them down, plus custom tiles — all computed in your browser from encrypted data.",
+            "alt": "PlannedOut cash-flow Home showing free to spend after investing, metric tiles, a to-do list, pinned answers and an on-device assistant",
+            "caption": "Free to spend, to-dos and pinned answers, all computed in your browser from encrypted data. The assistant runs on your device too.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut spreadsheet-speed transactions grid with bank accounts, credit cards, investments and formula bar",
-            "caption": "Spreadsheet-speed entry without Plaid: manage bank accounts, credit cards and investment accounts in an Excel-like grid with formulas, copy-paste and CSV / .xlsx import.",
+            "alt": "PlannedOut spreadsheet-speed ledger with bank accounts, credit cards, investments, an Account column and a formula bar",
+            "caption": "Spreadsheet-speed entry without Plaid: every account in one Excel-like grid with formulas, copy-paste, CSV / .xlsx import, or typed sentences.",
         },
     ],
     "fire-retirement-runway-planner": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly drawdown and runway view showing 3-month average burn, bank and savings balance, and months of runway remaining",
-            "caption": "Inside PlannedOut: live drawdown tracking with your 3-month average burn, separate annual bills, and exact runway based on your real bank and savings balances.",
+            "alt": "PlannedOut Home showing free to spend after investing, In, Out and Due for the month and an assistant that answers questions like 'runway' and 'savings rate'",
+            "caption": "Inside PlannedOut: track the month on Home, then ask “runway” or “savings rate”, or pin them, to see how long your money lasts at your real burn.",
         },
     ],
     "first-salary-budget-planner-india": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly summary in rupees showing in-hand salary vs monthly fixed costs, regular expenses, investments and net savings",
-            "caption": "Know where your paycheck went: see your in-hand salary, fixed commitments, everyday spending and how much you added to savings in ₹.",
+            "alt": "PlannedOut Home in rupees showing what's free to spend after investing, In and Out for the month, savings rate, and a to-do list of bills still due",
+            "caption": "Know where your paycheck went: what's free to spend after your SIP, bills still due, and your savings rate, in ₹.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut transactions sheet for Indian earners with bank account, credit cards, ETF/MF investment tabs and monthly fixed expenses",
-            "caption": "Split your paycheck in an Excel-like sheet: track bank accounts, credit cards and starter SIPs (ETF/MF, Fixed Savings) without giving any app SMS access.",
+            "alt": "PlannedOut ledger for Indian earners with a bank account, credit cards, an emergency fund and a Nifty 50 SIP, and rows for salary, rent and family support",
+            "caption": "Split your paycheck in an Excel-like sheet: salary, rent, family support and your first SIP in one ledger, with no SMS access needed.",
         },
     ],
     "festival-wedding-budget-planner-india": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut balance movement card separating annual festival and wedding items from regular monthly household expenses in rupees",
-            "caption": "Keep Diwali and wedding costs separate: 'How your balance moved' isolates Annual items (−₹34,635) from Regular expense (−₹1,67,358) so one festive month doesn't skew your average.",
+            "alt": "PlannedOut Home with free to spend, commitments still due and a 'How your balance moved' breakdown that keeps annual items apart from regular household spending",
+            "caption": "Keep Diwali and wedding costs separate: annual items are tracked apart from regular spending, so one festive month doesn't skew your average.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut sheet showing HDFC, ICICI, SBI and Axis credit card bills alongside main account and fixed household commitments",
-            "caption": "Watch festive card spend in one place: see HDFC, ICICI, SBI and Axis credit card totals alongside your bank balance before the statement date arrives.",
+            "alt": "PlannedOut ledger showing HDFC, ICICI and SBI credit card spending alongside the main account and fixed household commitments",
+            "caption": "Watch festive card spend in one place: every card's rows sit in the same ledger as your bank account, and Home reminds you which cards to bill.",
         },
     ],
     "child-education-savings-planner-india": [
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut Indian family sheet showing monthly fixed Tuitions, ETF/MF and Fixed Savings investment tabs, and bank account rows in rupees",
-            "caption": "School fees & education investments together: track monthly tuitions in your sheet and monitor ETF/MF and Fixed Savings tabs for your child's future corpus.",
+            "alt": "PlannedOut Indian family ledger with an emergency liquid fund and a Nifty 50 MF, monthly fixed household rows and bank account rows in rupees",
+            "caption": "School costs and investments together: log fees and household costs in the ledger, and watch SIP and fund balances grow alongside.",
         },
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly overview showing regular expenses, separate annual school fee items and savings balance in rupees",
-            "caption": "Separate April school fees from monthly living costs: annual items sit in their own bucket and feed straight into your multi-year projections.",
+            "alt": "PlannedOut Home with a to-do list showing School Tuition & Bus ₹12,000 still due, plus free to spend after investing in rupees",
+            "caption": "School fees never sneak up: Home lists them as still due until paid, and annual fees feed straight into your multi-year projection.",
         },
     ],
     "indian-household-budget-template": [
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut Indian household budget spreadsheet template showing Rent, Househelps, Tuitions, Family and credit card totals in rupees",
-            "caption": "Ready-made Indian household sheet: cell reference (A1), formula bar (fx), tabs for Main account, HDFC/ICICI/SBI/Axis cards and Investments, plus rows for Rent, Househelps and Tuitions.",
+            "alt": "PlannedOut Indian household ledger with rent, cook and househelp, parents' support, groceries and card spending in rupees",
+            "caption": "A ready-made Indian household sheet: cell references (A1), a formula bar (fx), chips for the main account, cards and investments, and rows for rent, househelp and family.",
         },
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut automatic monthly summary generated from the household budget sheet in Indian rupees",
-            "caption": "No manual chart upkeep: your monthly savings verdict, opening-to-closing balance bridge and yearly averages update automatically as you type.",
+            "alt": "PlannedOut Home generated automatically from the household ledger in Indian rupees",
+            "caption": "Nothing to maintain: free to spend, metric tiles, to-dos and pinned answers update as you type.",
         },
     ],
     "freelance-irregular-income-budget": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly cash-flow view showing 3-month average burn, savings drawdown or surplus, and months of runway remaining",
-            "caption": "Built for uneven months: see your 3-month average burn and exact months of runway across your bank and savings balances when client payouts fluctuate.",
+            "alt": "PlannedOut Home showing free to spend, In, Out and Due for the month, and an assistant that answers 'runway' and 'spend trend'",
+            "caption": "Built for uneven months: see what's free this month, then ask “runway” to check how many months your buffer covers when payouts fluctuate.",
         },
         {
             "tpl": "illus/shot_sheet.html",
-            "alt": "PlannedOut spreadsheet-style cash-flow grid for logging client income, fixed baseline expenses and tax reserves",
-            "caption": "Log client invoices and baseline costs fast: use formulas, paste from bank CSVs, and keep tax or reserve accounts in separate tabs.",
+            "alt": "PlannedOut spreadsheet-style ledger for logging client income, fixed baseline expenses and reserve accounts",
+            "caption": "Log client invoices and baseline costs fast: use formulas, paste from bank CSVs, type a sentence, and keep tax or reserve accounts alongside.",
         },
     ],
     "sinking-funds-guide": [
         {
             "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut monthly balance bridge showing annual sinking fund items kept separate from regular monthly spending",
-            "caption": "Sinking funds built in: Annual items are tracked separately from Regular monthly expenses so predictable yearly bills never look like a surprise.",
+            "alt": "PlannedOut Home with commitments still due and a 'How your balance moved' breakdown keeping annual sinking fund items apart from regular spending",
+            "caption": "Sinking funds built in: annual items are tracked apart from regular expenses, so predictable yearly bills never look like a surprise.",
         },
     ],
 }
@@ -1358,15 +1372,32 @@ THEMES_PAGE = {
 
 # Each feature: (anchor, heading, summary, bullet points)
 FEATURES = [
+    ("assistant", "An assistant that logs and answers",
+     "Type entries and questions in plain words. It sits beside your sheet on every page and runs on your device.",
+     ["Log several entries at once: \"450 swiggy hdfc yesterday, 230 uber\" saves both, categorised, with Undo",
+      "Add to an existing row (\"add 200 to swiggy\"), set up a card, or mark a card billed by typing",
+      "Paste one or several bank SMS / UPI alerts; accounts are matched by last 4 digits or bank name",
+      "Ask about totals, category totals, trends, top merchants, savings rate, two months side by side, runway or what's left to pay",
+      "Answers come as cards with charts, follow-up suggestions and Show rows, which filters your sheet",
+      "Pin any answer to Home or Review; it re-runs for the current month",
+      "Go anywhere by typing: \"go to plan\", \"import\", \"show hsbc\", \"theme night\", \"dark mode\"",
+      "Command history, a clear-chat button, and ⌘K or / to jump into the box",
+      "Rule-based and local: nothing you type goes to an AI service"]),
     ("sheet", "A spreadsheet you don't have to build",
      "Type income and spending into an Excel-like grid instead of filling forms.",
      ["Formulas in any amount cell, like =1200+340 or =4500*2",
       "Copy and paste from Excel or Google Sheets, fill-down and undo",
       "Import .xlsx or CSV files and bank statement exports; the file is read in your browser",
+      "One ledger for all accounts, with an Account column, or filter to one account with a click",
+      "Drag a file onto the ledger to import it; the formula bar shows only while you edit a cell",
       "Free downloadable Excel and CSV budget templates"]),
     ("insights", "Answers, not just records",
      "Every month gets a clear verdict, and the numbers that explain it.",
-     ["Did this month add to your savings or eat into them?",
+     ["Home leads with one number: free to spend this month, after what you've invested",
+      "A to-do list brings together cards to bill, payments still due, uncategorised rows and month close",
+      "Review: a board you arrange yourself, with small, medium or large cards, for a month, 3 months, 6 months or a year",
+      "Income and spending on one shared-scale chart, so the gap is obvious",
+      "Did this month add to your savings or eat into them?",
       "Fixed commitments vs day-to-day spending vs yearly bills",
       "Categories trending up, top merchants and savings rate",
       "Custom metrics: build your own tiles with formulas and drag them into the order you want",
@@ -1375,7 +1406,8 @@ FEATURES = [
      "See where your savings are heading, not just where they've been.",
      ["Year-by-year savings projection to any year you choose",
       "Months of runway if income stopped, from your real 3-month average burn",
-      "What-ifs: cut spending, drop a commitment, add income"]),
+      "What-if sliders beside the projection chart: cut flexible spending, add an expense, add income",
+      "Biggest levers: which commitments change your future the most"]),
     ("accounts", "Accounts, cards and month close",
      "Track bank accounts, credit cards and loans the way they really work.",
      ["Credit card bills tracked separately from the spending on them",
@@ -1393,8 +1425,8 @@ FEATURES = [
       "Recovery keys if you forget your passphrase, and lock/unlock on shared devices",
       "No bank login, no SMS reading, no account aggregator, no ads",
       "Delete your account and every record in one click"]),
-    ("games", "Games on your month screen",
-     "A small cloud on the Month screen opens games you play with the figures on screen.",
+    ("games", "Games, when you need a break",
+     "A small cloud in Settings opens games you play with the figures on screen.",
      ["Pong: every number, row and card becomes a brick, with points for bigger amounts",
       "Works with mouse, keyboard or touch, in every theme",
       "Reset puts the screen back instantly; your data is never changed",
@@ -1403,6 +1435,8 @@ FEATURES = [
     ("anywhere", "Works anywhere, in 20 currencies",
      "No install needed, on laptop or phone.",
      ["Runs in any modern browser; add it to your home screen like an app",
+      "A phone layout of its own: Home, Ledger, ＋ Add, Review and Ask, with a day-by-day list instead of a sideways grid",
+      "＋ Add stays open for several entries: type a sentence, paste an SMS, or use the calculator keypad",
       "20 currencies including INR (with ₹1,00,000 grouping), USD, GBP, EUR, AED and SGD",
       "Sync across devices with Google sign-in or an email code",
       "Try everything in the live demo first, without signing up"]),
@@ -1410,12 +1444,28 @@ FEATURES = [
 FEATURES_PAGE = {
     "title": "PlannedOut Features: Private Budget Planner With Projections, Themes & Encryption",
     "h1": "Everything PlannedOut does",
-    "description": "Spreadsheet-style entry with formulas, monthly insights, savings projections and runway, card "
+    "description": "An on-device assistant for entries and questions, spreadsheet-style entry with formulas, monthly insights, savings projections and runway, card "
                    "tracking, 15 themes with a custom theme builder, a Pong game mode, 20 currencies and browser-side encryption. Free.",
 }
 
 # Newest first. (date, title, points). Add an entry when you ship something visitors would notice.
 CHANGELOG = [
+    ("2026-11-12", "A cleaner app: Home, Ledger, Review and Plan", [
+        "Four tabs instead of nine: Home, Ledger, Review and Plan. Accounts, import, settings and sign-out live in the ☰ menu",
+        "The assistant is now a column beside your sheet on every page. Resize it or fold it to a slim rail",
+        "Home shows one number, free to spend after investing, with a How? breakdown and a to-do list for cards, dues and month close",
+        "Ledger shows all accounts together with an Account column, and you can drop a file on it to import",
+        "Review is a board you arrange: pick cards, size them, reorder them and choose month, 3M, 6M or year",
+        "Plan holds commitments, annual items and the projection, with what-if sliders beside the chart",
+        "Pin any assistant answer to Home or Review",
+        "On phones: Home, Ledger, ＋ Add, Review and Ask tabs, a day-by-day ledger list, and an Add sheet with Type and Keypad modes",
+        "Games moved to Settings"]),
+    ("2026-11-11", "Log and ask in plain words", [
+        "Type \"450 swiggy hdfc yesterday, 230 uber\" and both rows are saved, flashed in the sheet and undoable",
+        "Paste bank SMS or UPI alerts; accounts are matched by last 4 digits or bank name",
+        "Ask about totals, trends, top merchants, savings rate, runway or what's left to pay, and get charts back",
+        "Navigate and switch themes by typing, with command history and follow-up suggestions",
+        "It all runs in your browser. Messages it can't handle are logged with amounts, dates and accounts removed, to improve it"]),
     ("2026-11-02", "Games on the Month screen", [
         "A small cloud next to the month title opens a games menu",
         "Pong: smash every figure, row and card on screen with a ball, against the computer",
@@ -1607,7 +1657,11 @@ PRIVACY_FAQ = [
      "No. Every amount, description, category and balance is encrypted in your browser using AES-256-GCM before it is sent to our servers. Your key is derived from your vault passphrase using PBKDF2-SHA256 (600,000 iterations) and never leaves your device."),
     ("What metadata can PlannedOut see?",
      "Only what is needed to run the service and sync across devices: your email address, sign-in timestamps, record counts, record type (e.g. transaction), month period, and update timestamps."),
-    ("Does the game on the Month screen send my numbers anywhere?",
+    ("Does the chat assistant send what I type to an AI service?",
+     "No. The assistant is a rule-based parser that runs in your browser. When it can't understand a message, or you undo "
+     "what it saved, we keep the wording with every amount, date, number and account name replaced by a placeholder, "
+     "not linked to you, for 30 days."),
+    ("Does the game send my numbers anywhere?",
      "No. The game copies what's already on your screen into a canvas in your browser. No amounts, screenshots or "
      "scores are sent. We only count, anonymously, that the game was opened."),
     ("How do I delete my account and all encrypted records?",

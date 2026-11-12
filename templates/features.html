@@ -18,7 +18,7 @@
     <h2>{{ h }}</h2>
     <p>{{ summary }}</p>
     <ul>{% for p in points %}<li>{{ p }}</li>{% endfor %}</ul>
-    {% if anchor == "themes" %}<p><a href="/themes/">See all 15 themes →</a></p>{% elif anchor == "security" %}<p><a href="/privacy/">Exactly what we can and can't see →</a></p>{% elif anchor == "sheet" %}<p><a href="/excel-budget-alternative/">Coming from Excel? →</a></p>{% elif anchor == "games" %}<p><a href="/budget-games/">How the games work →</a> · <a href="/app?demo=1">Play Pong in the demo →</a></p>{% elif anchor == "projections" %}<p><a href="/calculators/savings-runway/">Try the free savings runway calculator →</a></p>{% endif %}
+    {% if anchor == "assistant" %}<p><a href="/app?demo=1">Try the assistant in the demo →</a> · <a href="/privacy/">What it sends (almost nothing) →</a></p>{% elif anchor == "themes" %}<p><a href="/themes/">See all 15 themes →</a></p>{% elif anchor == "security" %}<p><a href="/privacy/">Exactly what we can and can't see →</a></p>{% elif anchor == "sheet" %}<p><a href="/excel-budget-alternative/">Coming from Excel? →</a></p>{% elif anchor == "games" %}<p><a href="/budget-games/">How the games work →</a> · <a href="/app?demo=1">Play Pong in the demo →</a></p>{% elif anchor == "projections" %}<p><a href="/calculators/savings-runway/">Try the free savings runway calculator →</a></p>{% endif %}
   </section>
   {% endfor %}
   <section class="card">
