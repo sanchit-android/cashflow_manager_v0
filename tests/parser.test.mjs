@@ -191,6 +191,17 @@ test("add to an existing row", () => {
   assert.deepEqual(parseAddTo("181 existing instamart"), { amount: 181, target: "instamart" });
   assert.deepEqual(parseAddTo("add 181 existing instamart row"), { amount: 181, target: "instamart" });
   assert.deepEqual(parseAddTo("existing instamart 181"), { amount: 181, target: "instamart" });
+  for (const t of ["181 existing instamart", "181 to existing instamart", "existing instamart 181", "add 181 existing instamart row",
+    "instamart +181", "+181 instamart", "+ 181 to instamart", "181 more instamart", "181 more to instamart", "instamart 181 more",
+    "181 extra instamart", "add another 181 to instamart", "top up instamart 181", "top up instamart by 181", "increase instamart by 181",
+    "bump instamart by 181", "update instamart +181", "instamart add 181", "add 181 in instamart", "add rs 181 to instamart",
+    "add ₹181 to the instamart entry", "plus 181 on instamart", "181 add on existing instamart", "add 181/- to my earlier instamart"])
+    assert.deepEqual(parseAddTo(t), { amount: 181, target: "instamart" }, t);
+  assert.equal(parseAddTo("add 181 instamart"), null);
+  assert.equal(parseAddTo("1 more coffee 50"), null);
+  assert.equal(parseAddTo("salary 1.8 lakh on 31 oct"), null);
+  assert.equal(parseAddTo("invested 50k in mutual fund"), null);
+  assert.equal(parseAddTo("paid maid"), null);
   assert.equal(parseAddTo("450 swiggy"), null);
   assert.equal(parseAddTo("100 to mummy"), null);
   assert.equal(parseAddTo("added milk 60"), null);

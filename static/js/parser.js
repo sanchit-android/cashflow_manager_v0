@@ -321,26 +321,33 @@ function seedCategory(tokens) {
 }
 
 // ---------------- main ----------------
-/** "add 272 to instamart", "100 add to existing instamart", "181 existing instamart", "add to swiggy 1.5k" → { amount, target }: top up a row that's already there. Otherwise null. */
-const ADD_AMT = "(\\d[\\d,]*(?:\\.\\d+)?\\s*(?:k|l|lakhs?|cr|crore)?)", ADD_TO = "(?:to|in|into|on)";
-const ADD_FORMS = [
-  [new RegExp(`^(?:add|plus)\\s+${ADD_AMT}\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],        // add 272 to instamart
-  [new RegExp(`^${ADD_AMT}\\s+(?:add|plus|more)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+)$`), 1, 2],  // 100 add to instamart
-  [new RegExp(`^(?:add|plus)\\s+(?:more\\s+)?${ADD_TO}\\s+(.+?)\\s+${ADD_AMT}$`), 2, 1],        // add to instamart 100
-  // The word "existing" on its own is enough: "181 existing instamart", "add 181 existing instamart", "existing instamart 181".
-  [new RegExp(`^(?:(?:add|plus)\\s+)?${ADD_AMT}\\s+(?:(?:add|plus|more)\\s+)?(?:${ADD_TO}\\s+)?((?:(?:the|my)\\s+)?existing\\s+.+)$`), 1, 2],
-  [new RegExp(`^(?:(?:add|plus)\\s+)?(?:${ADD_TO}\\s+)?((?:(?:the|my)\\s+)?existing\\s+.+?)\\s+${ADD_AMT}$`), 2, 1],
-];
+/**
+ * Top up a row that's already there → { amount, target }, otherwise null (a normal new entry).
+ * Word order doesn't matter; what counts is a clear "add to the old one" cue:
+ *   strong, enough alone: existing, more, extra, additional, top up, increase / bump / raise, update, "+181"
+ *     "181 existing instamart", "instamart +181", "181 more instamart", "top up instamart 181", "increase instamart by 181"
+ *   weak, needs to / in / into / on: add, plus
+ *     "add 181 to instamart", "181 add to instamart", "add to instamart 181", "instamart add 181"
+ * Exactly one amount and a name left over are required, so "450 swiggy", "100 to mummy", "added milk 60" stay new entries.
+ */
+const ADD_STRONG = new Set(["existing", "more", "extra", "additional", "additionally", "increase", "increment", "bump", "raise", "update", "topup", "top-up"]);
+const ADD_WEAK = new Set(["add", "plus"]);
+const ADD_PREP = new Set(["to", "in", "into", "on"]);
+const ADD_FILLER = new Set(["the", "my", "same", "earlier", "previous", "last", "old", "row", "entry", "line", "item", "it", "by", "amount", "of", "please", "pls", "also", "up", "top", "another", "again", "one"]);
 export function parseAddTo(piece) {
-  const text = normalize(piece).trim();
-  for (const [re, ai, ti] of ADD_FORMS) {
-    const m = re.exec(text);
-    if (!m) continue;
-    const a = parseAmount(m[ai]);
-    const target = m[ti].replace(/^(?:(?:the|my|existing|same|earlier|previous)\s+)+/, "").replace(/\s+(?:row|entry|line|item)$/, "").trim();
-    if (a && a.value > 0 && target) return { amount: a.value, target };
-  }
-  return null;
+  let text = normalize(piece).replace(/\btop\s+up\b/g, "topup");
+  const amts = [...text.matchAll(new RegExp(AMOUNT_TOKEN.source, "g"))];
+  if (amts.length !== 1) return null;
+  const [tok] = amts, plus = /\+\s*$/.test(text.slice(0, tok.index));
+  const a = parseAmount(tok[0]);
+  if (!a || !(a.value > 0)) return null;
+  const words = (text.slice(0, tok.index) + " " + text.slice(tok.index + tok[0].length)).replace(/[+,.!?:;]/g, " ").split(/\s+/).filter(Boolean);
+  const strong = plus || words.some((w) => ADD_STRONG.has(w));
+  // "add" also counts after the name ("instamart add 181"); "add 181 instamart" alone stays a new entry.
+  const weak = words.some((w) => ADD_WEAK.has(w)) && (words.some((w) => ADD_PREP.has(w)) || !ADD_WEAK.has(words[0]));
+  if (!strong && !weak) return null;
+  const target = words.filter((w) => !ADD_STRONG.has(w) && !ADD_WEAK.has(w) && !ADD_PREP.has(w) && !ADD_FILLER.has(w)).join(" ");
+  return target && !/\d/.test(target) ? { amount: a.value, target } : null;
 }
 
 export function parseEntry(text, ctx) {
