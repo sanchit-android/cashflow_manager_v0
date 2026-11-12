@@ -1,0 +1,4 @@
+{% load static %}<figure class="shot"><picture>
+  <source srcset="{% static 'img/screenshots/plan-commitments.webp' %}" type="image/webp">
+  <img src="{% static 'img/screenshots/plan-commitments.png' %}" alt="{% if alt %}{{ alt }}{% else %}PlannedOut Plan tab, Commitments & recurring: regular expense, fixed commitments and day-to-day tiles, a monthly commitments grid with rent, cook and househelp, society maintenance, school tuition, parents&#39; support and broadband by due day, and a regular income grid{% endif %}" width="1600" height="1044" loading="{% if eager %}eager{% else %}lazy{% endif %}" decoding="async">
+</picture>{% if caption != "" %}<figcaption>{% if caption %}{{ caption }}{% else %}Plan → Commitments & recurring: list rent, help, tuition and family transfers once with their due day. Each month they show as still to pay until marked paid.{% endif %}</figcaption>{% endif %}</figure>

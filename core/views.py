@@ -132,7 +132,8 @@ def calculator_embed(request, slug):
 
 @require_GET
 def features(request):
-    return render(request, "features.html", {"page": seo.FEATURES_PAGE, "features": seo.FEATURES,
+    return render(request, "features.html", {"page": seo.FEATURES_PAGE,
+                                             "features": [(*f, seo.FEATURE_SHOTS.get(f[0])) for f in seo.FEATURES],
                                              "jsonld": seo.features_jsonld(settings.SITE_URL)})
 
 

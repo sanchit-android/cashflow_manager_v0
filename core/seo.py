@@ -920,9 +920,9 @@ GUIDE_SHOTS = {
             "caption": "A familiar Excel-like grid: cell references (A1), a formula bar (fx), column filters, and an Account column so every account sits in one sheet.",
         },
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home built automatically from the sheet: free to spend after investing, regular expense and savings rate tiles with 2026 averages, a to-do list and pinned answers",
-            "caption": "Built automatically from your sheet: free to spend, metric tiles with yearly averages, a to-do list and pinned answers, with no charts or formulas to maintain.",
+            "tpl": "illus/shot_trends.html",
+            "alt": "PlannedOut category trends table and top day-to-day places chart generated automatically from the sheet",
+            "caption": "The analysis you'd normally build with pivot tables: category trends and top places, generated from your sheet automatically.",
         },
     ],
     "private-expense-tracker": [
@@ -934,16 +934,16 @@ GUIDE_SHOTS = {
     ],
     "savings-runway-calculator": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home showing free to spend after investing, In, Out and Due for the month, a day-of-month progress bar and an assistant that answers questions like 'runway'",
-            "caption": "Inside PlannedOut: Home tells you what's left this month. Ask the assistant “runway”, or pin it, to see how many months your savings last at your 3-month average burn.",
+            "tpl": "illus/shot_projection.html",
+            "alt": "PlannedOut projection showing liquid savings now, monthly burn, the month the money lasts until, a savings line with actual checkpoints, what-if sliders and extra runway per item",
+            "caption": "Inside PlannedOut: Plan → Projection shows the exact month your savings run out at your real burn. Drag a what-if slider or check Biggest levers to see how many months each cut buys.",
         },
     ],
     "annual-expenses-planner": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home with free to spend, commitments still due, a to-do list for school tuition and card bills, and a 'How your balance moved' breakdown from opening to closing balance",
-            "caption": "Inside PlannedOut: Home shows what's still due this month, and “How your balance moved” keeps annual items apart from regular spending, so yearly bills don't distort your average.",
+            "tpl": "illus/shot_annual.html",
+            "alt": "PlannedOut Annual items for 2026: school fees, insurance premiums, property tax, Diwali and car insurance with due month, paid versus unpaid, and the monthly set-aside",
+            "caption": "Inside PlannedOut: list every yearly bill once with its due month. You see what's paid, what's left and the exact amount to set aside each month for the rest of the year.",
         },
     ],
     "budget-app-without-sms-india": [
@@ -955,9 +955,9 @@ GUIDE_SHOTS = {
     ],
     "emi-budget-planner-india": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home showing free to spend, regular income minus regular expense, commitments still due and card bills paid with 2026 averages, plus a to-do list to bill cards",
-            "caption": "Fixed commitments at a glance: see what's still due, card bills paid against your yearly average, and what's free to spend once commitments are covered.",
+            "tpl": "illus/shot_plan.html",
+            "alt": "PlannedOut Plan tab listing monthly commitments by due day (rent, household help, maintenance, tuition, family support, broadband) with fixed commitments and day-to-day totals",
+            "caption": "Fixed commitments in one list: add each EMI, rent or fee once with its due day. Plan shows your fixed total against day-to-day spending, and Home lists what's still to pay.",
         },
         {
             "tpl": "illus/shot_sheet.html",
@@ -967,9 +967,9 @@ GUIDE_SHOTS = {
     ],
     "private-ynab-mint-alternative": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut cash-flow Home showing free to spend after investing, metric tiles, a to-do list, pinned answers and an on-device assistant",
-            "caption": "Free to spend, to-dos and pinned answers, all computed in your browser from encrypted data. The assistant runs on your device too.",
+            "tpl": "illus/shot_review.html",
+            "alt": "PlannedOut Review board with scope buttons, headline insights, a money in vs money out chart and a where-your-money-goes breakdown",
+            "caption": "Reports without a subscription: a Review board you arrange yourself, for a month up to a year, computed in your browser from encrypted data.",
         },
         {
             "tpl": "illus/shot_sheet.html",
@@ -979,9 +979,9 @@ GUIDE_SHOTS = {
     ],
     "fire-retirement-runway-planner": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home showing free to spend after investing, In, Out and Due for the month and an assistant that answers questions like 'runway' and 'savings rate'",
-            "caption": "Inside PlannedOut: track the month on Home, then ask “runway” or “savings rate”, or pin them, to see how long your money lasts at your real burn.",
+            "tpl": "illus/shot_projection.html",
+            "alt": "PlannedOut drawdown projection with monthly burn growing 8% a year, annual items, checkpoints of actual savings and a what-if panel",
+            "caption": "Model your drawdown with inflation on your burn and annual bills, compare it against real savings checkpoints, and test cuts or side income with sliders.",
         },
     ],
     "first-salary-budget-planner-india": [
@@ -998,9 +998,9 @@ GUIDE_SHOTS = {
     ],
     "festival-wedding-budget-planner-india": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home with free to spend, commitments still due and a 'How your balance moved' breakdown that keeps annual items apart from regular household spending",
-            "caption": "Keep Diwali and wedding costs separate: annual items are tracked apart from regular spending, so one festive month doesn't skew your average.",
+            "tpl": "illus/shot_annual.html",
+            "alt": "PlannedOut annual items in rupees including Diwali gifts, travel and bonus ₹60,000 due in December, alongside school fees and insurance",
+            "caption": "Plan Diwali like a bill: add it as an annual item with its month and amount, and PlannedOut tells you how much to set aside every month until then.",
         },
         {
             "tpl": "illus/shot_sheet.html",
@@ -1015,9 +1015,9 @@ GUIDE_SHOTS = {
             "caption": "School costs and investments together: log fees and household costs in the ledger, and watch SIP and fund balances grow alongside.",
         },
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home with a to-do list showing School Tuition & Bus ₹12,000 still due, plus free to spend after investing in rupees",
-            "caption": "School fees never sneak up: Home lists them as still due until paid, and annual fees feed straight into your multi-year projection.",
+            "tpl": "illus/shot_annual.html",
+            "alt": "PlannedOut annual items showing a ₹48,000 school annual and books fee due in April, plus insurance premiums and property tax",
+            "caption": "April school fees, planned today: annual fees sit in their own list with paid and unpaid amounts, and feed straight into your multi-year projection.",
         },
     ],
     "indian-household-budget-template": [
@@ -1034,9 +1034,9 @@ GUIDE_SHOTS = {
     ],
     "freelance-irregular-income-budget": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home showing free to spend, In, Out and Due for the month, and an assistant that answers 'runway' and 'spend trend'",
-            "caption": "Built for uneven months: see what's free this month, then ask “runway” to check how many months your buffer covers when payouts fluctuate.",
+            "tpl": "illus/shot_projection.html",
+            "alt": "PlannedOut runway projection with what-if sliders for cutting spending and adding extra monthly income",
+            "caption": "Built for uneven months: see how long your buffer lasts, then drag “Extra income each month” to see what one more client would change.",
         },
         {
             "tpl": "illus/shot_sheet.html",
@@ -1046,9 +1046,9 @@ GUIDE_SHOTS = {
     ],
     "sinking-funds-guide": [
         {
-            "tpl": "illus/shot_month.html",
-            "alt": "PlannedOut Home with commitments still due and a 'How your balance moved' breakdown keeping annual sinking fund items apart from regular spending",
-            "caption": "Sinking funds built in: annual items are tracked apart from regular expenses, so predictable yearly bills never look like a surprise.",
+            "tpl": "illus/shot_annual.html",
+            "alt": "PlannedOut annual items acting as sinking funds, with total, paid and unpaid amounts and a monthly set-aside figure",
+            "caption": "Sinking funds built in: each annual item tracks what's paid and what's left, and PlannedOut works out the monthly set-aside for you.",
         },
     ],
 }
@@ -1441,6 +1441,14 @@ FEATURES = [
       "Sync across devices with Google sign-in or an email code",
       "Try everything in the live demo first, without signing up"]),
 ]
+# Screenshot shown under each feature section on /features/.
+FEATURE_SHOTS = {
+    "assistant": "illus/shot_month.html",
+    "sheet": "illus/shot_sheet.html",
+    "insights": "illus/shot_review.html",
+    "projections": "illus/shot_projection.html",
+    "accounts": "illus/shot_annual.html",
+}
 FEATURES_PAGE = {
     "title": "PlannedOut Features: Private Budget Planner With Projections, Themes & Encryption",
     "h1": "Everything PlannedOut does",

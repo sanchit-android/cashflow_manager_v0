@@ -1,0 +1,4 @@
+{% load static %}<figure class="shot"><picture>
+  <source srcset="{% static 'img/screenshots/review-trends.webp' %}" type="image/webp">
+  <img src="{% static 'img/screenshots/review-trends.png' %}" alt="{% if alt %}{{ alt }}{% else %}PlannedOut Review cards showing category trends (last 3 months vs the 6 months before, with Food up 63% and Shopping down 52%) and top day-to-day places such as BigBasket, IndianOil and Amazon with bar lengths{% endif %}" width="1600" height="423" loading="{% if eager %}eager{% else %}lazy{% endif %}" decoding="async">
+</picture>{% if caption != "" %}<figcaption>{% if caption %}{{ caption }}{% else %}Category trends and top day-to-day places: what's rising, what's falling, and where the everyday money actually goes.{% endif %}</figcaption>{% endif %}</figure>

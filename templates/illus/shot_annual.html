@@ -1,0 +1,4 @@
+{% load static %}<figure class="shot"><picture>
+  <source srcset="{% static 'img/screenshots/plan-annual.webp' %}" type="image/webp">
+  <img src="{% static 'img/screenshots/plan-annual.png' %}" alt="{% if alt %}{{ alt }}{% else %}PlannedOut Plan tab, Annual items for 2026: school annual fee, health and term insurance, property tax, Diwali gifts and travel, and car insurance with due month, how they&#39;re paid and paid versus unpaid amounts, plus a record-a-payment form and the monthly set-aside{% endif %}" width="1600" height="756" loading="{% if eager %}eager{% else %}lazy{% endif %}" decoding="async">
+</picture>{% if caption != "" %}<figcaption>{% if caption %}{{ caption }}{% else %}Plan → Annual items: school fees, insurance premiums, property tax and Diwali in one place, with what's paid, what's left and how much to set aside each month.{% endif %}</figcaption>{% endif %}</figure>
