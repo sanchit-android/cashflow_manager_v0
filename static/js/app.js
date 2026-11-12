@@ -1241,17 +1241,25 @@ function accountBar() {
     const { n, hint } = info(a);
     const b = billOf(a);
     const mark = b ? `<span class="bill-mark${b.stale ? " stale" : ""}" title="${b.stale ? "Billed, but transactions changed since" : "Billed"}">${CHECK}</span>` : "";
-    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}${b ? " billed" : ""}" aria-pressed="${a.id === sel}" aria-label="${esc(a.data.name)}${b ? " (billed)" : ""}">${acctIcon(a)}${esc(a.data.name)}${n ? `<small>${money(hint)}</small>` : ""}${mark}</button>`;
+    // Card spend is already shown in To-do and the summary line, so card chips carry no amount.
+    const showHint = n && a.data.role !== "card";
+    return `<button type="button" data-acct="${a.id}" class="${a.id === sel ? "on" : ""}${b ? " billed" : ""}" aria-pressed="${a.id === sel}" aria-label="${esc(a.data.name)}${b ? " (billed)" : ""}">${acctIcon(a)}${esc(a.data.name)}${showHint ? `<small>${money(hint)}</small>` : ""}${mark}</button>`;
   };
   const opt = (a) => {
     const { n, hint } = info(a);
     return `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${esc(a.data.name)}${n ? ` · ${money(hint)}` : ""}</option>`;
   };
-  const allChip = `<div class="acct-group"><div class="acct-chips"><button type="button" data-acct="${ALL}" class="${sel === ALL ? "on" : ""}" aria-pressed="${sel === ALL}">All accounts</button></div></div>`;
+  // Desktop: chips only, with Shortcuts / New row / Import in the empty space of the first line. Phone: dropdown only.
+  const tools = `<span class="spacer"></span><button type="button" class="link small sc-btn" id="sc-open" title="Keyboard shortcuts">? Shortcuts</button><button type="button" class="link small sc-btn" id="jump-new" title="Jump to new entry row">＋ New row</button><button type="button" class="link small sc-btn" id="imp-open" title="Import a .csv or .xlsx file">📥 Import</button>`;
+  const allChip = `<div class="acct-group acct-first"><div class="acct-chips"><button type="button" data-acct="${ALL}" class="${sel === ALL ? "on" : ""}" aria-pressed="${sel === ALL}">All accounts</button></div>`;
+  const chipRows = groups.map(([label, list], i) => `${i ? '<div class="acct-group">' : ""}<span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div>${i ? "" : tools}</div>`).join("");
+  const select = `<select class="acct-select" id="acctselect" aria-label="Account" style="display:block"><option value="${ALL}"${sel === ALL ? " selected" : ""}>All accounts</option>${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`;
   $("#acctbar").innerHTML = groups.length
-    ? allChip + groups.map(([label, list]) => `<div class="acct-group"><span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div></div>`).join("")
-      + `<select class="acct-select" id="acctselect" aria-label="Account"><option value="${ALL}"${sel === ALL ? " selected" : ""}>All accounts</option>${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`
+    ? (isPhone() ? select : allChip + chipRows)
     : '<span class="muted">Add an account on the Accounts tab first.</span>';
+  if ($("#sc-open")) $("#sc-open").onclick = showShortcutsModal;
+  if ($("#jump-new")) $("#jump-new").onclick = () => S.grid && S.grid.jumpToBlank && S.grid.jumpToBlank();
+  if ($("#imp-open")) $("#imp-open").onclick = openImportModal;
   const pick = (id) => {
     S.account = id; try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
     mountTxGrid();
@@ -1276,11 +1284,8 @@ function showShortcutsModal() {
 
 /** Totals for the selected account, shown above its grid. */
 function accountSummary(d, sel) {
-  const scBtn = !isPhone() ? `<span class="spacer"></span><button type="button" class="link small sc-btn" id="sc-open" title="Keyboard shortcuts">? Shortcuts</button><button type="button" class="link small sc-btn" id="jump-new" title="Jump to new entry row">＋ New row</button>` : "";
-  const wire = () => {
-    if ($("#sc-open")) $("#sc-open").onclick = showShortcutsModal;
-    if ($("#jump-new")) $("#jump-new").onclick = () => S.grid && S.grid.jumpToBlank && S.grid.jumpToBlank();
-  };
+  const scBtn = "";
+  const wire = () => {};
   if (sel === ALL && $("#acctsum")) {
     const s = E.summarize(d, S.period), it = (k, v, cls = "") => `<span><span class="k">${k}</span><strong class="${cls}">${money(v)}</strong></span>`;
     $("#acctsum").innerHTML = `<strong>All accounts</strong>${it("Money in", s.regular_inflow + s.oneoff_inflow, "good")}${it("Spent", s.monthly_expense + s.annual_expense)}${it("Invested", s.investments)}${it("Bank opening", s.opening)}${it("Bank closing", s.closing, s.closing < 0 ? "bad" : "")}${scBtn}`;
@@ -1380,9 +1385,8 @@ function billBox(d, sel) {
       try { await unmarkBilled(sel); refreshMonth(); } catch (err) { showError(err); }
     };
   } else {
-    host.innerHTML = `<div class="bill-box"><span>This month's bill from your transactions: <strong class="num">${money(c.computed)}</strong></span><span class="spacer"></span>
-      <button type="button" class="primary" id="bill-open">Mark billed</button></div>`;
-    $("#bill-open").onclick = () => openBillForm(c);
+    // Unbilled cards are billed from the To-do queue, which opens openBillForm here.
+    host.innerHTML = "";
   }
 }
 
@@ -1458,44 +1462,12 @@ function openImportModal() {
 
 function mountLedgerToolbar() {
   const host = $("#ltools"); if (!host) return;
-  if (S.tab !== "ledger") { host.innerHTML = ""; return; }
-  const rng = S.ledgerRange || "1";
-  host.innerHTML = `<div class="ledger-tools">
-    <div class="seg" role="group" aria-label="Period range">${[["1", "Month"], ["3", "Quarter"], ["12", "Year"], ["all", "All"]].map(([k, l]) => `<button type="button" data-lrng="${k}" class="${rng === k ? "on" : ""}">${l}</button>`).join("")}</div>
-    <input type="search" id="lf-q" placeholder="Search description…" style="width:170px">
-    <select id="lf-cat" style="width:140px"><option value="">All categories</option>${E.CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
-    <select id="lf-nat" style="width:130px"><option value="">All kinds</option>${NATURE_LABELS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select>
-    <select id="lf-bulk" style="width:155px" title="Bulk set category on visible rows"><option value="">Bulk set category…</option>${E.CATEGORIES.map((c) => `<option value="${esc(c)}">Set all → ${esc(c)}</option>`).join("")}</select>
-    <span class="spacer"></span>
-    <details class="tab-dd ledger-add-dd"><summary class="primary" style="list-style:none;cursor:pointer;padding:6px 12px;border-radius:var(--radius)">＋ Action ▾</summary>
-      <div class="dd-panel" style="position:absolute;right:0;top:calc(100% + 4px)"><button type="button" id="la-new">＋ New row</button><button type="button" id="la-imp">📥 Import file…</button><button type="button" id="la-bill">✓ Mark card billed</button></div></details>
-  </div>`;
-  host.querySelectorAll("[data-lrng]").forEach((b) => (b.onclick = () => { S.ledgerRange = b.dataset.lrng; mountTxGrid(); }));
-  const applyF = () => {
-    if (!S.grid || !S.grid.setQuickFilter) return;
-    S.grid.setQuickFilter("description", $("#lf-q").value.trim());
-    S.grid.setQuickFilter("category", $("#lf-cat").value);
-    S.grid.setQuickFilter("nature", $("#lf-nat").value);
-  };
-  $("#lf-q").oninput = applyF;
-  $("#lf-cat").onchange = applyF;
-  $("#lf-nat").onchange = applyF;
-  $("#lf-bulk").onchange = async (e) => {
-    const cat = e.target.value; e.target.value = "";
-    if (!cat || !S.grid || !S.grid.getVisibleRowIds) return;
-    const ids = S.grid.getVisibleRowIds();
-    if (!ids.length || !confirm(`Set category to "${cat}" on ${ids.length} visible row${ids.length === 1 ? "" : "s"}?`)) return;
-    const items = ids.map((id) => { const r = store.rows.get(id); return r ? { id, type: "transaction", period: r.data.period || r.period, data: { ...r.data, category: cat } } : null; }).filter(Boolean);
-    await store.save(items); saves++; mountTxGrid();
-  };
-  $("#la-new").onclick = () => { host.querySelector("details").open = false; if (S.grid && S.grid.jumpToBlank) S.grid.jumpToBlank(); };
-  $("#la-imp").onclick = () => { host.querySelector("details").open = false; openImportModal(); };
-  $("#la-bill").onclick = () => {
-    host.querySelector("details").open = false;
-    const cards = E.monthStatus(db(), S.period).cards;
-    if (!cards.length) return alert("No credit cards to bill.");
-    S.account = cards[0].id; mountTxGrid(); openBillForm(cards[0]);
-  };
+  // The filter/range/bulk/Action row was dropped: Import and New row live in the account bar, billing in To-do.
+  host.innerHTML = "";
+  wireLedgerDrop();
+}
+
+function wireLedgerDrop() {
   const card = $("#txcard");
   if (card && !card.dataset.dropWired) {
     card.dataset.dropWired = "1";

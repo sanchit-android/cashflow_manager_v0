@@ -321,3 +321,10 @@ Done:
 - Bank SMS/UPI alert parsing: last-4 matching, bank-name fallback, multi-alert paste
 - Assistant commands: navigation verbs ("go to plan", "import", "settings"…), theme switching (`theme <name>`, `dark mode`, `light mode`), account filter (`show <account>`, `all accounts`), `pin <query>`, and `⟲` command history popover
 - Hero shows free to spend after investing; games moved to Settings
+
+De-duplication pass (12 Nov 2026), applies to both Home and Ledger since they share `mountTxGrid`:
+- Card chips no longer show an amount. Each card's spend now appears only in its To-do chip and in the account summary line.
+- Account picker: chips on desktop and the dropdown on phone, never both.
+- The "This month's bill… [Mark billed]" bar is gone. Cards are billed from To-do, which still opens the statement form inline. The billed bar still shows Unmark and the "Bill again" warning when it's out of date.
+- `? Shortcuts`, `＋ New row` and `📥 Import` sit in the empty right-hand space of the first account-chip line, with no row of their own.
+- The Ledger toolbar row (Month/Quarter/Year/All, search, category/kind filters, bulk set category, `＋ Action ▾`) is removed. Ledger shows the current month. Drag-and-drop import still works.
