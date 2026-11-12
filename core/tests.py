@@ -391,3 +391,18 @@ class ChatMissTests(TestCase):
         self.assertEqual(d["top"][0], {**d["top"][0], "text": "how r my cards", "count": 2})
         self.assertEqual(d["retention_days"], 30)
         self.assertEqual(sum(d["reasons"][[r["key"] for r in d["reasons"]].index("unknown")]["series"]), 2)
+
+    def test_internal_testers_left_out_unless_asked(self):
+        from .models import ChatMiss, UserFlag
+        UserFlag.objects.create(user=self.user, internal=True)
+        self.client.force_login(self.user)
+        _post(self.client, "/api/chat-miss", {"reason": "unknown", "text": "tester msg", "kind": "query"})
+        self.assertTrue(ChatMiss.objects.get().internal)
+        ChatMiss.objects.create(reason="failed", text="real msg", kind="edit")
+        self.client.force_login(self.owner)
+        d = self.client.get("/api/admin/chat").json()
+        self.assertEqual((d["total"], d["internal_count"], d["with_internal"]), (1, 1, False))
+        self.assertEqual([r["text"] for r in d["recent"]], ["real msg"])
+        d = self.client.get("/api/admin/chat?internal=1").json()
+        self.assertEqual((d["total"], d["with_internal"]), (2, True))
+        self.assertTrue(next(r for r in d["recent"] if r["text"] == "tester msg")["internal"])

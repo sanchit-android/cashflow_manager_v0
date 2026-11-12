@@ -172,3 +172,4 @@ class ChatMiss(models.Model):
     kind = models.CharField(max_length=24, blank=True, default="")  # what it was read as: entry, add_to, edit, query, chart…
     device = models.CharField(max_length=8, default="desktop")
     local = models.BooleanField(default=False)  # sent from the app before signing up
+    internal = models.BooleanField(default=False)  # sent by an internal tester (see monitor.internal_user_ids); the user isn't stored

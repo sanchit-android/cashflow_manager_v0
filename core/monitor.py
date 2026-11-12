@@ -360,7 +360,7 @@ def chat_miss(request):
         return JsonResponse({"ok": True})
     cache.set(key, (cache.get(key) or 0) + 1, 60 * 60 * 24)
     ChatMiss.objects.create(reason=reason, text=text, kind=kind, device=device_of(request.META.get("HTTP_USER_AGENT", "")),
-                            local=anonymous and local)
+                            local=anonymous and local, internal=not anonymous and is_internal(request.user))
     _purge_old()
     return JsonResponse({"ok": True})
 
@@ -369,7 +369,11 @@ def chat_miss(request):
 @admin_required
 def chat_stats(request):
     days, start, end = _window(request)
+    with_internal = request.GET.get("internal") == "1"
     qs = ChatMiss.objects.filter(created_at__gte=_since(start))
+    internal_count = qs.filter(internal=True).count()
+    if not with_internal:
+        qs = qs.exclude(internal=True)
     labels = _day_labels(start, end)
     per_day = defaultdict(Counter)
     for day, reason, n in qs.annotate(day=TruncDate("created_at")).values_list("day", "reason").annotate(n=Count("id")):
@@ -377,14 +381,14 @@ def chat_stats(request):
     by_reason = Counter(dict(qs.values_list("reason").annotate(n=Count("id"))))
     by_kind = Counter(dict(qs.values_list("kind").annotate(n=Count("id"))))
     top = (qs.values("text", "reason").annotate(n=Count("id"), last=Max("created_at")).order_by("-n", "-last")[:40])
-    recent = qs.order_by("-created_at").values("created_at", "reason", "kind", "text", "device")[:150]
+    recent = qs.order_by("-created_at").values("created_at", "reason", "kind", "text", "device", "internal")[:150]
     return JsonResponse({
         "days": days, "total": qs.count(), "labels": [d.isoformat() for d in labels],
         "reasons": [{"key": k, "label": l, "count": by_reason.get(k, 0), "series": [per_day[k].get(d, 0) for d in labels]} for k, l in ChatMiss.REASONS],
         "kinds": _top(by_kind),
         "top": [{"text": r["text"], "reason": r["reason"], "count": r["n"], "last": r["last"].isoformat()} for r in top],
         "recent": [{**r, "created_at": r["created_at"].isoformat()} for r in recent],
-        "retention_days": RETENTION[ChatMiss],
+        "retention_days": RETENTION[ChatMiss], "with_internal": with_internal, "internal_count": internal_count,
     })
 
 
@@ -424,6 +428,12 @@ def admins(request):
 def default_internal(email):
     email = (email or "").lower()
     return any(m in email for m in settings.INTERNAL_EMAIL_MATCH)
+
+
+def is_internal(user):
+    """One user's internal flag: an admin's flag wins, otherwise the email rule."""
+    flag = UserFlag.objects.filter(user_id=user.id).values_list("internal", flat=True).first()
+    return flag if flag is not None else default_internal(user.email or user.username)
 
 
 def internal_user_ids():

@@ -11,7 +11,7 @@ const short = (iso) => new Date(iso + (iso.length === 10 ? "T00:00" : "")).toLoc
 const when = (iso) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const C = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"];
 
-const A = { view: "business", days: 30 };
+const A = { view: "business", days: 30, chatInternal: false };
 let host;
 
 const metric = (label, value, sub = "") => `<div class="metric"><div class="label">${esc(label)}</div><div class="value">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
@@ -39,7 +39,7 @@ export async function viewAdmin(root, view) {
     if (view === "admins") return admins(box);
     if (view === "indexing") return indexing(box);
     if (view === "traffic") return traffic(box);
-    const d = await api(`/api/admin/${view}?days=${A.days}`);
+    const d = await api(`/api/admin/${view}?days=${A.days}${view === "chat" && A.chatInternal ? "&internal=1" : ""}`);
     if (host.querySelector("#adm") !== box || A.view !== view) return; // user left the tab
     (view === "business" ? business : view === "chat" ? chat : tech)(box, d);
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
@@ -62,6 +62,8 @@ function chat(box, d) {
   const reasonName = (k) => (byKey[k] || { label: k }).label;
   const tag = (k) => `<span class="adm-tag" title="${esc(REASON_HINT[k] || "")}">${esc(reasonName(k))}</span>`;
   box.innerHTML = `
+    <label class="adm-toggle"><input type="checkbox" id="c-internal" ${d.with_internal ? "checked" : ""}> Include internal testers
+      <span class="muted">(${num(d.internal_count)} message${d.internal_count === 1 ? "" : "s"} from internal users in this period${d.with_internal ? ", included below" : ", left out"})</span></label>
     <p class="muted">Messages in the chat that didn't get a useful answer, or that the user undid. Amounts, dates, numbers and account names were replaced in the browser before sending (<code>&lt;amt&gt;</code>, <code>&lt;date&gt;</code>, <code>&lt;acct&gt;</code>), and no user is stored. Rows are deleted after ${d.retention_days} days.</p>
     <div class="kpis">${metric("Logged", num(d.total), `in ${d.days} days`)}${d.reasons.map((r) => metric(r.label, num(r.count), esc(REASON_HINT[r.key] || ""))).join("")}</div>
     ${card("By day", bars("c-days"))}
@@ -69,7 +71,8 @@ function chat(box, d) {
       ${card("Read as", bars("c-kinds"), "What the message was taken for: entry, add_to, edit, remove, query, chart, bill, account, metric. entry_amount / entry_account… are follow-up questions that were skipped.")}
       ${card("Most repeated", table(["Message", "Why", "Times", "Last"], d.top.map((r) => [esc(r.text), tag(r.reason), num(r.count), when(r.last)])), "The same redacted text more than once is the best place to add a rule.")}
     </div>
-    ${card("Latest", table(["Message", "Why", "Read as", "Device", "When"], d.recent.map((r) => [esc(r.text), tag(r.reason), esc(r.kind || ""), esc(r.device), when(r.created_at)]), "Nothing logged yet."))}`;
+    ${card("Latest", table(["Message", "Why", "Read as", "Device", "When"], d.recent.map((r) => [esc(r.text) + (r.internal ? ' <span class="adm-tag">internal</span>' : ""), tag(r.reason), esc(r.kind || ""), esc(r.device), when(r.created_at)]), "Nothing logged yet."))}`;
+  box.querySelector("#c-internal").onchange = (e) => { A.chatInternal = e.target.checked; viewAdmin(host, "chat"); };
   const el = host.querySelector("#c-days");
   // Four colours: the top three reasons and "Other" when there are more than four.
   const groups = shown.length <= 4 ? shown : [...shown.slice(0, 3), { label: "Other", series: labels.map((_, i) => shown.slice(3).reduce((x, r) => x + r.series[i], 0)) }];
