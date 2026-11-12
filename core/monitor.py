@@ -164,7 +164,7 @@ def client_ip(request):
 
 
 def visitor_hash(request):
-    raw = f"{settings.SECRET_KEY}|{timezone.now().date()}|{client_ip(request)}|{request.META.get('HTTP_USER_AGENT', '')}"
+    raw = f"{settings.SECRET_KEY}|{timezone.localdate()}|{client_ip(request)}|{request.META.get('HTTP_USER_AGENT', '')}"
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
@@ -172,7 +172,7 @@ def visitor_hash(request):
 
 def log_event(user_id, event, n=1, day=None):
     """Add n to a (day, user, event) counter. Never raises."""
-    day = day or timezone.now().date()
+    day = day or timezone.localdate()
     try:
         if UsageDaily.objects.filter(day=day, user_id=user_id, event=event).update(count=F("count") + n):
             return
@@ -608,8 +608,8 @@ def tech(request):
     first = {}
     for p in humans:
         key = (timezone.localtime(p["created_at"]).date(), p["visitor"])
-        if key not in first and p["source"] != "internal":
-            first[key] = p
+        if key not in first or (first[key]["_int"] and p["source"] != "internal"):
+            first[key] = {**p, "source": "direct" if p["source"] == "internal" else p["source"], "_int": p["source"] == "internal"}
     visits = list(first.values())
     by_source = Counter(v["source"] for v in visits)
     source_names = defaultdict(Counter)
@@ -912,7 +912,8 @@ def traffic(request):
         picked = set(SOURCES)
     if g.get("source"):  # older single-source filter
         picked = {g["source"]}
-    if picked & set(SOURCES):
+    allowed_src = picked - {"bot", "internal"}
+    if allowed_src:
         picked.add("internal")  # clicks between our own pages belong to the people who arrived
     audience = set(g.get("audience", "people,demo").split(","))
     human_src = picked - {"bot"}
@@ -952,9 +953,21 @@ def traffic(request):
             d += timedelta(days=7 if group == "week" else 1)
     idx = {l: i for i, l in enumerate(labels)}
 
+    first, demo_first = {}, {}  # (day, visitor) -> first page view = a visit; people and demo kept apart
+    for p in pv:
+        i = idx.get(bucket(p["created_at"]))
+        if i is None or p["source"] == "bot":
+            continue
+        key = (timezone.localtime(p["created_at"]).date(), p["visitor"])
+        target = demo_first if p["demo"] else first
+        if key not in target or (target[key][1]["_int"] and p["source"] != "internal"):
+            target[key] = (i, {**p, "source": "direct" if p["source"] == "internal" else p["source"], "_int": p["source"] == "internal"})
+    first = {k: v for k, v in first.items() if v[1]["source"] in allowed_src}
+    demo_first = {k: v for k, v in demo_first.items() if v[1]["source"] in allowed_src}
+
     views, bots, demo_views = [0] * len(labels), [0] * len(labels), [0] * len(labels)
     uniq = [set() for _ in labels]
-    first, demo_first = {}, {}  # (day, visitor) -> first page view = a visit; people and demo kept apart
+    humans = []
     for p in pv:
         i = idx.get(bucket(p["created_at"]))
         if i is None:
@@ -962,15 +975,15 @@ def traffic(request):
         if p["source"] == "bot":
             bots[i] += 1
             continue
-        if p["demo"]:
-            demo_views[i] += 1
-            demo_first.setdefault((timezone.localtime(p["created_at"]).date(), p["visitor"]), (i, p))
-            continue
-        views[i] += 1
-        uniq[i].add(p["visitor"])
         key = (timezone.localtime(p["created_at"]).date(), p["visitor"])
-        if key not in first and p["source"] != "internal":
-            first[key] = (i, p)
+        if p["demo"]:
+            if key in demo_first:
+                demo_views[i] += 1
+            continue
+        if key in first:
+            views[i] += 1
+            uniq[i].add(p["visitor"])
+            humans.append(p)
     visits = [0] * len(labels)
     for i, _ in first.values():
         visits[i] += 1
@@ -1006,7 +1019,6 @@ def traffic(request):
             split_series.append({"name": "Other", "values": others})
 
     vlist = [p for _, p in first.values()]
-    humans = [p for p in pv if p["source"] != "bot" and not p["demo"]]
     dlist = [p for _, p in demo_first.values()]
     return JsonResponse({
         "from": start.isoformat(), "to": end.isoformat(), "group": group, "labels": labels,
