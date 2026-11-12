@@ -457,8 +457,8 @@ function txCard(t, extra) {
 }
 function afterChatChange() {
   saves++;
-  if (S.tab === "month" && $("#txgrid")) { monthSummary(); mountTxGrid(); monthCloseBar(); }
-  else if (S.tab !== "month") render();
+  if (S.tab === "month" && $("#txgrid")) { accountBar(); monthSummary(); mountTxGrid(); monthCloseBar(); }
+  else render();
 }
 /** Show saved chat entries: switch to their month and account, scroll to the rows and flash them. */
 function revealTx(txIds) {
@@ -515,6 +515,9 @@ initChat({
   },
   reveal: revealTx,
   refresh: afterChatChange,
+  command: (cmd) => runCommand(cmd),
+  commandCtx: () => ({ period: E.currentPeriod(db(), today()) }),
+  openMonth(p) { S.tab = "month"; S.period = p; renderTabs(); render(); },
   /** "add 272 to instamart": append +272 to the amount of a row already in the month, keeping the parts as a formula. */
   async addTo(target, amount, accountIds) {
     const words = target.split(/\s+/).filter(Boolean);
@@ -553,6 +556,269 @@ initChat({
     return [...out];
   },
 });
+// ================= chat commands =================
+// Carries out what commands.js understood: edit / remove rows, answers about a month, accounts, billing, custom numbers, charts.
+const curPeriod = () => E.currentPeriod(db(), today());
+const acctName = (id) => store.rows.get(id)?.data?.name || "";
+const pctOf = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
+const shortDay = (d) => friendlyDay(d).replace(/^on /, "");
+/** Transactions in a period matching a chat phrase: every word in the description, plus account / date / amount if given. */
+function findRows(f, period) {
+  const words = String(f.target || "").split(/\s+/).filter(Boolean);
+  return store.ofType("transaction").filter((r) => {
+    const t = r.data;
+    if ((t.period || r.period) !== period) return false;
+    if (f.account_ids && !f.account_ids.includes(t.account_id) && !f.account_ids.includes(t.to_account_id)) return false;
+    if (f.date && t.date !== f.date) return false;
+    if (f.amount != null && Math.abs(+t.amount || 0) !== f.amount) return false;
+    const d = String(t.description || "").toLowerCase();
+    return words.every((w) => d.includes(w));
+  });
+}
+/** Rows for edit / remove: the month named, else the current month, else the month in view. Latest (and in-view account) first. */
+function findRowsAny(f) {
+  const ps = f.period ? [f.period] : [...new Set([curPeriod(), S.tab === "month" ? S.period : null].filter(Boolean))];
+  for (const p of ps) {
+    const hits = findRows(f, p);
+    if (hits.length) {
+      const va = viewAccount(), rank = (r) => (va && r.data.account_id === va ? "1" : "0") + (r.data.date || "");
+      return { period: p, hits: hits.sort((a, b) => rank(b).localeCompare(rank(a))) };
+    }
+  }
+  return { period: ps[0], hits: [] };
+}
+const rowLabel = (t) => `${t.description || "(no description)"} · ${inr(Math.abs(+t.amount || 0))} · ${shortDay(t.date)}${acctName(t.account_id) ? " · " + acctName(t.account_id) : ""}`;
+const noRows = (f, p) => ({ err: true, text: `Nothing was changed. I couldn't find a row matching “${[f.target, f.amount != null ? inr(f.amount) : ""].filter(Boolean).join(" ")}” in ${monthName(p)}${f.account_ids ? " on " + f.account_ids.map(acctName).join(" or ") : ""}.` });
+const spendOf = (s) => s.monthly_expense + s.annual_expense;
+const COLORS = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"];
+
+async function deleteRows(rows) {
+  const before = rows.map((r) => ({ id: r.id, period: r.data.period || r.period, data: { ...r.data } }));
+  await store.save(rows.map((r) => ({ id: r.id, type: "transaction", deleted: true })));
+  saves++;
+  return {
+    text: rows.length === 1 ? `Deleted “${rowLabel(before[0].data)}”.` : `Deleted ${rows.length} rows: ${before.map((b) => b.data.description).join(", ")}.`,
+    revert: async () => { await store.save(before.map((b) => ({ id: b.id, type: "transaction", period: b.period, data: b.data }))); saves++; },
+  };
+}
+
+async function editRow(r, set, note) {
+  const before = { ...r.data, period: r.data.period || r.period }, next = { ...before };
+  if (set.amount != null) { next.amount = set.amount; delete next.amount_formula; }
+  if (set.category) next.category = set.category;
+  if (set.nature) next.nature = set.nature;
+  if (set.date) next.date = set.date;
+  if (set.description) next.description = set.description.charAt(0).toUpperCase() + set.description.slice(1);
+  if (set.account_ids) next.account_id = set.account_ids[0];
+  const data = prepTx(next);
+  await saveRec("transaction")(r.id, data);
+  saves++;
+  const was = set.amount != null ? inr(Math.abs(+before.amount || 0)) : set.category ? before.category || "Other" : set.date ? shortDay(before.date)
+    : set.account_ids ? acctName(before.account_id) : set.description ? before.description : set.nature ? before.nature : "";
+  return { card: { ...txCard(data), verb: "Changed", extra: was ? `was ${was}` : "" }, notes: note ? [note] : [], reveal: [r.id],
+    revert: async () => { await saveRec("transaction")(r.id, before); saves++; } };
+}
+
+async function runCommand(cmd) {
+  const d = db();
+  if (cmd.kind === "edit") {
+    if (cmd.set.account_ids && cmd.set.account_ids.length > 1)
+      return { text: "Which account?", actions: cmd.set.account_ids.map((id) => ({ label: acctName(id), run: () => runCommand({ ...cmd, set: { account_ids: [id] } }) })) };
+    const { period, hits } = findRowsAny(cmd);
+    if (!hits.length) return noRows(cmd, period);
+    return editRow(hits[0], cmd.set, hits.length > 1 ? `${hits.length} rows match; I changed the latest (${rowLabel(hits[0].data)}). Add a date, amount or account to pick another.` : "");
+  }
+  if (cmd.kind === "remove") {
+    const { period, hits } = findRowsAny(cmd);
+    if (!hits.length) return noRows(cmd, period);
+    if (hits.length === 1) return deleteRows(hits);
+    if (hits.length > 8) return { text: `${hits.length} rows match in ${monthName(period)}. Add a date, amount or account so I delete the right one, e.g. “delete ${cmd.target} on ${shortDay(hits[0].data.date)}”.` };
+    return { text: `${hits.length} rows match in ${monthName(period)}. Which one should I delete?`,
+      actions: [...hits.map((r) => ({ label: rowLabel(r.data), run: () => deleteRows([r]) })), { label: `All ${hits.length}`, run: () => deleteRows(hits) }] };
+  }
+  if (cmd.kind === "account") {
+    if (cmd.error === "name") return { err: true, text: "What's it called? For example “add card hdfc regalia” or “new savings account sbi”." };
+    if (cmd.error === "exists") return { err: true, text: `You already have an account called ${cmd.name}.` };
+    const p = curPeriod();
+    const data = { name: cmd.name, role: cmd.role, kind: cmd.account_kind || (cmd.role === "card" ? "card" : "bank"),
+      ...(cmd.role === "spending" ? { opening_balance: cmd.balance || 0, opening_period: p } : cmd.balance != null ? { balance: cmd.balance } : {}) };
+    const [id] = await store.save({ type: "account", data });
+    saves++;
+    const roleName = { spending: "spending account", card: "credit card", savings: "savings account", investment: "investment account" }[cmd.role];
+    return { text: `Added ${cmd.name} as a ${roleName}${cmd.balance != null ? `, balance ${inr(cmd.balance)}${cmd.role === "spending" ? ` from ${monthName(p)}` : ""}` : ""}. You can change it on the Accounts tab.`,
+      revert: async () => { await store.remove(id); saves++; } };
+  }
+  if (cmd.kind === "bill") {
+    const p = cmd.period || curPeriod();
+    if (!cmd.card_ids.length) return { err: true, text: "You don't have any credit cards yet. Add one with “add card hdfc regalia”." };
+    if (cmd.card_ids.length > 1) return { text: "Which card?", actions: cmd.card_ids.map((id) => ({ label: acctName(id), run: () => runCommand({ ...cmd, card_ids: [id], named: true }) })) };
+    const id = cmd.card_ids[0], c = E.monthStatus(d, p).cards.find((x) => x.id === id);
+    if (!c) return { err: true, text: `${acctName(id)} has nothing to bill in ${monthName(p)}.` };
+    const prev = c.billed ? c.amount : null;
+    const restore = async () => { if (prev == null) await unmarkBilled(id, p); else await markBilled(id, prev, p); saves++; };
+    if (cmd.unbill) {
+      if (!c.billed) return { text: `${acctName(id)} isn't marked billed for ${monthName(p)}.` };
+      await unmarkBilled(id, p); saves++;
+      return { text: `Unmarked ${acctName(id)} for ${monthName(p)}${liveRow(c.adj_id) ? " and removed its statement adjustment" : ""}.`, revert: restore };
+    }
+    const res = await markBilled(id, cmd.amount, p); saves++;
+    const adj = res.diff ? ` Your transactions total ${inr(res.base)}, so I added a ${res.diff > 0 ? "+" : "−"}${inr(Math.abs(res.diff))} statement adjustment under Other.` : " It matches your transactions.";
+    return { text: `Marked ${acctName(id)} billed for ${monthName(p)} at ${inr(res.amount)}.${adj}`, reveal: res.adjId ? [res.adjId] : null, month: p, revert: restore };
+  }
+  if (cmd.kind === "metric") return metricCommand(cmd);
+  if (cmd.kind === "chart") return chartCommand(cmd, d);
+  if (cmd.kind === "query") return queryCommand(cmd, d);
+  return { text: "I didn't understand that. Type “help” for examples." };
+}
+
+const METRIC_ALIASES = { income: "regular_income", spend: "all_spending", spending: "all_spending", expenses: "all_spending", expense: "regular_expense",
+  net: "regular_net", annual: "annual_items", oneoff: "oneoff_expense", due: "commitments_due", balance: "closing" };
+async function metricCommand(cmd) {
+  const list = customMetrics();
+  if (cmd.action === "remove") {
+    const m = list.find((x) => x.label.toLowerCase() === cmd.label) || list.find((x) => x.label.toLowerCase().includes(cmd.label));
+    if (!m) return { err: true, text: `No custom number called “${cmd.label}”.${list.length ? " You have: " + list.map((x) => x.label).join(", ") + "." : ""}` };
+    const on = mxSetting("month_metrics", "monthMetrics");
+    await saveCustomMetrics(list.filter((x) => x.id !== m.id));
+    return { text: `Removed the custom number “${m.label}”.`, changed: true,
+      revert: async () => { await saveCustomMetrics([...customMetrics(), m]); if (on) await saveMxLayout({ month_metrics: on }); } };
+  }
+  const formula = cmd.formula.toLowerCase().replace(/[a-z_][a-z0-9_-]*/g, (w) => (FORMULA_VAR_NAMES.includes(w) || F.FUNCTION_NAMES.includes(w) ? w : METRIC_ALIASES[w.replace("-", "")] || w));
+  try { F.parse(formula, FORMULA_VAR_NAMES); }
+  catch (e) { return { err: true, text: `${e.message}. Numbers you can use: ${FORMULA_VAR_NAMES.join(", ")}. Also income, spend, expense, net.` }; }
+  const m = { id: crypto.randomUUID().slice(0, 8), label: cmd.label, formula, format: cmd.format || (/\bpct\(/.test(formula) ? "percent" : "money"), better: 0 };
+  const on = mxSetting("month_metrics", "monthMetrics") || ["regular_expense", "regular_net", "pending"];
+  await saveCustomMetrics([...list, m]);
+  await saveMxLayout({ month_metrics: [...on, "c:" + m.id] });
+  track("metric:chat_create");
+  const p = curPeriod(), v = F.evaluate(formula, formulaVars(E.summarize(db(), p), E.runway(db(), p)));
+  return { text: `Created “${m.label}” = ${formula}. ${monthName(p)}: ${v == null ? "no data yet" : fmtValue((METRIC_FORMATS[m.format] || METRIC_FORMATS.money)[1], v)}. It's now shown on the Month tab.`, month: p,
+    revert: async () => { await saveCustomMetrics(customMetrics().filter((x) => x.id !== m.id)); await saveMxLayout({ month_metrics: on }); } };
+}
+
+function queryCommand(cmd, d) {
+  const p = cmd.period || curPeriod(), s = E.summarize(d, p), mn = monthName(p), base = { month: p };
+  const prevAvg = (f) => { const ps = [1, 2, 3].map((n) => E.shiftPeriod(p, -n)).filter((x) => d.transaction.some((t) => t.period === x)); return ps.length ? ps.reduce((a, x) => a + f(E.summarize(d, x)), 0) / ps.length : null; };
+  const vsAvg = (v, f) => { const a = prevAvg(f), c = a ? pctOf(v, a) : null; return c == null ? "" : ` That's ${Math.abs(c)}% ${c >= 0 ? "more" : "less"} than the 3 months before (${inr(Math.round(a))} a month).`; };
+  switch (cmd.what) {
+    case "spend": return { ...base, title: `Spending · ${mn}`, text: `${inr(spendOf(s))} in all: ${inr(s.regular_expense)} regular, ${inr(s.oneoff_expense)} one-off, ${inr(s.annual_expense)} annual items.${s.investments ? ` Investments of ${inr(s.investments)} aren't counted.` : ""}${vsAvg(spendOf(s), spendOf)}` };
+    case "income": return { ...base, title: `Income · ${mn}`, text: `${inr(s.regular_inflow)} regular income${s.oneoff_inflow ? ` and ${inr(s.oneoff_inflow)} one-off` : ""}.${s.drawn_from_savings ? ` ${inr(s.drawn_from_savings)} was drawn from savings.` : ""}` };
+    case "net": case "summary": {
+      const v = s.verdict, line = v.kind === "ahead" ? `${inr(v.amount)} ahead: income covers this month's spending.` : `${inr(v.amount)} from savings: spending is more than comes in.`;
+      if (cmd.what === "net") return { ...base, title: mn, text: line + (s.commitments_pending ? ` ${inr(s.commitments_pending)} of commitments is still due.` : "") };
+      return { ...base, title: `${mn} at a glance`, text: line, table: { rows: [["Opening balance", inr(s.opening)], ["Regular income", inr(s.regular_inflow)], ["One-off income", inr(s.oneoff_inflow)],
+        ["Regular expense", inr(s.regular_expense)], ["One-off expense", inr(s.oneoff_expense)], ["Annual items", inr(s.annual_expense)], ["Investments", inr(s.investments)],
+        ["Drawn from savings", inr(s.drawn_from_savings)], ["Commitments still due", inr(s.commitments_pending)]].filter(([, v], i) => i < 2 || v !== inr(0)), total: ["Closing balance", inr(s.closing)] } };
+    }
+    case "categories": {
+      const rows = Object.entries(s.by_category).filter(([, v]) => Math.round(v)).sort((a, b) => b[1] - a[1]);
+      if (!rows.length) return { ...base, text: `No spending recorded in ${mn} yet.` };
+      return { ...base, title: `Spending by category · ${mn}`, table: { rows: rows.map(([c, v]) => [c, inr(Math.round(v)), `${Math.round((v / spendOf(s)) * 100)}%`]), total: ["Total", inr(spendOf(s))] } };
+    }
+    case "category": {
+      const v = Math.round(s.by_category[cmd.category] || 0), n = d.transaction.filter((t) => t.period === p && t.direction === "out" && (t.category || "Other") === cmd.category).length;
+      return { ...base, title: `${cmd.category} · ${mn}`, text: `${inr(v)} across ${n} row${n === 1 ? "" : "s"}.${vsAvg(v, (x) => x.by_category[cmd.category] || 0)}` };
+    }
+    case "nature": {
+      const v = cmd.nature === "annual" ? s.annual_expense : cmd.nature === "investment" ? s.investments : Math.round(s.by_nature[cmd.nature] || 0);
+      return { ...base, title: mn, text: `${(NATURE_LABELS.find(([k]) => k === cmd.nature) || [, cmd.nature])[1]}: ${inr(v)}.` };
+    }
+    case "pending": {
+      const due = s.commitments.filter((c) => !c.paid);
+      if (!due.length) return { ...base, text: `Every monthly commitment is paid for ${mn}.` };
+      return { ...base, title: `Still to pay · ${mn}`, table: { rows: due.map((c) => [c.label, inr(+c.amount || 0)]), total: ["Total", inr(s.commitments_pending)] } };
+    }
+    case "runway": {
+      const r = E.runway(d, p);
+      return { ...base, title: "Runway", text: r.burn <= 0 ? `Over the last 3 months income covered spending${r.savings > 0 ? `, so your ${inr(r.savings)} in bank and savings isn't being drawn down` : ""}.`
+        : r.months == null || !(r.savings > 0) ? "I can't work out a runway yet: add your bank and savings balances first." : `At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.` };
+    }
+    case "bill": case "bills": {
+      const cards = E.monthStatus(d, p).cards.filter((c) => !cmd.account_ids || cmd.account_ids.includes(c.id));
+      if (!cards.length) return { ...base, text: `No card activity in ${mn}.` };
+      const line = (c) => [acctName(c.id), inr(c.billed ? c.amount : c.computed), c.billed ? (c.stale ? "billed, transactions changed since" : "billed") : "not billed yet"];
+      if (cards.length === 1) { const c = cards[0];
+        return { ...base, title: `${acctName(c.id)} · ${mn}`, text: c.billed ? `Billed at ${inr(c.amount)}.${c.stale ? ` Transactions now total ${inr(c.computed)}.` : ""}` : `Transactions total ${inr(c.computed)}. Not marked billed yet.`,
+          actions: c.billed ? [] : [{ label: `Mark billed at ${inr(c.computed)}`, run: () => runCommand({ kind: "bill", card_ids: [c.id], amount: c.computed, period: p }) }] }; }
+      return { ...base, title: `Card bills · ${mn}`, table: { rows: cards.map(line) } };
+    }
+    case "balance": case "balances": {
+      const ids = cmd.account_ids || chatAccounts().map((a) => a.id);
+      const rows = ids.map((id) => { const a = store.rows.get(id)?.data || {}, m = E.accountMonth(d, id, p);
+        return [a.name, a.role === "card" ? inr(m.outstanding || 0) : inr(m.closing ?? m.balance ?? 0), a.role === "card" ? "outstanding" : m.closing != null ? `end of ${mn}` : "balance"]; });
+      return { ...base, title: `Balances · ${mn}`, table: { rows } };
+    }
+    case "rows": {
+      const hits = findRows(cmd, p).sort((a, b) => String(a.data.date).localeCompare(String(b.data.date)));
+      if (!hits.length) return { ...base, text: `No rows matching “${cmd.target || cmd.account_ids.map(acctName).join(", ")}” in ${mn}.` };
+      const net = hits.reduce((x, r) => x + (r.data.direction === "in" ? -1 : 1) * (+r.data.amount || 0), 0);
+      const shown = hits.slice(-12);
+      return { title: `“${cmd.target || acctName(cmd.account_ids[0])}” · ${mn}`, text: hits.length > 12 ? `${hits.length} rows; the last 12:` : "",
+        table: { rows: shown.map((r) => [r.data.description || "(no description)", `${r.data.direction === "in" ? "+" : ""}${inr(Math.abs(+r.data.amount || 0))}`, `${shortDay(r.data.date)} · ${acctName(r.data.account_id)}`]),
+          total: [`Total (${hits.length})`, inr(Math.round(net))] }, reveal: hits.map((r) => r.id) };
+    }
+    case "metrics": {
+      const r = E.runway(d, p);
+      return { ...base, title: `Numbers · ${mn}`, table: { rows: allMetrics().map(([, l, f, , , fmt = inr, c]) => { let v = null; try { v = f(s, r); } catch (e) { /* bad formula */ }
+        return [l, fmtValue(fmt, v), c ? "custom" : ""]; }) }, text: customMetrics().length ? "" : "Add your own with “add metric name = formula”." };
+    }
+  }
+  return { text: "I didn't understand that. Type “help” for examples." };
+}
+
+function chartCommand(cmd, d) {
+  if (cmd.type === "compare") {
+    const [a, b] = cmd.periods, sa = E.summarize(d, a), sb = E.summarize(d, b);
+    const cats = [...new Set([...Object.keys(sa.by_category), ...Object.keys(sb.by_category)])].map((c) => [c, Math.round(sa.by_category[c] || 0), Math.round(sb.by_category[c] || 0)])
+      .filter(([, x, y]) => x || y).sort((x, y) => Math.abs(y[1] - y[2]) - Math.abs(x[1] - x[2]));
+    const ch = pctOf(spendOf(sa), spendOf(sb));
+    return { title: `${monthName(a)} vs ${monthName(b)}`, text: `Spending ${inr(spendOf(sa))} vs ${inr(spendOf(sb))}${ch == null ? "" : ` (${ch >= 0 ? "+" : ""}${ch}%)`}. Income ${inr(sa.regular_inflow)} vs ${inr(sb.regular_inflow)}. Biggest changes first:`,
+      table: { rows: cats.slice(0, 10).map(([c, x, y]) => [c, `${inr(x)} vs ${inr(y)}`, `${x - y >= 0 ? "+" : "−"}${inr(Math.abs(x - y))}`]) }, month: a };
+  }
+  const end = cmd.end || curPeriod(), ps = N.windowPeriods(d, end, cmd.months), labels = ps.map(P.periodLabel);
+  if (ps.length < 2) return { text: "There isn't enough history yet for a trend. Add or import a few months first." };
+  const sums = ps.map((p) => E.summarize(d, p)), span = `${labels[0]} – ${labels[labels.length - 1]}`;
+  const avg = (vals) => vals.reduce((a, b) => a + b, 0) / vals.length;
+  const latestVs = (vals, what) => { const last = vals[vals.length - 1], a = avg(vals.slice(0, -1)), c = pctOf(last, a);
+    return c == null ? "" : `${what} in ${labels[labels.length - 1]} was ${inr(Math.round(last))}, ${Math.abs(c)}% ${c >= 0 ? "above" : "below"} the earlier average of ${inr(Math.round(a))}.`; };
+  if (cmd.type === "spend") {
+    const groups = ps.map((p) => N.natureSplit(d, [p]).groups);
+    const stacks = N.GROUPS.map(([k, name], i) => ({ name, color: COLORS[i], values: groups.map((g) => g.find((x) => x.key === k).amount) }));
+    return { title: `Spending · ${span}`, text: latestVs(sums.map(spendOf), "Spending"),
+      chart: (host) => stackedBars(host, { labels, stacks, line: { name: "Regular income", color: "var(--text)", values: sums.map((s) => s.regular_inflow) }, title: "Monthly spending", height: 220 }) };
+  }
+  if (cmd.type === "income") {
+    return { title: `Income vs spending · ${span}`, text: `On average ${inr(Math.round(avg(sums.map((s) => s.regular_inflow))))} in and ${inr(Math.round(avg(sums.map(spendOf))))} out a month.`,
+      chart: (host) => lines(host, { labels, series: [{ name: "Regular income", color: COLORS[2], values: sums.map((s) => s.regular_inflow), dots: true }, { name: "Spending", color: COLORS[1], values: sums.map(spendOf), dots: true }], title: "Income vs spending" }) };
+  }
+  if (cmd.type === "category") {
+    const vals = sums.map((s) => Math.round(s.by_category[cmd.category] || 0));
+    return { title: `${cmd.category} · ${span}`, text: latestVs(vals, cmd.category),
+      chart: (host) => lines(host, { labels, series: [{ name: cmd.category, color: COLORS[0], values: vals, dots: true }], title: `${cmd.category} by month` }) };
+  }
+  if (cmd.type === "categories") {
+    const tot = {}; for (const s of sums) for (const [c, v] of Object.entries(s.by_category)) tot[c] = (tot[c] || 0) + v;
+    const top = Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c]) => c);
+    const stacks = [...top.map((c, i) => ({ name: c, color: COLORS[i], values: sums.map((s) => Math.round(s.by_category[c] || 0)) })),
+      { name: "Everything else", color: COLORS[3], values: sums.map((s) => Math.round(Object.entries(s.by_category).filter(([c]) => !top.includes(c)).reduce((a, [, v]) => a + v, 0))) }];
+    const moved = N.categoryTrends(d, end).filter((x) => x.flag).slice(0, 3);
+    return { title: `Categories · ${span}`, text: moved.length ? `Moving most (last 3 months vs before): ${moved.map((x) => `${x.category} ${x.change == null ? "(new)" : `${x.change > 0 ? "+" : ""}${x.change}%`}`).join(", ")}.` : "No category moved much against its usual level.",
+      chart: (host) => stackedBars(host, { labels, stacks, title: "Spending by category", height: 220 }) };
+  }
+  if (cmd.type === "merchants") {
+    const top = N.topMerchants(d, ps, 8);
+    if (!top.length) return { text: `No day-to-day spending in ${span}.` };
+    return { title: `Top places · ${span}`, text: `${top[0].label} leads at ${inr(top[0].monthly)} a month (${top[0].count} rows).`,
+      chart: (host) => hbars(host, { items: top.map((m) => ({ label: m.label, value: m.amount, icon: catIcon(m.category || "Other"), count: m.count })), title: "Top places" }) };
+  }
+  if (cmd.type === "savings") {
+    const sr = N.savingsRate(d, ps);
+    return { title: `Savings rate · ${span}`, text: sr.rate == null ? "No regular income recorded, so there's no savings rate." : `You kept ${sr.rate}% of regular income overall${sr.best ? `; best was ${P.periodLabel(sr.best.period)} at ${sr.best.rate}%` : ""}${sr.overspent ? `. ${sr.overspent} month${sr.overspent > 1 ? "s" : ""} spent more than came in` : ""}.`,
+      chart: (host) => lines(host, { labels, series: [{ name: "Savings rate", color: COLORS[2], values: sr.rows.map((r) => r.rate), dots: true }], title: "Savings rate", fmt: (n) => `${n}%`, axis: (n) => `${n}%` }) };
+  }
+  return { text: "I didn't understand that. Type “help” for examples." };
+}
+
 function startChat() { if (!store.key || !settingsRec()) return; openChat({ accountId: viewAccount() }); }
 // "/" (when not typing somewhere) or Ctrl/⌘+K opens the chat, or focuses it if open.
 document.addEventListener("keydown", (e) => {
@@ -868,11 +1134,13 @@ async function saveClose(period, fn) {
 const liveRow = (id) => { const r = id && store.rows.get(id); return r && !r.deleted ? r : null; };
 
 /** Mark a card billed at the statement amount; any difference from the grid becomes an adjustment row under Other. */
-async function markBilled(cardId, amount) {
-  const period = S.period, c = E.monthStatus(db(), period).cards.find((x) => x.id === cardId);
+async function markBilled(cardId, amount, period = S.period) {
+  const c = E.monthStatus(db(), period).cards.find((x) => x.id === cardId);
   const adj = liveRow(c.adj_id);
   const adjEffect = adj && adj.data.period === period ? (adj.data.direction === "in" ? -1 : 1) * (+adj.data.amount || 0) : 0;
-  const base = Math.round(c.computed - adjEffect), diff = Math.round(amount - base);
+  const base = Math.round(c.computed - adjEffect);
+  if (amount == null) amount = base;
+  const diff = Math.round(amount - base);
   let adjId = null;
   if (diff) {
     adjId = (await store.save({ id: adj ? adj.id : undefined, type: "transaction", period, data: {
@@ -881,12 +1149,13 @@ async function markBilled(cardId, amount) {
   } else if (adj) await store.remove(adj.id);
   await saveClose(period, (d) => { d.cards[cardId] = { amount: Math.round(amount), computed: base, adj_id: adjId, at: new Date().toISOString() }; });
   track("bill:card");
+  return { base, diff, adjId, amount: Math.round(amount) };
 }
 
-async function unmarkBilled(cardId) {
-  const c = E.monthStatus(db(), S.period).cards.find((x) => x.id === cardId);
+async function unmarkBilled(cardId, period = S.period) {
+  const c = E.monthStatus(db(), period).cards.find((x) => x.id === cardId);
   if (liveRow(c.adj_id)) await store.remove(c.adj_id);
-  await saveClose(S.period, (d) => { delete d.cards[cardId]; d.closed = false; });
+  await saveClose(period, (d) => { delete d.cards[cardId]; d.closed = false; });
 }
 
 const refreshMonth = () => { monthSummary(); mountTxGrid(); monthCloseBar(); };

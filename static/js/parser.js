@@ -50,15 +50,15 @@ export const MERCHANTS = {
 };
 
 // Category words a person might type explicitly ("450 swiggy grocery").
-const CATEGORY_WORDS = {
+export const CATEGORY_WORDS = {
   food: "Food", grocery: "Grocery", groceries: "Grocery", utilities: "Utilities", utility: "Utilities", vehicle: "Vehicle", car: "Vehicle",
   health: "Health", medical: "Health", travel: "Travel", holiday: "Holiday", vacation: "Holiday", entertainment: "Entertainment",
   shopping: "Shopping", transport: "Transport", personal: "Personal", household: "Household", education: "Education",
   insurance: "Insurance", family: "Family", gift: "Gift", emergency: "Emergency",
 };
 
-const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-const MONTH_RE = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+export const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+export const MONTH_RE = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const FILLER = new Set(["on", "at", "for", "the", "to", "with", "via", "using", "from", "in", "into", "a", "an", "of", "my", "by", "and", "was", "is", "me", "rs", "inr", "amount", "worth"]);
 const PAY_PREPS = new Set(["with", "on", "via", "using", "by", "from"]);

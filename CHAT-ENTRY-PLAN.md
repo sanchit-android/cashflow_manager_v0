@@ -215,3 +215,21 @@ Server schema (§10.3 of v4) doesn't change — these are just more encrypted re
 1. **Confirm every entry, or auto-save when fully confident** (with a 5-second Undo)? Auto-save is faster; confirm-always is safer for a finance app. *Suggested:* confirm always at launch; add auto-save with a 5-second Undo toast as a Settings toggle once the golden test set shows the parser is accurate.
 2. **Future-dated entries** — save as planned items in Upcoming, or reject?
 3. **Should learned aliases ask first** ("Always use Infinia for 'hdfc'?") or apply silently?
+
+---
+
+## Commands and questions (static/js/commands.js)
+
+Besides new entries, the chat understands commands. `parseCommand(text, ctx)` runs first and returns null for anything that reads as an entry, so every entry phrase keeps working. Still rule-based and in the browser. `runCommand` in app.js carries the command out. Anything that changes data can be undone ("Undo" button or typing `undo`).
+
+| Area | Examples |
+|---|---|
+| Change rows | `change swiggy to 500` · `swiggy was 500` · `move uber to travel` · `swiggy date 3 nov` · `move swiggy to atlas` · `rename swigy to swiggy` · `mark goa trip as annual` |
+| Remove rows | `delete zomato` · `remove the 450 swiggy on 5 nov` · `delete zomato in oct` (several matches → buttons to choose) |
+| Ask | `how much did I spend?` · `income` · `net` · `summary` · `totals by category` · `food total in oct` · `what's left to pay` · `runway` · `infinia bill` · `card bills` · `balance of hdfc` · `list swiggy` · `show metrics` |
+| Accounts | `add card hdfc regalia` · `new savings account sbi` · `add account kotak with balance 50k` |
+| Card billing | `infinia billed 23,450` · `mark atlas billed at 12k for oct` · `mark infinia billed` (at the computed amount) · `unbill infinia`. A different statement amount adds one "Statement adjustment" row. |
+| Custom numbers | `add metric savings = income - spend` (aliases: income, spend, expense, net, annual, due) · `... as percent` · `remove metric savings` |
+| Trends and charts | `spend trend` · `income trend` · `food trend 12 months` · `category trend` · `top merchants` · `savings rate` · `compare oct vs sep` · `compare with last month` |
+
+The month: whatever month is named (`in oct`, `last month`, `sep 2025`), else the current month. Edit and remove also look in the month on screen if nothing in the current month matches.

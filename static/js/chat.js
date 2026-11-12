@@ -5,13 +5,17 @@
 // entry in a plain sentence (with any warnings) and stays in the chat instead of jumping to the grid.
 import { catIcon } from "./icons.js";
 import { parseEntry, answer, parseAmount, normalize, splitEntries, parseAddTo } from "./parser.js";
+import { parseCommand, HELP } from "./commands.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "paid maid", "salary 1.8 lakh on 31 oct", "invested 50k in mutual fund"];
+const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "change swiggy to 500", "totals by category", "spend trend", "help"];
 const isPhone = () => window.matchMedia("(max-width: 640px)").matches;
 
 // deps: { ctx(), save(drafts) -> { ids, txIds, summaries, sentences, notes }, undo(ids), reveal(txIds), refresh(), suggestions(prefix),
-//         addTo(target, amount, accountIds?) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before) }
+//         addTo(target, amount, accountIds?) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before),
+//         command(cmd) -> Reply, commandCtx() -> { period } }
+// Reply (a command's answer) = { title?, text?, table?: { rows: [[label, value, sub?]], total?: [label, value] }, chart?(host), notes?, err?,
+//   reveal?: txIds, month?: period (link to open it), revert?() (makes it undoable), actions?: [{ label, run() -> Reply }], changed? }
 let deps = null;
 // The conversation lives for the whole session, across opening and closing.
 const msgs = [];          // { who: "me" | "bot", text, card?, ids?, txIds?, undone?, ask?, ok?, notes?, restore? }
@@ -23,6 +27,16 @@ function cardHtml(c) {
     <span class="tx-top"><span class="tx-ok" aria-hidden="true">✓</span> ${esc(c.verb)} <strong>${esc(c.sign)}${esc(c.amount)}</strong>${c.desc ? ` <span class="tx-desc">${esc(c.desc)}</span>` : ""}</span>
     <span class="tx-meta">${c.from ? acct(c.from) : ""}${c.to ? `<span class="tx-arrow" aria-label="to">→</span>${acct(c.to)}` : ""}${c.category ? `<span class="tx-chip">${c.catIcon}${esc(c.category)}</span>` : ""}<span class="tx-chip">${catIcon("Annual")}${esc(c.day)}</span></span>
     ${c.extra ? `<span class="tx-extra">${esc(c.extra)}</span>` : ""}</span>`;
+}
+/** A command's answer: heading, sentence, small table, chart, example chips and buttons. */
+function richHtml(m, i) {
+  const t = m.table;
+  return `${m.card ? cardHtml(m.card) : ""}${m.title ? `<strong class="msg-title">${esc(m.title)}</strong>` : ""}${m.text ? `<span class="msg-text">${esc(m.text)}</span>` : ""}
+    ${t && t.rows.length ? `<table class="msg-table"><tbody>${t.rows.map(([l, v, sub]) => `<tr><td>${esc(l)}${sub ? `<small>${esc(sub)}</small>` : ""}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody>${t.total ? `<tfoot><tr><td>${esc(t.total[0])}</td><td class="num">${esc(t.total[1])}</td></tr></tfoot>` : ""}</table>` : ""}
+    ${m.chart ? `<div class="msg-chart" data-chart="${i}"></div>` : ""}
+    ${m.examples ? m.examples.map(([g, ex]) => `<div class="msg-help"><small>${esc(g)}</small><div class="msg-chips">${ex.map((e) => `<button type="button" class="chat-chip" data-try="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`).join("") : ""}
+    ${m.actions && !m.acted ? `<div class="msg-chips">${m.actions.map((a, j) => `<button type="button" class="chat-chip" data-act="${i}:${j}">${esc(a.label)}</button>`).join("")}</div>` : ""}
+    ${m.month || (m.reveal && m.reveal.length) ? `<button type="button" class="msg-open" ${m.reveal && m.reveal.length ? `data-show="${i}"` : `data-month="${esc(m.month)}"`}>Show in the grid</button>` : ""}`;
 }
 let pending = null;       // { draft, rest: [drafts still to save after this one] }
 let ui = null;            // the open chat: { el, input, close, expand }
@@ -41,13 +55,13 @@ export function openChat({ accountId } = {}) {
   wrap.innerHTML = `<section class="${phone ? "ml-sheet chat-panel" : "chat-dock"}" role="dialog" aria-label="Quick add" ${phone ? 'aria-modal="true"' : ""}>
     ${phone ? '<div class="ml-grab" aria-hidden="true"></div>' : ""}
     <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>Quick add</strong>
-      <span class="chat-head-hint">Saved as you press Enter · fix anything in the grid</span>
+      <span class="chat-head-hint">Add, change or ask · type “help” for examples</span>
       ${phone ? "" : `<button type="button" class="chat-x chat-min" aria-label="Minimise chat" title="Minimise">${MINIMISE}</button>`}
       <button type="button" class="chat-x chat-close" aria-label="Close chat" title="Close">✕</button></header>
     <div class="chat-thread" aria-live="polite"></div>
     <div class="chat-suggest" aria-label="Suggestions"></div>
     <form class="chat-bar" autocomplete="off">
-      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="Type an entry… e.g. “450 swiggy, 1200 petrol atlas”">
+      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="e.g. “450 swiggy”, “change swiggy to 500”, “food trend”">
       <button type="submit" class="chat-send" aria-label="Save">${SEND}</button>
     </form></section>`;
   document.body.appendChild(wrap);
@@ -113,7 +127,7 @@ export function openChat({ accountId } = {}) {
 
   function render() {
     if (!msgs.length) {
-      thread.innerHTML = `<div class="chat-empty"><p>Type what you spent or received, in plain words. It's saved straight away and ${phone ? "I'll confirm what was added" : "highlighted in the grid"}.</p>
+      thread.innerHTML = `<div class="chat-empty"><p>Type what you spent or received, in plain words. It's saved straight away and ${phone ? "I'll confirm what was added" : "highlighted in the grid"}. You can also change or delete rows, mark cards billed, add accounts and ask about any month. Type “help” to see how.</p>
         <div class="chat-examples">${EXAMPLES.map((e) => `<button type="button" class="chat-chip" data-ex="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`;
       thread.querySelectorAll("[data-ex]").forEach((b) => (b.onclick = () => { input.value = b.dataset.ex; keepFocus(); }));
       place();
@@ -122,8 +136,8 @@ export function openChat({ accountId } = {}) {
     const lastSaved = [...msgs].reverse().find((m) => m.ids && !m.undone);
     thread.innerHTML = msgs.map((m, i) => m.who === "me"
       ? `<div class="msg me">${esc(m.text)}</div>`
-      : `<div class="msg bot${m.undone ? " undone" : ""}${m.err ? " err" : ""}">
-          ${m.card ? (m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${cardHtml(m.card)}</button>` : cardHtml(m.card))
+      : `<div class="msg bot${m.chart || m.table || m.examples ? " wide" : ""}${m.undone ? " undone" : ""}${m.err ? " err" : ""}">
+          ${m.rich ? richHtml(m, i) : m.card ? (m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${cardHtml(m.card)}</button>` : cardHtml(m.card))
             : `${m.ok ? `<strong class="msg-ok">${m.notes && m.notes.length ? "✓ Confirmed, with a note" : "✓ Confirmed"}</strong> ` : ""}${m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${esc(m.text)}</button>` : esc(m.text)}`}
           ${(m.notes || []).map((n) => `<div class="msg-warn">⚠ ${esc(n)}</div>`).join("")}
           ${m === lastSaved ? ` <button type="button" class="msg-undo" data-undo="${i}">Undo</button>` : ""}
@@ -134,6 +148,15 @@ export function openChat({ accountId } = {}) {
       if (phone) close(); // the sheet covers the grid
       deps.reveal(ids); if (!phone) keepFocus();
     }));
+    thread.querySelectorAll("[data-chart]").forEach((el) => { try { msgs[+el.dataset.chart].chart(el); } catch (e) { el.textContent = "Couldn't draw this chart."; } });
+    thread.querySelectorAll("[data-act]").forEach((b) => (b.onclick = async () => {
+      const [i, j] = b.dataset.act.split(":").map(Number), m = msgs[i];
+      if (m.acted) return; m.acted = true;
+      msgs.push({ who: "me", text: m.actions[j].label });
+      try { reply_(await m.actions[j].run()); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); }
+    }));
+    thread.querySelectorAll("[data-month]").forEach((b) => (b.onclick = () => { if (phone) close(); deps.openMonth(b.dataset.month); }));
+    thread.querySelectorAll("[data-try]").forEach((b) => (b.onclick = () => { input.value = b.dataset.try; keepFocus(); }));
     thread.querySelectorAll("[data-undo]").forEach((b) => (b.onclick = () => undo(msgs[+b.dataset.undo])));
     thread.querySelectorAll("[data-ans]").forEach((b) => (b.onclick = () => { msgs.push({ who: "me", text: b.textContent }); reply(b.dataset.ans); }));
     thread.scrollTop = thread.scrollHeight;
@@ -212,7 +235,8 @@ export function openChat({ accountId } = {}) {
 
   async function undo(m) {
     if (!m || !m.ids) return;
-    if (m.restore) await deps.restore(m.restore.id, m.restore.before); else await deps.undo(m.ids);
+    if (m.revert) { try { await m.revert(); } catch (e) { msgs.push({ who: "bot", text: "Couldn't undo: " + (e.message || e), err: true }); render(); return; } deps.refresh(); }
+    else if (m.restore) await deps.restore(m.restore.id, m.restore.before); else await deps.undo(m.ids);
     // Strike out every line of that batch.
     const set = new Set(m.ids);
     for (const x of msgs) if (x.txIds && x.txIds.some((id) => set.has(id))) x.undone = true;
@@ -237,7 +261,21 @@ export function openChat({ accountId } = {}) {
     if (pending) { msgs.push({ who: "bot", text: `Skipped “${pending.draft.raw}”.` }); pending = null; }
     enter(text);
   }
+  /** Show a command's answer; changes are undoable and shown in the grid. */
+  function reply_(r) {
+    r = r || { text: "Done." };
+    msgs.push({ who: "bot", rich: true, ...r, ...(r.revert ? { ids: [] } : {}), ...(r.reveal ? { txIds: r.reveal } : {}) });
+    render();
+    if (r.reveal && r.reveal.length && !phone) deps.reveal(r.reveal); else if (r.changed || r.revert) deps.refresh();
+    keepFocus();
+  }
+  async function command(cmd) {
+    if (cmd.kind === "help") return reply_({ title: "Things you can type", examples: HELP });
+    try { reply_(await deps.command(cmd)); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); }
+  }
   async function enter(text) {
+    const cmd = parseCommand(text, { ...ctx(), ...deps.commandCtx() });
+    if (cmd) return command(cmd);
     const rest = [];
     for (const piece of splitEntries(text)) {
       const hit = parseAddTo(piece, ctx().accounts);

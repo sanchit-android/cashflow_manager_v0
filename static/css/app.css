@@ -1124,3 +1124,18 @@ body.chat-docked { padding-bottom: 300px; }
 @keyframes row-flash { 0%, 30% { background: color-mix(in srgb, var(--accent) 35%, transparent); } 100% { background: transparent; } }
 tr.row-flash > td, tr.row-flash > th, .ml-row.row-flash { animation: row-flash 2.4s ease-out; }
 tr.row-flash > td:first-of-type { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* Chat command answers: heading, small table, chart, help chips */
+.msg.bot.wide { max-width: 100%; width: 100%; box-sizing: border-box; }
+.msg-title { display: block; font-size: 13px; margin-bottom: 3px; }
+.msg-text { display: block; }
+.msg-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+.msg-table td { padding: 3px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.msg-table td.num { text-align: right; white-space: nowrap; padding-left: 10px; font-variant-numeric: tabular-nums; }
+.msg-table td small { display: block; color: var(--muted); font-size: 11px; }
+.msg-table tfoot td { font-weight: 600; border-top: 2px solid var(--border); }
+.msg-chart { margin-top: 8px; min-width: 0; }
+.msg-help { margin-top: 6px; }
+.msg-help small { color: var(--muted); }
+.msg .msg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.msg-open { margin-top: 6px; border: 0; background: none; padding: 0; min-height: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; }
