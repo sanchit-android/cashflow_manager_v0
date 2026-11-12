@@ -251,6 +251,8 @@ function accountPhrases(a) {
       if (slice.length === 1 && (GENERIC.has(slice[0]) || INTENT_WORDS.has(slice[0]) || FILLER.has(slice[0]))) continue;
       add(slice.join(" "), slice.length);
     }
+  // "Main account", "New card": when every word is generic, the first one still names it ("main").
+  if (nameWords.length && nameWords.every((w) => GENERIC.has(w) || FILLER.has(w)) && !INTENT_WORDS.has(nameWords[0])) add(nameWords[0], 1);
   if (a.kind === "cash" || /cash/i.test(a.name)) add("cash", 2);
   return phrases;
 }
@@ -334,7 +336,9 @@ const ADD_STRONG = new Set(["existing", "more", "extra", "additional", "addition
 const ADD_WEAK = new Set(["add", "plus"]);
 const ADD_PREP = new Set(["to", "in", "into", "on"]);
 const ADD_FILLER = new Set(["the", "my", "same", "earlier", "previous", "last", "old", "row", "entry", "line", "item", "it", "by", "amount", "of", "please", "pls", "also", "up", "top", "another", "again", "one"]);
-export function parseAddTo(piece) {
+const ADD_ACCT_FILLER = new Set(["with", "via", "using", "from", "account", "card", "a/c", "acct", "ac"]);
+/** Pass the accounts to also pick out "… on infinia" / "main account …": the result then carries account_ids (the row must be on one of them). */
+export function parseAddTo(piece, accounts) {
   let text = normalize(piece).replace(/\btop\s+up\b/g, "topup");
   const amts = [...text.matchAll(new RegExp(AMOUNT_TOKEN.source, "g"))];
   if (amts.length !== 1) return null;
@@ -346,8 +350,18 @@ export function parseAddTo(piece) {
   // "add" also counts after the name ("instamart add 181"); "add 181 instamart" alone stays a new entry.
   const weak = words.some((w) => ADD_WEAK.has(w)) && (words.some((w) => ADD_PREP.has(w)) || !ADD_WEAK.has(words[0]));
   if (!strong && !weak) return null;
-  const target = words.filter((w) => !ADD_STRONG.has(w) && !ADD_WEAK.has(w) && !ADD_PREP.has(w) && !ADD_FILLER.has(w)).join(" ");
-  return target && !/\d/.test(target) ? { amount: a.value, target } : null;
+  let rest = words.filter((w) => !ADD_STRONG.has(w) && !ADD_WEAK.has(w) && !ADD_PREP.has(w) && !ADD_FILLER.has(w));
+  let account_ids = null;
+  if (accounts && accounts.length && rest.length > 1) {
+    const m = findAccounts(rest, accounts).sort((x, y) => y.strength - x.strength)[0];
+    if (m) {
+      const left = rest.filter((w, i) => (i < m.start || i >= m.end) && !ADD_ACCT_FILLER.has(w));
+      if (left.length) { rest = left; account_ids = m.ids; }
+    }
+  }
+  const target = rest.join(" ");
+  if (!target || /\d/.test(target)) return null;
+  return account_ids ? { amount: a.value, target, account_ids } : { amount: a.value, target };
 }
 
 export function parseEntry(text, ctx) {

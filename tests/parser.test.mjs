@@ -206,3 +206,16 @@ test("add to an existing row", () => {
   assert.equal(parseAddTo("100 to mummy"), null);
   assert.equal(parseAddTo("added milk 60"), null);
 });
+
+test("parseAddTo picks out the account, whichever one is in view", () => {
+  const A = [{ id: "m", name: "Main account", role: "spending" }, { id: "i", name: "HDFC Infinia", role: "card" },
+    { id: "s", name: "Swiggy HDFC card", role: "card" }, { id: "x", name: "Axis Airtel", role: "card" }];
+  assert.deepEqual(parseAddTo("100 more to instamart on infinia", A), { amount: 100, target: "instamart", account_ids: ["i"] });
+  assert.deepEqual(parseAddTo("100 existing instamart main", A), { amount: 100, target: "instamart", account_ids: ["m"] });
+  assert.deepEqual(parseAddTo("181 existing instamart axis airtel", A), { amount: 181, target: "instamart", account_ids: ["x"] });
+  assert.deepEqual(parseAddTo("add 50 to swiggy with swiggy card", A), { amount: 50, target: "swiggy", account_ids: ["s"] });
+  assert.deepEqual(parseAddTo("100 add to existing instamart", A), { amount: 100, target: "instamart" });
+  assert.deepEqual(parseAddTo("add 100 to swiggy", A), { amount: 100, target: "swiggy" });
+  const d = parseEntry("450 zomato main", { today: "2026-11-12", accounts: A, defaultAccountId: "i" })[0];
+  assert.equal(d.account_id, "m");
+});

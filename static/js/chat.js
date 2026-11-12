@@ -3,6 +3,7 @@
 // (no amount, a transfer with nowhere to go, "rent" that could be money in or out).
 // Desktop: a floating chat window you can drag by its header, or minimise to just the header at the bottom right. Phone: a full-height sheet that confirms each
 // entry in a plain sentence (with any warnings) and stays in the chat instead of jumping to the grid.
+import { catIcon } from "./icons.js";
 import { parseEntry, answer, parseAmount, normalize, splitEntries, parseAddTo } from "./parser.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -10,10 +11,19 @@ const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "paid maid",
 const isPhone = () => window.matchMedia("(max-width: 640px)").matches;
 
 // deps: { ctx(), save(drafts) -> { ids, txIds, summaries, sentences, notes }, undo(ids), reveal(txIds), refresh(), suggestions(prefix),
-//         addTo(target, amount) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before) }
+//         addTo(target, amount, accountIds?) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before) }
 let deps = null;
 // The conversation lives for the whole session, across opening and closing.
-const msgs = [];          // { who: "me" | "bot", text, ids?, txIds?, undone?, ask?, ok?, notes?, restore? }
+const msgs = [];          // { who: "me" | "bot", text, card?, ids?, txIds?, undone?, ask?, ok?, notes?, restore? }
+
+/** A saved row as a small card: what, how much, which account (and where to), category and day. */
+function cardHtml(c) {
+  const acct = (a) => `<span class="tx-chip tx-acct">${a.icon}${esc(a.name)}</span>`;
+  return `<span class="tx-card">
+    <span class="tx-top"><span class="tx-ok" aria-hidden="true">✓</span> ${esc(c.verb)} <strong>${esc(c.sign)}${esc(c.amount)}</strong>${c.desc ? ` <span class="tx-desc">${esc(c.desc)}</span>` : ""}</span>
+    <span class="tx-meta">${c.from ? acct(c.from) : ""}${c.to ? `<span class="tx-arrow" aria-label="to">→</span>${acct(c.to)}` : ""}${c.category ? `<span class="tx-chip">${c.catIcon}${esc(c.category)}</span>` : ""}<span class="tx-chip">${catIcon("Annual")}${esc(c.day)}</span></span>
+    ${c.extra ? `<span class="tx-extra">${esc(c.extra)}</span>` : ""}</span>`;
+}
 let pending = null;       // { draft, rest: [drafts still to save after this one] }
 let ui = null;            // the open chat: { el, input, close, expand }
 let pos = { x: 0, y: 0 }; // desktop: how far the window has been dragged from its usual spot (kept while the page is open)
@@ -113,7 +123,8 @@ export function openChat({ accountId } = {}) {
     thread.innerHTML = msgs.map((m, i) => m.who === "me"
       ? `<div class="msg me">${esc(m.text)}</div>`
       : `<div class="msg bot${m.undone ? " undone" : ""}${m.err ? " err" : ""}">
-          ${m.ok ? `<strong class="msg-ok">${m.notes && m.notes.length ? "✓ Confirmed, with a note" : "✓ Confirmed"}</strong> ` : ""}${m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${esc(m.text)}</button>` : esc(m.text)}
+          ${m.card ? (m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${cardHtml(m.card)}</button>` : cardHtml(m.card))
+            : `${m.ok ? `<strong class="msg-ok">${m.notes && m.notes.length ? "✓ Confirmed, with a note" : "✓ Confirmed"}</strong> ` : ""}${m.txIds && !m.undone ? `<button type="button" class="msg-link" data-show="${i}" title="Show in the grid">${esc(m.text)}</button>` : esc(m.text)}`}
           ${(m.notes || []).map((n) => `<div class="msg-warn">⚠ ${esc(n)}</div>`).join("")}
           ${m === lastSaved ? ` <button type="button" class="msg-undo" data-undo="${i}">Undo</button>` : ""}
           ${m.ask && pending && m === msgs[msgs.length - 1] && m.ask.options.length ? `<div class="msg-chips">${m.ask.options.map(([v, l]) => `<button type="button" class="chat-chip" data-ans="${esc(v)}">${esc(l)}</button>`).join("")}</div>` : ""}
@@ -168,7 +179,7 @@ export function openChat({ accountId } = {}) {
       const res = await deps.save(drafts);
       // Undo removes the whole batch; keep the ids on the last line of it.
       res.summaries.forEach((s, i) => msgs.push({ who: "bot", ids: i === res.summaries.length - 1 ? res.ids : null, txIds: [res.txIds[i]],
-        notes: res.notes[i], ...(phone ? { text: res.sentences[i], ok: true } : { text: "✓ " + s }) }));
+        notes: res.notes[i], card: res.cards && res.cards[i], ...(phone ? { text: res.sentences[i], ok: true } : { text: "✓ " + s }) }));
       render();
       // Phone: stay in the conversation; the grid behind is only brought up to date.
       if (phone) deps.refresh(); else deps.reveal(res.txIds);
@@ -188,10 +199,10 @@ export function openChat({ accountId } = {}) {
   /** "add 272 to instamart": put +272 on the row that's already there. Returns false when it should be a normal entry instead. */
   async function addTo(piece, hit) {
     try {
-      const res = await deps.addTo(hit.target, hit.amount);
+      const res = await deps.addTo(hit.target, hit.amount, hit.account_ids);
       if (res.skip) return false;
-      if (res.none) { msgs.push({ who: "bot", err: true, text: `Nothing was changed. I couldn't find a row matching “${hit.target}” in ${res.month}. To add it as a new entry, type “${hit.amount} ${hit.target}”.` }); render(); return true; }
-      msgs.push({ who: "bot", ids: [], txIds: [res.id], restore: { id: res.id, before: res.before }, notes: res.notes, ...(phone ? { text: res.sentence, ok: true } : { text: "✓ " + res.sentence }) });
+      if (res.none) { msgs.push({ who: "bot", err: true, text: `Nothing was changed. I couldn't find a row matching “${hit.target}” in ${res.month}${res.account ? ` on ${res.account}` : ""}. To add it as a new entry, type “${hit.amount} ${hit.target}”.` }); render(); return true; }
+      msgs.push({ who: "bot", ids: [], txIds: [res.id], restore: { id: res.id, before: res.before }, notes: res.notes, card: res.card, ...(phone ? { text: res.sentence, ok: true } : { text: "✓ " + res.sentence }) });
       render();
       if (phone) deps.refresh(); else deps.reveal([res.id]);
       keepFocus(); setTimeout(keepFocus, 450);
@@ -229,7 +240,7 @@ export function openChat({ accountId } = {}) {
   async function enter(text) {
     const rest = [];
     for (const piece of splitEntries(text)) {
-      const hit = parseAddTo(piece);
+      const hit = parseAddTo(piece, ctx().accounts);
       if (!hit || !(await addTo(piece, hit))) rest.push(piece);
     }
     if (rest.length) run(parseEntry(rest.join("; "), ctx())); else keepFocus();

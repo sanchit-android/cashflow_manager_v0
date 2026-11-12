@@ -443,6 +443,18 @@ function txSentence(t) {
   if (+t.amount < 0) return `Got ${amt} back${q ? ` for ${q}` : ""} into ${name(t.account_id)} ${when}.`;
   return `Spent ${amt}${q ? ` on ${q}` : ""} using ${name(t.account_id)} ${when}, under ${t.category || "Other"}.`;
 }
+/** What the chat shows for a saved row: the amount, where it went and under what, with icons. */
+function txCard(t, extra) {
+  const acc = (id) => { const a = id && store.rows.get(id)?.data; return a ? { name: a.name, icon: acctIcon(a) } : null; };
+  const dir = t.direction, back = +t.amount < 0;
+  return {
+    verb: dir === "transfer" ? "Moved" : dir === "in" ? "Received" : back ? "Got back" : "Spent",
+    sign: dir === "transfer" ? "⇄" : dir === "in" || back ? "+" : "−", amount: inr(Math.abs(+t.amount || 0)),
+    desc: String(t.description || "").trim(), from: acc(t.account_id), to: dir === "transfer" ? acc(t.to_account_id) : null,
+    category: dir === "transfer" ? "" : t.category || "Other", catIcon: dir === "transfer" ? "" : catIcon(t.category || "Other"),
+    day: friendlyDay(t.date).replace(/^on /, ""), extra: extra || "",
+  };
+}
 function afterChatChange() {
   saves++;
   if (S.tab === "month" && $("#txgrid")) { monthSummary(); mountTxGrid(); monthCloseBar(); }
@@ -486,7 +498,7 @@ initChat({
     const txIds = await store.save(txs.map((data) => ({ type: "transaction", period: data.period, data })));
     ids.push(...txIds);
     saves++;
-    return { ids, txIds, summaries: txs.map(txSummary),
+    return { ids, txIds, summaries: txs.map(txSummary), cards: txs.map((t) => txCard(t)),
       sentences: txs.map(txSentence),
       notes: txs.map((t, i) => [
         ...(drafts[i].warn ? [drafts[i].warn + "."] : []),
@@ -504,11 +516,14 @@ initChat({
   reveal: revealTx,
   refresh: afterChatChange,
   /** "add 272 to instamart": append +272 to the amount of a row already in the month, keeping the parts as a formula. */
-  async addTo(target, amount) {
+  async addTo(target, amount, accountIds) {
     const words = target.split(/\s+/).filter(Boolean);
     const period = S.tab === "month" ? S.period : E.currentPeriod(db(), today());
-    const hits = store.ofType("transaction").filter((r) => (r.data.period || r.period) === period && words.every((w) => String(r.data.description || "").toLowerCase().includes(w)));
+    // Any account works, not just the one in view; "… on infinia" narrows it to that account's rows.
+    const inAcct = (r) => !accountIds || accountIds.includes(r.data.account_id) || accountIds.includes(r.data.to_account_id);
+    const hits = store.ofType("transaction").filter((r) => !r.deleted && (r.data.period || r.period) === period && inAcct(r) && words.every((w) => String(r.data.description || "").toLowerCase().includes(w)));
     if (!hits.length) {
+      if (accountIds) { const names = accountIds.map((id) => store.rows.get(id)?.data?.name).filter(Boolean).join(" or "); return { none: true, month: monthName(period), account: names }; }
       const isAcct = chatAccounts().some((a) => [a.name, ...(a.aliases || [])].some((n) => String(n).toLowerCase() === target));
       return isAcct ? { skip: true } : { none: true, month: monthName(period) };
     }
@@ -521,9 +536,9 @@ initChat({
     await saveRec("transaction")(r.id, { ...before, amount: value, amount_formula: formula });
     saves++;
     const acct = store.rows.get(before.account_id)?.data?.name;
-    return { id: r.id, before,
+    return { id: r.id, before, card: { ...txCard({ ...before, amount }), verb: "Added", extra: `now ${inr(value)}${formula ? ` · ${formula}` : ""}` },
       sentence: `Added ${inr(amount)} to “${before.description}” (${friendlyDay(before.date).replace(/^on /, "")}${acct ? ", " + acct : ""}). It's now ${inr(value)}${formula ? `, kept as ${formula}` : ""}.`,
-      notes: hits.length > 1 ? [`${hits.length} rows match “${target}” in ${monthName(period)}; I used the latest one.`] : [] };
+      notes: hits.length > 1 ? [`${hits.length} rows match “${target}” in ${monthName(period)}; I used the latest one. Add the account name (e.g. “on ${store.rows.get(before.account_id)?.data?.name || "main"}”) to pick another.`] : [] };
   },
   async restore(id, before) {
     const r = store.rows.get(id);
