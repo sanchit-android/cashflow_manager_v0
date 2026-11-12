@@ -270,7 +270,7 @@ async function migrateCloses() {
 
 // First-run setup: a short wizard. Theme, motion, cards etc. use defaults and live in Settings.
 function onboarding() {
-  const w = { step: 0, currency: guessCurrency(), fm: "salary", samt: "", sday: "", cycle: false, other: "", ob: "", sv: "" };
+  const w = { step: 0, currency: guessCurrency(), fm: "salary", samt: "", sday: "", cycle: false, other: "", ob: "", sv: "", show: new Set([0, 1, 3]) };
   // Came from a free calculator's "Track this with your real numbers": start with what they typed there.
   try {
     const pre = JSON.parse(localStorage.getItem("po-prefill") || "null");
@@ -283,8 +283,15 @@ function onboarding() {
       track("onboard:from-calc");
     }
   } catch (e) { /* ignore */ }
-  const STEPS = ["Basics", "Income", "Money today"];
+  const STEPS = ["Basics", "Income", "Money today", "What to show"];
   const FUND = [["salary", "Salary", "A regular paycheque"], ["savings", "Savings", "Living off savings, no regular salary"], ["both", "Both", "Salary plus drawing on savings"]];
+  const OB_SHOW = [
+    ["Free to spend", "what's left to pay"],
+    ["Did I save", "savings rate"],
+    ["Card bills", "card bills"],
+    ["Where money goes", "totals by category"],
+    ["Runway", "runway"],
+  ];
   const val = (id) => { const el = $("#" + id); return el ? el.value : ""; };
   const grab = () => {
     for (const k of ["samt", "sday", "other", "ob", "sv"]) if ($("#" + k)) w[k] = val(k);
@@ -293,7 +300,7 @@ function onboarding() {
   };
   const body = () => {
     if (w.step === 0) return `<h1>Welcome! Let's set up your month</h1>
-      <p class="muted">Three quick steps. Leave anything blank you're unsure of.${w.from ? " We've filled in the numbers from the calculator." : ""}</p>
+      <p class="muted">Four quick steps. Leave anything blank you're unsure of.${w.from ? " We've filled in the numbers from the calculator." : ""}</p>
       <label for="cur">Currency</label><select id="cur">${currencyOptions(w.currency)}</select>
       <label>How is your household funded?</label>
       <div class="ob-choices">${FUND.map(([k, t, d]) => `<button type="button" class="ob-choice ${w.fm === k ? "on" : ""}" data-fm="${k}" aria-pressed="${w.fm === k}"><strong>${t}</strong><span class="muted">${d}</span></button>`).join("")}</div>`;
@@ -302,10 +309,13 @@ function onboarding() {
       <label for="sday">Salary usually arrives on day</label><input id="sday" type="number" min="1" max="31" inputmode="numeric" placeholder="e.g. 26" value="${esc(w.sday)}">
       <label><input type="checkbox" id="cycle" style="width:auto" ${w.cycle ? "checked" : ""}> Run my months from salary day to salary day</label>` : ""}
       <label for="other">Other regular monthly income (rent, interest), if any</label><input id="other" type="number" min="0" inputmode="decimal" placeholder="0" value="${esc(w.other)}">`;
-    return `<h1>Your money today</h1>
+    if (w.step === 2) return `<h1>Your money today</h1>
       <label for="ob">Current balance of your main spending account</label><input id="ob" type="number" inputmode="decimal" placeholder="e.g. 150000" value="${esc(w.ob)}">
       <label for="sv">Liquid savings outside it (FDs, savings accounts, mutual funds), roughly</label><input id="sv" type="number" min="0" inputmode="decimal" placeholder="0" value="${esc(w.sv)}">
       <p class="muted">You can add more accounts and cards later.</p>`;
+    return `<h1>What do you want to see first?</h1>
+      <p class="muted">Pick up to three answers to keep pinned on your Home and Review boards. You can pin or unpin anything later.</p>
+      <div class="msg-chips" style="margin:12px 0">${OB_SHOW.map(([l], i) => `<button type="button" class="chat-chip ${w.show.has(i) ? "on" : ""}" data-obshow="${i}" aria-pressed="${w.show.has(i)}">${esc(l)}</button>`).join("")}</div>`;
   };
   const draw = () => {
     html(`<div class="narrow card ob">
@@ -315,6 +325,11 @@ function onboarding() {
         <button class="primary" id="next">${w.step === STEPS.length - 1 ? "Finish" : "Next"}</button></p>
       <p class="error" id="err" role="alert"></p></div>`);
     $$("[data-fm]").forEach((b) => (b.onclick = () => { grab(); w.fm = b.dataset.fm; draw(); }));
+    $$("[data-obshow]").forEach((b) => (b.onclick = () => {
+      const i = +b.dataset.obshow;
+      if (w.show.has(i)) w.show.delete(i); else if (w.show.size < 3) w.show.add(i);
+      draw();
+    }));
     if ($("#back")) $("#back").onclick = () => { grab(); w.step--; draw(); };
     $("#next").onclick = next;
     root.querySelectorAll("input").forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") next(); }));
@@ -328,8 +343,10 @@ function onboarding() {
     try {
       $("#next").disabled = true;
       const fm = w.fm, salaried = fm !== "savings", day = salaried && sday ? sday : null;
+      const nowIso = new Date().toISOString();
+      const pins = [...w.show].map((i) => ({ id: Math.random().toString(36).slice(2, 9), cmd: OB_SHOW[i][1], title: OB_SHOW[i][0], last_viewed_at: nowIso }));
       const settings = { funding_mode: fm, theme: document.documentElement.dataset.theme || "excel", closing_migrated: true, currency: w.currency,
-        period_mode: salaried && w.cycle && day ? "pay_cycle" : "calendar", cycle_day: day };
+        period_mode: salaried && w.cycle && day ? "pay_cycle" : "calendar", cycle_day: day, pins, pins_intro_done: true };
       const period = E.periodOf(today(), settings);
       const items = [{ type: "settings", data: settings },
         { type: "account", data: { name: "Main account", kind: "bank", role: "spending", is_default_spending: true, opening_balance: +w.ob || 0, opening_period: period } }];
@@ -392,11 +409,21 @@ function renderBottomNav() {
   if (!isPhone()) { if (nav) nav.remove(); return; }
   if (!nav) {
     nav = document.createElement("nav"); nav.id = "bottomnav"; nav.setAttribute("aria-label", "Main");
-    nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}"${k === "add" ? ' class="ptab-add" aria-label="Add entries"' : ""}>
+    nav.innerHTML = PHONE_TABS.map(([k, l, d]) => `<button type="button" data-ptab="${k}"${k === "add" ? ' class="ptab-add" aria-label="Add entries (hold to type)"' : ""}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg><span>${l}</span></button>`).join("");
+    let lpTimer = 0, lpFired = false;
+    const addBtn = nav.querySelector('[data-ptab="add"]');
+    if (addBtn) {
+      addBtn.addEventListener("pointerdown", () => {
+        lpFired = false;
+        clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => { lpFired = true; openChat({ accountId: viewAccount(), mode: "type", focus: true }); }, 420);
+      });
+      ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => addBtn.addEventListener(ev, () => clearTimeout(lpTimer)));
+    }
     nav.querySelectorAll("[data-ptab]").forEach((b) => (b.onclick = () => {
       if (b.dataset.ptab === "more") return moreSheet();
-      if (b.dataset.ptab === "add") return startChat();
+      if (b.dataset.ptab === "add") { if (lpFired) { lpFired = false; return; } return startChat(); }
       goTab(b.dataset.ptab);
     }));
     document.body.appendChild(nav);
@@ -526,9 +553,28 @@ initChat({
   pin: async (text, title) => {
     const pins = settingsRec().data.pins || [];
     if (pins.some((p) => p.cmd === text)) return;
-    await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, pins: [...pins, { id: Math.random().toString(36).slice(2, 9), cmd: text, title }] } });
+    await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, pins: [...pins, { id: Math.random().toString(36).slice(2, 9), cmd: text, title, last_viewed_at: new Date().toISOString() }] } });
     track("pin:add");
     if (S.tab === "month" || S.tab === "review") render();
+  },
+  renderIdlePins: (host) => {
+    const pins = pinsList();
+    if (!pins.length) return;
+    const box = document.createElement("div");
+    box.className = "pins pins-idle";
+    host.appendChild(box);
+    mountPins(box, { max: 3, period: S.period, rows: 3 });
+  },
+  setTheme: async (name) => {
+    const key = THEMES[name] ? name : name === "dark" ? "night" : name === "light" ? "paper" : "excel";
+    applyTheme(key, settingsRec().data.custom_theme);
+    await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, theme: key } });
+  },
+  filterAccount: (id) => {
+    S.account = id;
+    try { localStorage.setItem("account", id); } catch (e) { /* ignore */ }
+    if (!isMonthTab()) { S.tab = "month"; renderTabs(); }
+    render();
   },
   commandCtx: () => ({ period: E.currentPeriod(db(), today()) }),
   openMonth(p) { S.tab = "month"; S.period = p; renderTabs(); render(); },
@@ -951,13 +997,28 @@ async function removePin(id) {
   await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, pins: pinsList().filter((p) => p.id !== id) } });
   render();
 }
+async function markPinViewed(ids) {
+  const s = settingsRec(); if (!s) return;
+  const nowIso = new Date().toISOString();
+  const pins = (s.data.pins || []).map((p) => (ids.includes(p.id) ? { ...p, last_viewed_at: nowIso } : p));
+  await store.save({ id: s.id, type: "settings", data: { ...s.data, pins } }).catch(() => {});
+}
 /** Pinned answers as small cards, each re-run for the month in view. */
 function mountPins(host, { max = 99, period, rows = 6 } = {}) {
   const pins = pinsList().slice(0, max);
   if (!host || !pins.length) { if (host) host.hidden = true; return; }
   host.hidden = false;
-  host.innerHTML = pins.map((p) => `<div class="pin-card" data-pid="${p.id}"><div class="pin-head"><strong>${esc(p.title)}</strong><span class="spacer"></span><button type="button" class="pin-x" data-unpin="${p.id}" title="Unpin" aria-label="Unpin ${esc(p.title)}">✕</button></div><div class="pin-body muted">…</div><small class="pin-src">“${esc(p.cmd)}”</small></div>`).join("");
+  const staleMs = 60 * 86400e3;
+  host.innerHTML = pins.map((p) => {
+    const stale = p.last_viewed_at && (Date.now() - new Date(p.last_viewed_at).getTime() > staleMs);
+    return `<div class="pin-card" data-pid="${p.id}">
+      <div class="pin-head"><strong>${esc(p.title)}</strong><span class="spacer"></span>
+        ${stale ? `<button type="button" class="link small" data-unpin="${p.id}" title="Not viewed in 60+ days">Remove unused?</button>` : ""}
+        <button type="button" class="pin-x" data-unpin="${p.id}" title="Unpin" aria-label="Unpin ${esc(p.title)}">✕</button></div>
+      <div class="pin-body muted">…</div><small class="pin-src">“${esc(p.cmd)}”</small></div>`;
+  }).join("");
   host.querySelectorAll("[data-unpin]").forEach((b) => (b.onclick = () => removePin(b.dataset.unpin)));
+  markPinViewed(pins.map((p) => p.id));
   for (const p of pins) {
     const body = host.querySelector(`[data-pid="${p.id}"] .pin-body`);
     runPinned(p.cmd, period).then((r) => {
@@ -972,10 +1033,23 @@ function mountPins(host, { max = 99, period, rows = 6 } = {}) {
 
 // ================= destinations =================
 function viewHome() {
-  root.dataset.view = "home"; viewMonth(); $("#cats").hidden = true;
-  const host = document.createElement("div"); host.className = "pins pins-home"; host.setAttribute("aria-label", "Pinned answers");
-  $("#summary").after(host); mountPins(host, { max: 3, period: S.period, rows: 3 });
+  root.dataset.view = "home";
+  viewMonth();
+  $("#cats").hidden = true;
+  const host = document.createElement("div");
+  host.className = isPhone() ? "pins pins-home pins-chip-row" : "pins pins-home";
+  host.setAttribute("aria-label", "Pinned answers");
+  $("#summary").after(host);
+  mountPins(host, { max: 3, period: S.period, rows: 3 });
   if (!pinsList().length && !settingsRec().data.pins_intro_done) pinsIntro(host);
+  if (isPhone()) {
+    const askBar = document.createElement("button");
+    askBar.type = "button";
+    askBar.className = "m-ask-bar";
+    askBar.innerHTML = `<span>${CHAT_ICON} Ask about your money…</span><span aria-hidden="true">›</span>`;
+    askBar.onclick = () => openChat({ accountId: viewAccount(), mode: "ask", focus: true });
+    host.after(askBar);
+  }
 }
 // First visit: ask what to keep on Home, and pin those questions. Never blocks; ✕ dismisses for good.
 const STARTER_PINS = [["Where my money goes", "totals by category"], ["Spending trend", "spend trend"], ["What's left to pay", "what's left to pay"], ["Savings rate", "savings rate"], ["How long savings last", "runway"]];
@@ -1013,19 +1087,15 @@ function subNav(tab, items, cur) {
 }
 function viewReview() {
   root.dataset.view = "review";
-  const cur = (S.sub && S.sub.review) || "insights";
-  (cur === "year" ? viewYear : viewInsights)();
-  if (cur === "insights") {
-    const host = document.createElement("div"); host.className = "pins pins-review"; host.setAttribute("aria-label", "Pinned answers");
-    root.prepend(host); mountPins(host);
-  }
-  subNav("review", [["insights", "Overview"], ["year", "Year by month"]], cur);
+  viewInsights();
 }
 function viewPlanHub() {
   root.dataset.view = "plan";
   const cur = (S.sub && S.sub.plan) || "plan";
-  (cur === "savings" ? viewSavings : viewPlan)();
-  subNav("plan", [["plan", "Commitments & annual"], ["savings", "Projection & checkpoints"]], cur);
+  if (cur === "savings") viewSavings();
+  else if (cur === "annual") viewAnnualPlan();
+  else viewPlan();
+  subNav("plan", [["plan", "Commitments & recurring"], ["annual", "Annual items"], ["savings", "Projection & checkpoints"]], cur);
 }
 
 const accountOptions = (filter = () => true) => store.ofType("account").filter((a) => filter(a.data)).map((a) => [a.id, a.data.name]);
@@ -1113,7 +1183,7 @@ function viewMonth() {
   html(`
     <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<button type="button" id="menubtn" class="menu-btn" aria-label="Menu">☰</button></div>
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div><details class="xl-help-d"><summary>Keyboard shortcuts</summary>${SHORTCUTS}</details></div>
+    <div class="card" id="txcard"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
@@ -1189,11 +1259,29 @@ function accountBar() {
   billBox(d, sel);
 }
 
+function showShortcutsModal() {
+  const back = document.createElement("div");
+  back.className = "ml-back";
+  back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div class="ml-grab" aria-hidden="true"></div>
+    <div class="row"><h3>Keyboard shortcuts</h3><span class="spacer"></span><button type="button" class="pin-x" id="sc-x">✕</button></div>
+    ${SHORTCUTS}</div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.querySelector("#sc-x").onclick = close;
+}
+
 /** Totals for the selected account, shown above its grid. */
 function accountSummary(d, sel) {
+  const scBtn = !isPhone() ? `<span class="spacer"></span><button type="button" class="link small sc-btn" id="sc-open" title="Keyboard shortcuts">? Shortcuts</button><button type="button" class="link small sc-btn" id="jump-new" title="Jump to new entry row">＋ New row</button>` : "";
+  const wire = () => {
+    if ($("#sc-open")) $("#sc-open").onclick = showShortcutsModal;
+    if ($("#jump-new")) $("#jump-new").onclick = () => S.grid && S.grid.jumpToBlank && S.grid.jumpToBlank();
+  };
   if (sel === ALL && $("#acctsum")) {
     const s = E.summarize(d, S.period), it = (k, v, cls = "") => `<span><span class="k">${k}</span><strong class="${cls}">${money(v)}</strong></span>`;
-    $("#acctsum").innerHTML = `<strong>All accounts</strong>${it("Money in", s.regular_inflow + s.oneoff_inflow, "good")}${it("Spent", s.monthly_expense + s.annual_expense)}${it("Invested", s.investments)}${it("Bank opening", s.opening)}${it("Bank closing", s.closing, s.closing < 0 ? "bad" : "")}`;
+    $("#acctsum").innerHTML = `<strong>All accounts</strong>${it("Money in", s.regular_inflow + s.oneoff_inflow, "good")}${it("Spent", s.monthly_expense + s.annual_expense)}${it("Invested", s.investments)}${it("Bank opening", s.opening)}${it("Bank closing", s.closing, s.closing < 0 ? "bad" : "")}${scBtn}`;
+    wire();
     if ($("#rollask")) $("#rollask").innerHTML = "";
     return;
   }
@@ -1205,7 +1293,8 @@ function accountSummary(d, sel) {
     item("Transfers out", m.transfer_out), ...(m.rolled ? [item("Card totals", m.rolled)] : []), item("Closing", m.closing, m.closing < 0 ? "bad" : "")];
   else if (role === "card") parts = [item("Spent this month", m.spent), ...(m.received ? [item("Refunds", m.received, "good")] : []), item("Paid", m.transfer_in, "good"), item("Outstanding", m.outstanding, m.outstanding > 0 ? "bad" : "")];
   else parts = [item("Added this month", m.transfer_in, "good"), item("Taken out", m.transfer_out + m.spent), ...(m.balance !== undefined ? [item("Balance", m.balance)] : [])];
-  $("#acctsum").innerHTML = `<strong>${esc(a.data.name)}</strong>${parts.join("")}`;
+  $("#acctsum").innerHTML = `<strong>${esc(a.data.name)}</strong>${parts.join("")}${scBtn}`;
+  wire();
 
   // Offer the card roll-up once, on the main account, when cards have unpaid spending this month.
   const ask = $("#rollask"); if (!ask) return;
@@ -1344,21 +1433,97 @@ function monthCloseBar() {
   }
 }
 
+function openImportModal() {
+  const back = document.createElement("div");
+  back.className = "ml-back";
+  back.innerHTML = `<div class="ml-sheet" style="max-width:640px" role="dialog" aria-modal="true" aria-label="Import file"><div class="ml-grab" aria-hidden="true"></div>
+    <div class="row"><h3>Import a file</h3><span class="spacer"></span><button type="button" class="pin-x" id="im-x">✕</button></div>
+    <p class="muted">Drop a .csv or .xlsx file, or pick one below.</p>
+    <input type="file" id="im-file" accept=".csv,.xlsx,text/csv">
+    <p style="margin-top:12px"><button type="button" class="link" id="im-full">Open full importer →</button></p></div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  back.querySelector("#im-x").onclick = close;
+  back.querySelector("#im-full").onclick = () => { close(); goTab("import"); };
+  back.querySelector("#im-file").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    close(); goTab("import");
+    setTimeout(() => loadFile(f).catch(showError), 80);
+  };
+}
+
+function mountLedgerToolbar() {
+  const host = $("#ltools"); if (!host) return;
+  if (S.tab !== "ledger") { host.innerHTML = ""; return; }
+  const rng = S.ledgerRange || "1";
+  host.innerHTML = `<div class="ledger-tools">
+    <div class="seg" role="group" aria-label="Period range">${[["1", "Month"], ["3", "Quarter"], ["12", "Year"], ["all", "All"]].map(([k, l]) => `<button type="button" data-lrng="${k}" class="${rng === k ? "on" : ""}">${l}</button>`).join("")}</div>
+    <input type="search" id="lf-q" placeholder="Search description…" style="width:170px">
+    <select id="lf-cat" style="width:140px"><option value="">All categories</option>${E.CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
+    <select id="lf-nat" style="width:130px"><option value="">All kinds</option>${NATURE_LABELS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select>
+    <select id="lf-bulk" style="width:155px" title="Bulk set category on visible rows"><option value="">Bulk set category…</option>${E.CATEGORIES.map((c) => `<option value="${esc(c)}">Set all → ${esc(c)}</option>`).join("")}</select>
+    <span class="spacer"></span>
+    <details class="tab-dd ledger-add-dd"><summary class="primary" style="list-style:none;cursor:pointer;padding:6px 12px;border-radius:var(--radius)">＋ Action ▾</summary>
+      <div class="dd-panel" style="position:absolute;right:0;top:calc(100% + 4px)"><button type="button" id="la-new">＋ New row</button><button type="button" id="la-imp">📥 Import file…</button><button type="button" id="la-bill">✓ Mark card billed</button></div></details>
+  </div>`;
+  host.querySelectorAll("[data-lrng]").forEach((b) => (b.onclick = () => { S.ledgerRange = b.dataset.lrng; mountTxGrid(); }));
+  const applyF = () => {
+    if (!S.grid || !S.grid.setQuickFilter) return;
+    S.grid.setQuickFilter("description", $("#lf-q").value.trim());
+    S.grid.setQuickFilter("category", $("#lf-cat").value);
+    S.grid.setQuickFilter("nature", $("#lf-nat").value);
+  };
+  $("#lf-q").oninput = applyF;
+  $("#lf-cat").onchange = applyF;
+  $("#lf-nat").onchange = applyF;
+  $("#lf-bulk").onchange = async (e) => {
+    const cat = e.target.value; e.target.value = "";
+    if (!cat || !S.grid || !S.grid.getVisibleRowIds) return;
+    const ids = S.grid.getVisibleRowIds();
+    if (!ids.length || !confirm(`Set category to "${cat}" on ${ids.length} visible row${ids.length === 1 ? "" : "s"}?`)) return;
+    const items = ids.map((id) => { const r = store.rows.get(id); return r ? { id, type: "transaction", period: r.data.period || r.period, data: { ...r.data, category: cat } } : null; }).filter(Boolean);
+    await store.save(items); saves++; mountTxGrid();
+  };
+  $("#la-new").onclick = () => { host.querySelector("details").open = false; if (S.grid && S.grid.jumpToBlank) S.grid.jumpToBlank(); };
+  $("#la-imp").onclick = () => { host.querySelector("details").open = false; openImportModal(); };
+  $("#la-bill").onclick = () => {
+    host.querySelector("details").open = false;
+    const cards = E.monthStatus(db(), S.period).cards;
+    if (!cards.length) return alert("No credit cards to bill.");
+    S.account = cards[0].id; mountTxGrid(); openBillForm(cards[0]);
+  };
+  const card = $("#txcard");
+  if (card && !card.dataset.dropWired) {
+    card.dataset.dropWired = "1";
+    card.addEventListener("dragover", (e) => { e.preventDefault(); card.classList.add("drop-hover"); });
+    card.addEventListener("dragleave", () => card.classList.remove("drop-hover"));
+    card.addEventListener("drop", (e) => {
+      e.preventDefault(); card.classList.remove("drop-hover");
+      const f = e.dataTransfer?.files?.[0];
+      if (f) { goTab("import"); setTimeout(() => loadFile(f).catch(showError), 80); }
+    });
+  }
+}
+
 function mountTxGrid() {
   accountBar();
+  mountLedgerToolbar();
   const sel = selectedAccount(), host = $("#txgrid");
   if (!sel) { host.innerHTML = ""; return; }
   const d = db();
   const all = sel === ALL;
   const incoming = (t) => !all && t.direction === "transfer" && t.to_account_id === sel && t.account_id !== sel;
-  const rows = d.transaction.filter((t) => t.period === S.period && (all ? store.rows.has(t.account_id) : (t.account_id === sel || t.to_account_id === sel)))
+  const rng = S.tab === "ledger" ? (S.ledgerRange || "1") : "1";
+  const allowedPeriods = rng === "all" ? null : new Set(Array.from({ length: +rng }, (_, i) => E.shiftPeriod(S.period, -i)));
+  const rows = d.transaction.filter((t) => (!allowedPeriods || allowedPeriods.has(t.period)) && (all ? store.rows.has(t.account_id) : (t.account_id === sel || t.to_account_id === sel)))
     .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
     .map(({ period, ...t }) => t);
   const name = (id) => (store.rows.get(id)?.data?.name) || "";
   const isMain = !all && store.rows.get(sel)?.data?.is_default_spending;
   const rolled = isMain ? E.cardRollups(d, S.period).map((r) => ({ date: today().slice(0, 7) === S.period ? today() : `${S.period}-${String(new Date(+S.period.slice(0, 4), +S.period.slice(5), 0).getDate()).padStart(2, "0")}`, description: `${r.name} — card total for the month`, _card: true, to_account_id: r.card_id, amount: r.amount })) : [];
   const openAccts = () => accountOptions().filter(([v]) => { const a = store.rows.get(v)?.data || {}; return (all || v !== sel) && (!a.closed_from || S.period < a.closed_from); });
-  if (isPhone() && !S.sheetView) { S.grid = null; return mountTxList(host, rows, { all, sel, incoming, rolled }); }
+  if (isPhone() && !S.sheetView) { S.grid = null; return mountTxList(host, rows, { all, sel, incoming, rolled, homePreview: S.tab === "month" }); }
   const grid = mountGrid(host, {
     id: all ? "tx-all" : "tx", label: all ? "Transactions, all accounts" : `Transactions for ${name(sel)}`, readonlyRows: rolled,
     rows, blankRows: 10, period: () => S.period, suggest,
@@ -1397,9 +1562,11 @@ function mountTxGrid() {
 
 // ================= phone: transactions as a list, edited in a sheet =================
 const signed = (t, sel, incoming) => (t.direction === "in" || incoming(t) ? 1 : -1) * Math.abs(+t.amount || 0) * (+t.amount < 0 ? -1 : 1);
-function mountTxList(host, rows, { all, sel, incoming, rolled }) {
+function mountTxList(host, rows, { all, sel, incoming, rolled, homePreview }) {
+  const sorted = [...rows].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const listRows = homePreview ? sorted.slice(0, 3) : sorted;
   const byDay = {};
-  for (const t of [...rows].sort((a, b) => (b.date || "").localeCompare(a.date || ""))) (byDay[t.date] = byDay[t.date] || []).push(t);
+  for (const t of listRows) (byDay[t.date] = byDay[t.date] || []).push(t);
   const dayLabel = (d) => new Date(d + "T00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
   const meta = (t) => [t.direction === "transfer" ? `→ ${acctName(t.to_account_id) || "?"}` : t.category, all || incoming(t) ? acctName(t.account_id) : ""].filter(Boolean).join(" · ");
   host.innerHTML = `<div class="ml-list" role="list">
@@ -1407,19 +1574,28 @@ function mountTxList(host, rows, { all, sel, incoming, rolled }) {
     ${Object.entries(byDay).map(([d, list]) => {
       const tot = list.reduce((x, t) => x + (t.direction === "transfer" && !incoming(t) ? 0 : signed(t, sel, incoming)), 0);
       return `<div class="ml-day"><span>${esc(dayLabel(d))}</span><span class="num ${tot < 0 ? "" : "good"}">${tot ? (tot > 0 ? "+" : "−") + money(Math.abs(tot)) : ""}</span></div>`
-        + list.map((t) => { const v = signed(t, sel, incoming); return `<button type="button" class="ml-row" role="listitem" data-tx="${t.id}">
-          <span class="ml-main"><span class="ml-desc">${catIcon(t.direction === "transfer" ? "Other" : t.category)}${esc(t.description || "(no description)")}</span><small>${esc(meta(t))}</small></span>
-          <span class="num ml-amt ${v > 0 ? "good" : ""}">${v > 0 ? "+" : t.direction === "transfer" ? "⇄ " : "−"}${money(Math.abs(+t.amount || 0))}</span></button>`; }).join("");
+        + list.map((t) => { const v = signed(t, sel, incoming); return `<div class="ml-row-wrap"><button type="button" class="ml-row" role="listitem" data-tx="${t.id}">
+          <span class="ml-main"><span class="ml-desc">${catIcon(t.direction === "transfer" ? "Other" : t.category)}${esc(t.description || "(no description)")}${t.note ? ` <em class="muted">· ${esc(t.note)}</em>` : ""}</span><small>${esc(meta(t))}</small></span>
+          <span class="num ml-amt ${v > 0 ? "good" : ""}">${v > 0 ? "+" : t.direction === "transfer" ? "⇄ " : "−"}${money(Math.abs(+t.amount || 0))}</span></button>
+          <button type="button" class="ml-qdel" data-qdel="${t.id}" title="Delete row" aria-label="Delete row">✕</button></div>`; }).join("");
     }).join("") || '<p class="muted" style="padding:12px">Nothing this month yet. Tap ＋ or use Add below.</p>'}
+    ${homePreview && sorted.length > 3 ? `<button type="button" class="ml-add" id="ml-all-ledger" style="margin-top:8px">See all ${sorted.length} in Ledger →</button>` : ""}
     ${rolled.length ? `<p class="muted small" style="padding:8px 4px">Card totals counted on this account: ${rolled.map((r) => `${esc(acctName(r.to_account_id))} ${money(r.amount)}`).join(", ")}</p>` : ""}
   </div>`;
   host.querySelector("#ml-sheet").onclick = () => { S.sheetView = true; track("list:sheet"); mountTxGrid(); };
   host.querySelector("#ml-add").onclick = () => txSheet(null, all ? (mainAccount() || {}).id : sel);
+  if (host.querySelector("#ml-all-ledger")) host.querySelector("#ml-all-ledger").onclick = () => goTab("ledger");
   host.querySelectorAll("[data-tx]").forEach((b) => (b.onclick = () => txSheet(b.dataset.tx)));
+  host.querySelectorAll("[data-qdel]").forEach((b) => (b.onclick = async (e) => {
+    e.stopPropagation();
+    if (!confirm("Delete this row?")) return;
+    await removeRec(b.dataset.qdel);
+    afterChatChange();
+  }));
 }
 /** Edit one transaction (or add one) in a bottom sheet. */
 function txSheet(id, accountId) {
-  const r = id && store.rows.get(id), t = r ? { ...r.data } : { date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: accountId, direction: "out", category: "Other", nature: "variable", description: "", amount: "" };
+  const r = id && store.rows.get(id), t = r ? { ...r.data } : { date: E.periodForDate(db(), today(), S.period) === S.period ? today() : S.period + "-01", account_id: accountId, direction: "out", category: "Other", nature: "variable", description: "", amount: "", note: "" };
   const selOpts = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
   const accts = accountOptions((a) => !a.closed_from || S.period < a.closed_from);
   const back = document.createElement("div");
@@ -1433,6 +1609,8 @@ function txSheet(id, accountId) {
     <label class="tx-to"${t.direction === "transfer" ? "" : " hidden"}>To<select name="to_account_id"><option value=""></option>${selOpts(accts, t.to_account_id)}</select></label>
     <label>Category<select name="category">${selOpts(opts(E.CATEGORIES), t.category)}</select></label>
     <label>Kind<select name="nature">${selOpts(NATURE_LABELS, t.nature)}</select></label>
+    <label>Note<input name="note" placeholder="Optional note…" value="${esc(t.note || "")}" autocomplete="off"></label>
+    ${r ? `<div class="row" style="gap:6px"><button type="button" class="link small" id="tx-recur">↻ Make recurring</button> · <button type="button" class="link small" id="tx-split">✂ Split row</button></div>` : ""}
     <p class="error" id="tx-err" role="alert"></p>
     <div class="tx-sheet-btns">${r ? '<button type="button" id="tx-del" class="danger-link">Delete</button>' : ""}<span class="spacer"></span><button type="button" id="tx-cancel">Cancel</button><button type="submit" class="primary">Save</button></div></form>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
@@ -1444,7 +1622,26 @@ function txSheet(id, accountId) {
   }));
   back.addEventListener("click", (e) => { if (e.target === back) close(); });
   f.querySelector("#tx-cancel").onclick = close;
-  if (r) f.querySelector("#tx-del").onclick = async () => { if (!confirm("Delete this row?")) return; await removeRec(id); close(); afterChatChange(); };
+  if (r) {
+    f.querySelector("#tx-del").onclick = async () => { if (!confirm("Delete this row?")) return; await removeRec(id); close(); afterChatChange(); };
+    f.querySelector("#tx-recur").onclick = async () => {
+      const label = f.description.value.trim() || t.description || "Recurring payment";
+      const amt = Math.abs(+f.amount.value || +t.amount || 0);
+      const day = +(f.date.value || t.date || today()).slice(8, 10) || 1;
+      await store.save({ type: "commitment", data: { label, category: f.category.value || "Other", day, amount: amt } });
+      f.nature.value = "recurring";
+      alert(`Added “${label}” (${inr(amt)} on day ${day}) to monthly commitments.`);
+    };
+    f.querySelector("#tx-split").onclick = async () => {
+      const curAmt = Math.abs(+t.amount || 0);
+      const s = prompt(`Split ${inr(curAmt)} — enter amount for the new split row:`, String(Math.round(curAmt / 2)));
+      const part = s ? +s : NaN;
+      if (!part || part <= 0 || part >= curAmt) return alert("Enter an amount between 0 and " + curAmt);
+      await saveRec("transaction")(id, prepTx({ ...t, amount: Math.round((curAmt - part) * 100) / 100 }));
+      await saveRec("transaction")(null, prepTx({ ...t, description: (t.description || "") + " (split)", amount: Math.round(part * 100) / 100 }));
+      close(); afterChatChange();
+    };
+  }
   f.onsubmit = async (e) => {
     e.preventDefault();
     const raw0 = f.amount.value.trim(), raw = /\d\s*[+*/-]\s*\d/.test(raw0) && !raw0.startsWith("=") ? "=" + raw0 : raw0;
@@ -1452,7 +1649,7 @@ function txSheet(id, accountId) {
     const amt = pa ? pa.value : NaN;
     if (!raw || !isFinite(amt)) { f.querySelector("#tx-err").textContent = "Enter an amount."; return; }
     if (dir === "transfer" && !f.to_account_id.value) { f.querySelector("#tx-err").textContent = "Pick where the money went."; return; }
-    const data = prepTx({ ...t, description: f.description.value.trim(), amount: Math.round(amt * 100) / 100, ...(pa && typeof pa === "object" && pa.formula ? { amount_formula: pa.formula } : {}), direction: dir, date: f.date.value, account_id: f.account_id.value, to_account_id: f.to_account_id.value, category: f.category.value, nature: f.nature.value });
+    const data = prepTx({ ...t, description: f.description.value.trim(), note: f.note.value.trim(), amount: Math.round(amt * 100) / 100, ...(pa && typeof pa === "object" && pa.formula ? { amount_formula: pa.formula } : {}), direction: dir, date: f.date.value, account_id: f.account_id.value, to_account_id: f.to_account_id.value, category: f.category.value, nature: f.nature.value });
     try { await saveRec("transaction")(id, data); close(); afterChatChange(); track(r ? "list:edit" : "list:add"); }
     catch (err) { f.querySelector("#tx-err").textContent = err.message || String(err); }
   };
@@ -1462,17 +1659,40 @@ function txSheet(id, accountId) {
 function monthSummary() {
   const d = db(), s = E.summarize(d, S.period), v = s.verdict;
   const r = E.runway(d, S.period);
+  const st = E.monthStatus(d, S.period);
   const pending = s.commitments.filter((c) => !c.paid);
+  const unbilledCards = st.pending || [];
+  const uncatCount = d.transaction.filter((t) => t.period === S.period && t.direction === "out" && (!t.category || t.category === "Other") && !t.statement_adj).length;
+  const canClose = !st.closed && st.allBilled && S.period <= E.currentPeriod(d, today());
+  const [py, pm] = S.period.split("-").map(Number);
+  const daysInMonth = new Date(py, pm, 0).getDate();
+  const curDay = today().slice(0, 7) === S.period ? +today().slice(8, 10) : S.period < today().slice(0, 7) ? daysInMonth : 1;
+  const progPct = Math.min(100, Math.round((curDay / daysInMonth) * 100));
   const inv = s.investments ? ` after investing ${inr(s.investments)}` : "";
   const verdict = v.kind === "ahead"
     ? `<span class="big good" data-count="${Math.max(0, s.headroom)}" data-suffix=" free to spend">${inr(Math.max(0, s.headroom))} free to spend</span>Left this month${inv}${s.commitments_pending ? ` and ${inr(s.commitments_pending)} of commitments still due` : ""}, without touching savings.`
     : `<span class="big bad" data-count="${v.amount}" data-suffix=" from savings">${inr(v.amount)} from savings</span>This month spends${s.investments ? " and invests" : ""} more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
+  const todoItems = [
+    ...unbilledCards.map((c) => `<span class="todo-chip">${esc(acctName(c.id))} <span class="num">${inr(c.computed)}</span><button type="button" data-todobill="${c.id}" title="Mark card billed">Bill card</button></span>`),
+    ...pending.map((c) => `<span class="todo-chip">${esc(c.label)} <span class="num">${inr(c.amount)}</span><button type="button" data-pay="${c.id}" title="Mark paid">✓ Paid</button></span>`),
+    ...(uncatCount ? [`<span class="todo-chip">${uncatCount} under Other<button type="button" id="todo-uncat">Review</button></span>`] : []),
+    ...(canClose ? [`<span class="todo-chip">All cards billed<button type="button" id="todo-close">${LOCK} Close month</button></span>`] : []),
+  ];
   $("#summary").innerHTML = `
     <div class="card verdict">${verdict}
-      ${r.months != null && r.savings > 0 ? `<p class="muted">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
+      <div class="hero-prog-wrap">
+        <div class="hero-prog"><span style="width:${progPct}%"></span></div>
+        <div class="hero-strip">
+          <span>Day ${curDay} of ${daysInMonth}</span>
+          <span>In <strong class="good">${inr(s.regular_inflow + s.oneoff_inflow)}</strong></span>
+          <span>Out <strong>${inr(s.monthly_expense + s.annual_expense)}</strong></span>
+          ${s.commitments_pending ? `<span>Due <strong>${inr(s.commitments_pending)}</strong></span>` : ""}
+        </div>
+      </div>
+      ${r.months != null && r.savings > 0 ? `<p class="muted" style="margin:6px 0 0">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
     <details class="flow-d"><summary>How your balance moved · opening ${inr(s.opening)} → closing ${inr(s.closing)}</summary>${balanceFlow(s)}</details>
     ${extraMetrics(s, r)}
-    ${pending.length ? `<div class="todo-line" aria-label="Still to pay this month"><strong>To pay</strong>${pending.map((c) => `<span class="todo-chip">${esc(c.label)} <span class="num">${inr(c.amount)}</span><button type="button" data-pay="${c.id}" title="Mark paid">✓ Paid</button></span>`).join("")}</div>` : ""}`;
+    ${todoItems.length ? `<div class="todo-line" aria-label="To-do this month"><strong>To-do (${todoItems.length})</strong>${todoItems.join("")}</div>` : ""}`;
   cardCategoryChart(d);
   const saveMx = async (on) => { await saveMxLayout({ month_metrics: on }); monthSummary(); };
   const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
@@ -1506,6 +1726,19 @@ function monthSummary() {
     await store.save({ type: "transaction", period: S.period, data: { date: S.period + "-" + String(Math.min(c.day || 1, 28)).padStart(2, "0"), period: S.period, description: c.label, account_id: acct, direction: "out", category: c.category || "Other", nature: "recurring", amount: +c.amount, recurring_id: b.dataset.pay } });
     saves++; monthSummary(); mountTxGrid();
   }));
+  $$("[data-todobill]").forEach((b) => (b.onclick = () => {
+    S.account = b.dataset.todobill;
+    try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
+    mountTxGrid();
+    const c = E.monthStatus(db(), S.period).cards.find((x) => x.id === S.account);
+    if (c) openBillForm(c);
+  }));
+  if ($("#todo-uncat")) $("#todo-uncat").onclick = () => {
+    S.account = ALL;
+    mountTxGrid();
+    if (S.grid && S.grid.setQuickFilter) S.grid.setQuickFilter("category", "Other");
+  };
+  if ($("#todo-close")) $("#todo-close").onclick = () => $("#mclose-btn")?.click();
 }
 
 /** Opening balance → what came in and went out → closing balance. Always adds up exactly. */
@@ -1667,7 +1900,7 @@ function yearAverages(metrics) {
 }
 const PENCIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const BIN = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
-const MX_PER_ROW = 5;
+const MX_PER_ROW = 4;
 /** Which "Other numbers" are shown and how they're arranged live in the settings record; older layouts saved in this browser are still read. */
 function mxSetting(key, legacyKey) {
   const v = settingsRec().data[key];
@@ -1874,7 +2107,6 @@ function cardCategoryChart(d) {
 
 // ================= Plan =================
 function viewPlan() {
-  const year = +S.period.slice(0, 4);
   const reg = P.averageRegularExpense(db(), S.period, 6);
   const fixedTotal = store.ofType("commitment").reduce((x, c) => x + (+c.data.amount || 0), 0);
   html(`
@@ -1884,7 +2116,6 @@ function viewPlan() {
       <div class="metric"><div class="label">Day to day</div><div class="value">${money(Math.max(0, reg.avg - fixedTotal))}</div><div class="sub">regular expense − commitments</div></div>
     </div>` : ""}
     <div class="card"><h2>Monthly commitments</h2><p class="muted">Rent, help, tuition, family transfers. They show as "still to pay" each month until marked paid.</p><div id="g-cm"></div></div>
-    <div class="card"><h2>Annual items for ${year}</h2><p class="muted">School fees, insurance, taxes.</p><div id="g-an"></div><div id="annsum"></div></div>
     <div class="card"><h2>Regular income</h2><div id="g-in"></div></div>
     <div class="card"><h2>Coming up (next 3 months)</h2><div id="upcoming"></div></div>`);
   const common = { blankRows: 3, remove: removeRec, period: () => S.period, onChange: planSummary };
@@ -1892,6 +2123,19 @@ function viewPlan() {
     newRow: () => ({ category: "Household" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "label", label: "What", type: "text", width: 240 }, { key: "category", label: "Category", type: "select", width: 140, options: () => opts(E.CATEGORIES), icon: catIcon },
       { key: "day", label: "Day", type: "number", width: 60 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
+  mountGrid($("#g-in"), { ...common, id: "in", label: "Regular income", rows: rowsOf("income"), save: saveRec("income"),
+    newRow: () => ({ kind: "other" }), meaningful: (x) => !!String(x.label || "").trim(),
+    columns: [{ key: "label", label: "Source", type: "text", width: 220 }, { key: "kind", label: "Kind", type: "select", width: 110, options: () => [["salary", "Salary"], ["rent", "Rent"], ["interest", "Interest"], ["other", "Other"]] },
+      { key: "day", label: "Usual day", type: "number", width: 84 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
+  planSummary();
+}
+
+function viewAnnualPlan() {
+  const year = +S.period.slice(0, 4);
+  html(`
+    <div class="card"><h2>Annual items for ${year}</h2><p class="muted">School fees, insurance, taxes.</p><div id="g-an"></div><div id="annsum"></div></div>
+    <div class="card"><h2>Coming up (next 3 months)</h2><div id="upcoming"></div></div>`);
+  const common = { blankRows: 3, remove: removeRec, period: () => S.period, onChange: planSummary };
   mountGrid($("#g-an"), { ...common, id: "an", label: "Annual items", rows: rowsOf("annual", (x) => +x.year === year), save: saveRec("annual"),
     newRow: () => ({ year, mode: "card" }), meaningful: (x) => !!String(x.label || "").trim(),
     columns: [{ key: "label", label: "What", type: "text", width: 220 }, { key: "due_month", label: "Due month", type: "number", width: 84 },
@@ -1900,20 +2144,16 @@ function viewPlan() {
       { key: "_status", label: "Paid / unpaid", type: "readonly", width: 170, render: (row) => {
         const a = E.annualStatus(db(), year).find((x) => x.id === row.id); if (!a) return "";
         return `${inr(a.paid)} / <span class="${a.unpaid ? "bad" : "good"}">${inr(a.unpaid)}</span>`; } }] });
-  mountGrid($("#g-in"), { ...common, id: "in", label: "Regular income", rows: rowsOf("income"), save: saveRec("income"),
-    newRow: () => ({ kind: "other" }), meaningful: (x) => !!String(x.label || "").trim(),
-    columns: [{ key: "label", label: "Source", type: "text", width: 220 }, { key: "kind", label: "Kind", type: "select", width: 110, options: () => [["salary", "Salary"], ["rent", "Rent"], ["interest", "Interest"], ["other", "Other"]] },
-      { key: "day", label: "Usual day", type: "number", width: 84 }, { key: "amount", label: "Amount", type: "number", width: 120 }] });
   planSummary();
 }
 
 function planSummary() {
   const d = db(), year = +S.period.slice(0, 4), annual = E.annualStatus(d, year), up = E.upcoming(d, S.period, 3);
-  $("#annsum").innerHTML = `
+  if ($("#annsum")) $("#annsum").innerHTML = `
     ${annual.some((a) => a.unpaid) ? `<h3 style="margin-top:16px">Record a payment</h3><div class="row"><select id="ap" style="width:auto">${annual.filter((a) => a.unpaid).map((a) => `<option value="${a.id}">${esc(a.label)} (${inr(a.unpaid)} left)</option>`).join("")}</select>
       <input id="apamt" type="number" placeholder="Amount" style="width:140px"><select id="apacc" style="width:auto">${accountOptions().map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("")}</select><button id="apgo">Add payment</button></div>` : ""}
     <p class="muted">Set aside each month for the rest of the year: <strong>${inr(annual.reduce((x, a) => x + a.unpaid, 0) / Math.max(1, 13 - (+S.period.slice(5))))}</strong></p>`;
-  $("#upcoming").innerHTML = up.length ? up.map((u) => `<div class="row"><span class="muted" style="width:80px">${u.period}</span><span>${esc(u.label)}</span><span class="muted">${u.kind}</span><span class="spacer"></span><span class="num">${inr(u.amount)}</span></div>`).join("") : '<p class="muted">Nothing due.</p>';
+  if ($("#upcoming")) $("#upcoming").innerHTML = up.length ? up.map((u) => `<div class="row"><span class="muted" style="width:80px">${u.period}</span><span>${esc(u.label)}</span><span class="muted">${u.kind}</span><span class="spacer"></span><span class="num">${inr(u.amount)}</span></div>`).join("") : '<p class="muted">Nothing due.</p>';
   if ($("#apgo")) $("#apgo").onclick = async () => {
     const a = store.rows.get($("#ap").value).data, amt = +$("#apamt").value;
     if (!amt) return alert("Enter an amount.");
@@ -2050,62 +2290,211 @@ function logoList() {
   }));
 }
 
-// ================= Insights =================
+const REVIEW_CARDS_META = [
+  ["headlines", "Headlines", "L", true],
+  ["in_vs_out", "Money in vs money out", "M", true],
+  ["where_it_goes", "Where your money goes", "M", true],
+  ["trends", "Category trends", "M", true],
+  ["merchants", "Top places", "M", true],
+  ["regular", "Regular expense", "M", true],
+  ["runway", "Runway: what if…", "L", true],
+  ["savings_rate", "Savings rate", "M", true],
+  ["annual", "Annual items", "M", true],
+  ["year_table", "Year at a glance (12-month table)", "L", false],
+];
+
+function getReviewBoard() {
+  const st = settingsRec().data;
+  const key = isPhone() ? "review_board_phone" : "review_board";
+  let board = Array.isArray(st[key]) && st[key].length ? st[key].map((c) => ({ ...c })) : REVIEW_CARDS_META.filter(([, , , defOn]) => defOn).map(([type, , size]) => ({ type, size }));
+  for (const p of pinsList()) {
+    const pType = "pin:" + p.id;
+    if (!board.some((c) => c.type === pType) && !(st.review_hidden_pins || []).includes(p.id)) {
+      board.unshift({ type: pType, size: "M", pin: p });
+    } else {
+      const hit = board.find((c) => c.type === pType);
+      if (hit) hit.pin = p;
+    }
+  }
+  return board.filter((c) => !c.type.startsWith("pin:") || c.pin);
+}
+
+async function saveReviewBoard(board) {
+  const s = settingsRec();
+  const key = isPhone() ? "review_board_phone" : "review_board";
+  const cleanBoard = board.map(({ type, size }) => ({ type, size }));
+  const hiddenPins = pinsList().map((p) => p.id).filter((id) => !cleanBoard.some((c) => c.type === "pin:" + id));
+  await store.save({ id: s.id, type: "settings", data: { ...s.data, [key]: cleanBoard, review_hidden_pins: hiddenPins } });
+  saves++;
+}
+
+// ================= Insights / Customizable Review Board =================
 function viewInsights() {
   const d = db();
   const last = N.latestPeriod(d);
-  if (!last) { html('<div class="card"><h1>Insights</h1><p class="muted">Add or import a few months of transactions and insights will appear here.</p></div>'); return; }
+  if (!last) { html('<div class="card"><h1>Review</h1><p class="muted">Add or import a few months of transactions and your review board will appear here.</p></div>'); return; }
   const now = E.periodOf(today(), settingsRec().data);
   const end = last < now ? last : now;
   const win = S.insWin || 12;
   const ps = N.windowPeriods(d, end, win);
   const split = N.natureSplit(d, ps), trends = N.categoryTrends(d, end), merchants = N.topMerchants(d, ps, 8);
-  const year = +end.slice(0, 4), annual = N.annualCalendar(d, year, end), commits = N.commitmentsYearly(d, end);
+  const year = S.year || +end.slice(0, 4), annual = N.annualCalendar(d, year, end), commits = N.commitmentsYearly(d, end);
   const heads = N.headlines({ split, trends, merchants, annual });
   const COLORS = { fixed: "var(--series-1)", flexible: "var(--series-3)", annual: "var(--series-2)", oneoff: "var(--series-4)" };
   const fromLabel = P.periodLabel(ps[0]), toLabel = P.periodLabel(end);
   const arrow = (t) => (t.change === null ? "–" : `${t.diff > 0 ? "▲" : t.diff < 0 ? "▼" : ""} ${money(Math.abs(t.diff))}${t.before >= 2000 ? ` (${t.change > 0 ? "+" : ""}${t.change}%)` : ""}`);
+  const board = getReviewBoard();
+  const editing = !!S.editReview;
+  const allPossible = [
+    ...pinsList().map((p) => ["pin:" + p.id, `📌 ${p.title}`, "M"]),
+    ...REVIEW_CARDS_META.map(([k, l, sz]) => [k, l, sz]),
+  ];
+  const hiddenCards = allPossible.filter(([k]) => !board.some((c) => c.type === k));
+
+  const cardCtrl = (c, idx) => editing ? `<div class="rv-ctrl">
+    ${["S", "M", "L"].map((sz) => `<button type="button" class="rv-sz ${c.size === sz ? "on" : ""}" data-rsz="${idx}:${sz}" title="Size ${sz}">${sz}</button>`).join("")}
+    <button type="button" class="rv-mv" data-rmv="${idx}:-1" title="Move earlier" ${idx === 0 ? "disabled" : ""}>←</button>
+    <button type="button" class="rv-mv" data-rmv="${idx}:1" title="Move later" ${idx === board.length - 1 ? "disabled" : ""}>→</button>
+    <button type="button" class="rv-x" data-rhid="${idx}" title="Hide card">✕</button>
+  </div>` : "";
+
   html(`
-    <div class="row"><h1 style="margin:0">Insights</h1><span class="spacer"></span>
-      <div class="seg" role="group" aria-label="Period">${[3, 6, 12].map((n) => `<button type="button" data-win="${n}" class="${n === win ? "on" : ""}" aria-pressed="${n === win}">${n} months</button>`).join("")}</div></div>
-    <p class="muted">${fromLabel} to ${toLabel} · ${ps.length} month${ps.length > 1 ? "s" : ""}. Calculated on this device from your own data — nothing is sent anywhere.</p>
-    ${heads.length ? `<div class="ins-heads">${heads.map((h) => `<div class="ins-head ${h.tone}"><strong>${esc(h.title)}</strong><span>${esc(h.body)}</span></div>`).join("")}</div>` : ""}
-    <div id="ins-regular"></div><div id="ins-runway"></div><div id="ins-rate"></div>
+    <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Review</h1><span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Scope">${[[1, "Month"], [3, "3M"], [6, "6M"], [12, "Year"]].map(([n, l]) => `<button type="button" data-win="${n}" class="${n === win ? "on" : ""}" aria-pressed="${n === win}">${l}</button>`).join("")}</div>
+      <button type="button" id="rv-edit" class="${editing ? "primary" : ""}">${editing ? "✓ Done editing" : "✎ Edit board"}</button>
+    </div>
+    <p class="muted" style="margin-top:0">${fromLabel} to ${toLabel} · ${ps.length} month${ps.length > 1 ? "s" : ""}. ${editing ? "Resize cards (S/M/L), reorder with arrows, or hide/add cards below." : "Customise which cards appear with Edit board."}</p>
+    ${editing && hiddenCards.length ? `<div class="card rv-add-bar"><strong>+ Add card to board:</strong> <div class="msg-chips" style="margin-top:6px">${hiddenCards.map(([k, l, sz]) => `<button type="button" class="chat-chip" data-radd="${esc(k)}:${sz}">+ ${esc(l)}</button>`).join("")}</div></div>` : ""}
+    <div class="rv-board" id="rv-board">
+      ${board.map((c, idx) => `<div class="rv-card" data-size="${c.size || "M"}" data-rctype="${esc(c.type)}" data-rcidx="${idx}">${cardCtrl(c, idx)}<div class="rv-body" id="rvb-${idx}"></div></div>`).join("")}
+    </div>`);
 
-    <div class="card"><h2>Where your money goes</h2>
-      <p class="muted">${money(split.total)} spent over ${ps.length} months, about ${money(Math.round(split.total / Math.max(1, ps.length)))} a month. Investments and transfers aren't counted.</p>
-      <div class="segbar" role="img" aria-label="${split.groups.map((g) => `${g.label} ${g.pct}%`).join(", ")}">${split.groups.filter((g) => g.amount > 0).map((g) => `<span style="flex:${g.amount};background:${COLORS[g.key]}" title="${esc(g.label)} ${g.pct}%"></span>`).join("")}</div>
-      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Type</th><th>Per month</th><th>Share</th><th>Total</th></tr></thead><tbody>
-      ${split.groups.map((g) => `<tr><th class="rowh"><i class="swatch" style="--c:${COLORS[g.key]}"></i>${g.label}</th><td>${money(g.monthly)}</td><td>${g.pct}%</td><td>${money(g.amount)}</td></tr>`).join("")}
-      </tbody></table></div>
-      ${commits.length ? `<h3 style="margin-top:18px">Fixed commitments, per year</h3><p class="muted">The same payments seen as a yearly cost.</p>
-      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Commitment</th><th>Per month</th><th>Per year</th></tr></thead><tbody>
-      ${commits.map((c) => `<tr><th class="rowh">${catIcon(c.category)}${esc(c.label)}</th><td>${money(c.monthly)}</td><td><strong>${money(c.yearly)}</strong></td></tr>`).join("")}
-      <tr class="em"><th class="rowh">Total</th><td>${money(commits.reduce((x, c) => x + c.monthly, 0))}</td><td>${money(commits.reduce((x, c) => x + c.yearly, 0))}</td></tr></tbody></table></div>` : ""}</div>
-
-    <div class="card"><h2>Category trends</h2>
-      <p class="muted">Day-to-day and one-off spending: the last 3 months against the 6 months before. Highlighted rows moved by at least 20% and ${money(1000)} a month.</p>
-      <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Category</th><th>Last 3 months</th><th>6 months before</th><th>Change per month</th></tr></thead><tbody>
-      ${trends.map((t) => `<tr class="${t.flag ? "flag-" + t.flag : ""}"><th class="rowh">${catIcon(t.category)}${esc(t.category)}</th><td>${money(t.recent)}</td><td>${t.before === null ? "–" : money(t.before)}</td><td class="${t.flag === "up" ? "bad" : t.flag === "down" ? "good" : ""}">${arrow(t)}</td></tr>`).join("")}
-      </tbody></table></div></div>
-
-    <div class="card"><h2>Top day-to-day merchants</h2>
-      <p class="muted">Grouped by the first word of the description (so "Swiggy food" and "Swiggy instamart" count together). Hover a bar for the number of payments.</p>
-      <div id="merch"></div></div>
-
-    <div class="card"><h2>Annual items in ${year}</h2>
-      <p class="muted">${money(annual.total)} this year. Setting aside <strong>${money(annual.setAside)}</strong> a month would cover it evenly${annual.peak.amount ? ` — instead of ${money(annual.peak.amount)} landing in ${P.periodLabel(`${year}-${String(annual.peak.month).padStart(2, "0")}`).slice(0, 3)}` : ""}.
-      ${annual.due ? ` Still to pay: ${money(annual.due)}, or ${money(annual.setAsideRemaining)} a month for the rest of the year.` : " Nothing left to pay this year."}</p>
-      <div id="annchart"></div></div>`);
   $$("[data-win]").forEach((b) => (b.onclick = () => { S.insWin = +b.dataset.win; render(); }));
-  regularSection(d, ps);
-  runwaySection(d, now, ps);
-  savingsRateSection(d, ps);
-  if (merchants.length) hbars($("#merch"), { title: "Top day-to-day merchants", items: merchants.map((m) => ({ label: `${m.label}`, value: m.amount, count: m.count, icon: catIcon(m.category) })) });
-  else $("#merch").innerHTML = '<p class="muted">No day-to-day spending in this period.</p>';
-  stackedBars($("#annchart"), { title: `Annual items by month, ${year}`, height: 200,
-    labels: annual.months.map((m) => P.periodLabel(`${year}-${String(m.month).padStart(2, "0")}`).slice(0, 3)),
-    stacks: [{ name: "Paid", color: "var(--series-2)", values: annual.months.map((m) => m.paid) }, { name: "Still due", color: "var(--series-4)", values: annual.months.map((m) => m.due) }] });
+  $("#rv-edit").onclick = () => { S.editReview = !S.editReview; render(); };
+  $$("[data-rsz]").forEach((b) => (b.onclick = async () => {
+    const [i, sz] = b.dataset.rsz.split(":");
+    board[+i].size = sz;
+    await saveReviewBoard(board); render();
+  }));
+  $$("[data-rmv]").forEach((b) => (b.onclick = async () => {
+    const [i, d] = b.dataset.rmv.split(":").map(Number);
+    const j = i + d;
+    if (j < 0 || j >= board.length) return;
+    [board[i], board[j]] = [board[j], board[i]];
+    await saveReviewBoard(board); render();
+  }));
+  $$("[data-rhid]").forEach((b) => (b.onclick = async () => {
+    board.splice(+b.dataset.rhid, 1);
+    await saveReviewBoard(board); render();
+  }));
+  $$("[data-radd]").forEach((b) => (b.onclick = async () => {
+    const idx = b.dataset.radd.lastIndexOf(":");
+    const type = b.dataset.radd.slice(0, idx), size = b.dataset.radd.slice(idx + 1);
+    board.push({ type, size });
+    await saveReviewBoard(board); render();
+  }));
+
+  board.forEach((c, idx) => {
+    const host = $("#rvb-" + idx); if (!host) return;
+    if (c.type.startsWith("pin:") && c.pin) {
+      const p = c.pin;
+      host.innerHTML = `<div class="card"><div class="pin-head"><strong>📌 ${esc(p.title)}</strong><span class="spacer"></span><button type="button" class="pin-x" data-unpin="${p.id}" title="Unpin">✕</button></div><div class="pin-body muted">…</div><small class="pin-src">“${esc(p.cmd)}”</small></div>`;
+      host.querySelector("[data-unpin]").onclick = () => removePin(p.id);
+      const body = host.querySelector(".pin-body");
+      runPinned(p.cmd, end).then((r) => {
+        if (!r || r.err) { body.textContent = r?.text || "This question no longer works."; return; }
+        const t = r.table; body.classList.remove("muted");
+        body.innerHTML = `${r.text ? `<p class="pin-text">${esc(r.text)}</p>` : ""}${t && t.rows.length ? `<table class="msg-table"><tbody>${t.rows.slice(0, 6).map(([l, v]) => `<tr><td>${esc(l)}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody>${t.total ? `<tfoot><tr><td>${esc(t.total[0])}</td><td class="num">${esc(t.total[1])}</td></tr></tfoot>` : ""}</table>` : ""}${r.chart ? '<div class="msg-chart"></div>' : ""}`;
+        if (r.chart) try { r.chart(body.querySelector(".msg-chart")); } catch (e) { /* ignore */ }
+      });
+      return;
+    }
+    if (c.type === "headlines") {
+      if (!heads.length) { host.closest(".rv-card").hidden = !editing; host.innerHTML = `<div class="card"><p class="muted">No headline alerts for this period.</p></div>`; return; }
+      host.innerHTML = `<div class="ins-heads" style="margin:0">${heads.map((h) => `<div class="ins-head ${h.tone}"><strong>${esc(h.title)}</strong><span>${esc(h.body)}</span></div>`).join("")}</div>`;
+    } else if (c.type === "in_vs_out") {
+      const yv = P.yearView(d, year), ms = yv.months;
+      const v = (m, k) => (m.hasData ? m[k] : null);
+      host.innerHTML = `<div class="card"><h2>Money in vs money out · ${year}</h2>
+        <p class="muted">Bars are spending; line is money in.</p>
+        <div class="rv-ychart"></div></div>`;
+      const chHost = host.querySelector(".rv-ychart");
+      if (isPhone()) {
+        const items = ms.filter((m) => m.hasData).map((m) => ({ label: m.label.slice(0, 3), value: (m.regular_expense || 0) + (m.oneoff_expense || 0) + (m.annual_expense || 0), count: m.regular_inflow ? `In ${money(m.regular_inflow)}` : "" }));
+        if (items.length) hbars(chHost, { items, title: `Spending by month, ${year}` });
+        else chHost.innerHTML = '<p class="muted">No data yet.</p>';
+      } else {
+        stackedBars(chHost, {
+          title: `Spending against money in, ${year}`, height: 220,
+          labels: ms.map((m) => m.label.slice(0, 3)),
+          stacks: [{ name: "Regular expense", color: "var(--series-1)", values: ms.map((m) => v(m, "regular_expense")) },
+                   { name: "One-off expense", color: "var(--series-4)", values: ms.map((m) => v(m, "oneoff_expense")) },
+                   { name: "Annual items", color: "var(--series-2)", values: ms.map((m) => v(m, "annual_expense")) }],
+          line: { name: "Money in", color: "var(--series-3)", values: ms.map((m) => { const a = v(m, "regular_inflow"), b = v(m, "oneoff_inflow"); return a == null && b == null ? null : (a || 0) + (b || 0); }) },
+        });
+      }
+    } else if (c.type === "where_it_goes") {
+      host.innerHTML = `<div class="card"><h2>Where your money goes</h2>
+        <p class="muted">${money(split.total)} over ${ps.length} month${ps.length > 1 ? "s" : ""} (~${money(Math.round(split.total / Math.max(1, ps.length)))}/mo).</p>
+        <div class="segbar" role="img" aria-label="${split.groups.map((g) => `${g.label} ${g.pct}%`).join(", ")}">${split.groups.filter((g) => g.amount > 0).map((g) => `<span style="flex:${g.amount};background:${COLORS[g.key]}" title="${esc(g.label)} ${g.pct}%"></span>`).join("")}</div>
+        <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Type</th><th>Per month</th><th>Share</th><th>Total</th></tr></thead><tbody>
+        ${split.groups.map((g) => `<tr><th class="rowh"><i class="swatch" style="--c:${COLORS[g.key]}"></i>${g.label}</th><td>${money(g.monthly)}</td><td>${g.pct}%</td><td>${money(g.amount)}</td></tr>`).join("")}
+        </tbody></table></div></div>`;
+    } else if (c.type === "trends") {
+      host.innerHTML = `<div class="card"><h2>Category trends</h2>
+        <p class="muted">Last 3 months vs 6 months before.</p>
+        <div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Category</th><th>Recent</th><th>Before</th><th>Change</th></tr></thead><tbody>
+        ${trends.map((t) => `<tr class="${t.flag ? "flag-" + t.flag : ""}"><th class="rowh">${catIcon(t.category)}${esc(t.category)}</th><td>${money(t.recent)}</td><td>${t.before === null ? "–" : money(t.before)}</td><td class="${t.flag === "up" ? "bad" : t.flag === "down" ? "good" : ""}">${arrow(t)}</td></tr>`).join("")}
+        </tbody></table></div></div>`;
+    } else if (c.type === "merchants") {
+      host.innerHTML = `<div class="card"><h2>Top day-to-day places</h2><div class="rv-merch"></div></div>`;
+      const mHost = host.querySelector(".rv-merch");
+      if (merchants.length) hbars(mHost, { title: "Top day-to-day merchants", items: merchants.map((m) => ({ label: `${m.label}`, value: m.amount, count: m.count, icon: catIcon(m.category) })) });
+      else mHost.innerHTML = '<p class="muted">No day-to-day spending in this period.</p>';
+    } else if (c.type === "regular") {
+      host.id = "ins-regular";
+      regularSection(d, ps);
+    } else if (c.type === "runway") {
+      host.id = "ins-runway";
+      runwaySection(d, now, ps);
+      if (!host.innerHTML.trim() && !editing) host.closest(".rv-card").hidden = true;
+    } else if (c.type === "savings_rate") {
+      host.id = "ins-rate";
+      savingsRateSection(d, ps);
+      if (!host.innerHTML.trim() && !editing) host.closest(".rv-card").hidden = true;
+    } else if (c.type === "annual") {
+      host.innerHTML = `<div class="card"><h2>Annual items in ${year}</h2>
+        <p class="muted">${money(annual.total)} this year · set aside <strong>${money(annual.setAside)}</strong>/mo.</p>
+        <div class="rv-annchart"></div></div>`;
+      stackedBars(host.querySelector(".rv-annchart"), { title: `Annual items by month, ${year}`, height: 180,
+        labels: annual.months.map((m) => P.periodLabel(`${year}-${String(m.month).padStart(2, "0")}`).slice(0, 3)),
+        stacks: [{ name: "Paid", color: "var(--series-2)", values: annual.months.map((m) => m.paid) }, { name: "Still due", color: "var(--series-4)", values: annual.months.map((m) => m.due) }] });
+    } else if (c.type === "year_table") {
+      const yHost = document.createElement("div");
+      host.appendChild(yHost);
+      renderYearTableInto(yHost, d, year);
+    }
+  });
+}
+
+function renderYearTableInto(host, d, year) {
+  const yv = P.yearView(d, year), ms = yv.months, t = yv.totals;
+  const v = (m, k) => (m.hasData ? m[k] : null);
+  const ROWS = [
+    ["Opening balance", "opening"], ["Regular income", "regular_inflow"], ["Additional inflow", "oneoff_inflow"],
+    ["Monthly spending", "monthly_expense"], ["Regular expense", "regular_expense", "sub"], ["One-off expense", "oneoff_expense", "sub"],
+    ["Annual items", "annual_expense"], ["Net monthly burn", "net_burn", "em"], ["Total out (burn + annual)", "total_out", "em"],
+    ["Invested", "investments"], ["Closing balance", "closing"],
+  ];
+  const totalCol = (k) => (["opening", "closing"].includes(k) ? "" : money(t[k]));
+  host.innerHTML = `<div class="card"><div class="row"><h2 style="margin:0">Year at a glance · ${year}</h2><span class="spacer"></span><button type="button" id="py2">← ${year - 1}</button><button type="button" id="ny2">${year + 1} →</button></div>
+    <div class="yt-wrap" style="margin-top:8px"><table class="yt"><thead><tr><th class="rowh"></th>${ms.map((m) => `<th><a href="#" data-goto="${m.period}">${m.label}</a></th>`).join("")}<th>${year}</th></tr></thead><tbody>
+    ${ROWS.map(([label, k, cls]) => `<tr class="${cls || ""}"><th class="rowh">${label}</th>${ms.map((m) => {
+      const x = v(m, k); return `<td class="${x == null ? "nodata" : x < 0 && (k === "net_burn" || k === "total_out") ? "neg" : ""}">${x == null ? "–" : money(x)}</td>`; }).join("")}<td>${totalCol(k)}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+  host.querySelector("#py2").onclick = () => { S.year = year - 1; render(); };
+  host.querySelector("#ny2").onclick = () => { S.year = year + 1; render(); };
+  host.querySelectorAll("[data-goto]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); S.period = a.dataset.goto; S.tab = "month"; renderTabs(); render(); }));
 }
 
 const monthsText = (m) => (m === Infinity ? "doesn't run out" : `${m >= 10 ? Math.round(m) : Math.round(m * 10) / 10} months`);
@@ -2212,15 +2601,27 @@ function viewSavings() {
   const s = settingsRec(), period = E.periodOf(today(), s.data), d = db();
   const defaults = P.defaultProjection(d, period);
   const opts = { ...defaults, ...(s.data.projection || {}) };
+  const ps = N.windowPeriods(d, period, 6);
+  const flex = N.categoryMonthly(d, ps).reduce((x, c) => x + c.monthly, 0);
+  const fixed = N.commitmentsYearly(d, period).reduce((x, c) => x + c.monthly, 0);
+  const start0 = opts.start_override != null ? opts.start_override : P.currentLiquid(d, period).amount;
+  const levers = N.biggestLevers(d, opts, period, start0, ps, 20).slice(0, 6);
   html(`
     <h1>Savings and runway</h1>
     <div class="kpis" id="pk"></div>
-    <div class="card whatif"><h2>What if…</h2>
-      <div class="wi-row"><label for="wi-cut">Spend less each month</label><input id="wi-cut" type="range" min="0" max="40" step="5" value="0"><output id="wi-cut-o">0%</output></div>
-      <div class="wi-row"><label for="wi-inc">Extra income each month</label><input id="wi-inc" type="range" min="0" max="100000" step="5000" value="0"><output id="wi-inc-o">₹0</output></div>
-      <p class="muted small" id="wi-msg">Move a slider to see how long your savings last. Nothing is saved.</p></div>
-    <div class="card"><h2>Where your savings are heading</h2><div id="pchart"></div>
-      <p class="muted" id="pnote"></p></div>
+    <div class="proj-split">
+      <div class="card"><h2>Where your savings are heading</h2><div id="pchart"></div>
+        <p class="muted" id="pnote"></p></div>
+      <div class="card whatif"><h2>What if…</h2>
+        <div class="wi-row"><label for="wi-cut">Cut day-to-day spending</label><input id="wi-cut" type="range" min="0" max="50" step="5" value="0"><output id="wi-cut-o">0%</output></div>
+        <div class="wi-row"><label for="wi-fix">Cut fixed commitments</label><input id="wi-fix" type="range" min="0" max="${Math.max(10000, Math.ceil(fixed / 1000) * 1000)}" step="1000" value="0"><output id="wi-fix-o">₹0</output></div>
+        <div class="wi-row"><label for="wi-inc">Extra income each month</label><input id="wi-inc" type="range" min="0" max="100000" step="5000" value="0"><output id="wi-inc-o">₹0</output></div>
+        <p class="muted small" id="wi-msg">Move a slider to see how long your savings last. Nothing is saved.</p>
+        ${levers.length ? `<h3 style="margin:12px 0 6px">Biggest levers (20% cut)</h3><div class="yt-wrap"><table class="yt ins-t"><thead><tr><th class="rowh">Item</th><th>Saves/mo</th><th>Runway</th></tr></thead><tbody>
+          ${levers.map((l) => `<tr><th class="rowh">${catIcon(l.category)}${esc(l.label)}</th><td>${money(l.saving)}</td><td>${l.gained ? `<strong class="good">${gainText(l.gained)}</strong>` : "–"}</td></tr>`).join("")}
+        </tbody></table></div>` : ""}
+      </div>
+    </div>
     <div class="card"><h2>Assumptions</h2>
       <div class="proj-form">${PROJ_FIELDS.map(([k, l, u]) => `<div><label for="pf-${k}">${l}${u === "%" ? " (%)" : ""}</label><input id="pf-${k}" type="number" step="any" value="${opts[k] ?? ""}" placeholder="${k === "start_override" ? "" : defaults[k] ?? ""}"></div>`).join("")}</div>
       <p class="row" style="margin-top:12px"><button class="primary" id="psave">Save assumptions</button><button id="pdef">Use my recent averages</button><span class="muted" id="pmsg"></span></p>
@@ -2230,10 +2631,16 @@ function viewSavings() {
       <div id="snaps"></div><p><button class="primary" id="newsnap">New checkpoint</button></p><div id="snaped"></div></div>`);
   const read = () => Object.fromEntries(PROJ_FIELDS.map(([k]) => [k, $("#pf-" + k).value === "" ? (k === "start_override" ? null : defaults[k]) : +$("#pf-" + k).value]));
   // What-if: adjust burn without touching the saved assumptions.
-  const whatif = (o) => { const cut = +$("#wi-cut").value, inc = +$("#wi-inc").value; return cut || inc ? { ...o, burn: Math.max(0, o.burn * (1 - cut / 100) - inc) } : o; };
+  const whatif = (o) => {
+    const cut = +$("#wi-cut").value, fixCut = +($("#wi-fix")?.value || 0), inc = +$("#wi-inc").value;
+    const flexSave = flex ? Math.round((flex * cut) / 100) : Math.round((o.burn * cut) / 100);
+    return cut || fixCut || inc ? { ...o, burn: Math.max(0, o.burn - flexSave - fixCut - inc) } : o;
+  };
   const draw = () => {
     const base = read(), o = whatif(base);
-    $("#wi-cut-o").textContent = $("#wi-cut").value + "%"; $("#wi-inc-o").textContent = money(+$("#wi-inc").value);
+    $("#wi-cut-o").textContent = $("#wi-cut").value + "%";
+    if ($("#wi-fix-o")) $("#wi-fix-o").textContent = money(+$("#wi-fix").value);
+    $("#wi-inc-o").textContent = money(+$("#wi-inc").value);
     if (o !== base) {
       const st = base.start_override != null ? base.start_override : P.currentLiquid(db(), period).amount;
       const a = P.project(db(), base, period, st), b = P.project(db(), o, period, st);

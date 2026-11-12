@@ -309,16 +309,15 @@ What to watch after launch, from your own Admin dashboard (no baseline needed): 
 
 ## 8. Build status (12 Nov 2026)
 Done:
-- Shell with 4 tabs and the ☰ menu
-- Assistant docked on the right on desktop, collapsible to a rail
-- Home compacted: waterfall in "How?", to-pay chips, shortcuts collapsed
-- Ledger with All accounts and an Account column
-- Review = Insights + Year, with the year chart on one shared scale
-- Plan = Plan + Savings, with what-if sliders
-- Pins on Home and Review, plus the first-visit starter-pins prompt
-- Phone: new bottom nav, ledger list + row edit sheet, optional Sheet view
+- Shell with 4 tabs (`Home | Ledger | Review | Plan`) and the ☰ menu
+- Centered 2-column desktop shell (`.app-shell`, `max-width: 1400px`) with clean side margins; Assistant open by default on every page, resizable (`280px`–`560px` via `.chat-resize` handle) and collapsible to a slim rail (`.chat-rail`)
+- Account bar chips wrap across multiple lines (`flex-wrap: wrap`) with no horizontal scrollbar
+- Home compacted: day-of-month progress bar + `In · Out · Due` strip inside Hero, waterfall in "How?", unified To-do queue (card bills, unpaid commitments, uncategorised `Other` items, month close), `? Shortcuts` modal + `＋ New row` jump button, formula bar hidden until editing a cell, and pinned cards capped at 4
+- Ledger workbench: All accounts with Account column, period range (`Month | Quarter | Year | All`), live search, category/kind filters, bulk category edit on visible rows, `＋ Action ▾` menu (`New row`, `Import file…` modal, `Mark card billed`), and drag-and-drop file import
+- Review customizable 12-column board (`Insights` + `Year`): S/M/L card sizing (`span 4 / 6 / 12`), reorder (`←` / `→`), hide (`✕`), `+ Add card` picker, `Month | 3M | 6M | Year` scope switcher, and shared-scale `In vs Out` chart (horizontal bars on phone portrait)
+- Plan 3-way sub-nav (`Commitments & recurring`, `Annual items`, `Projection & checkpoints`) with side-by-side what-if sliders (`Cut flexible by`, `Add monthly expense`, `Extra monthly income`) and `Biggest levers` table next to the projection chart
+- Pins on Home, Review, and idle Assistant dock: Step 4 onboarding starter-pins prompt, repeated-query `📌 Pin this?` highlight, follow-up query chips, and 60-day unused pin pruning prompt (`Remove unused?`)
+- Phone: 5-slot bottom nav (`Home | Ledger | ＋ Add | Review | Ask`), long-press on `＋ Add` jumps straight to Type mode, `Type | Keypad` toggle with calculator keypad + `📋 SMS` paste in Add sheet, `Ask` starter examples, swipeable pin chips + 3-row preview on mobile Home, inline quick-delete in Ledger list, and `Note`, `↻ Make recurring`, `✂ Split row` in mobile row edit sheet
 - Bank SMS/UPI alert parsing: last-4 matching, bank-name fallback, multi-alert paste
-- Assistant navigation commands ("go to plan", "import", "settings"…)
+- Assistant commands: navigation verbs ("go to plan", "import", "settings"…), theme switching (`theme <name>`, `dark mode`, `light mode`), account filter (`show <account>`, `all accounts`), `pin <query>`, and `⟲` command history popover
 - Hero shows free to spend after investing; games moved to Settings
-
-Not done: Review board drag/resize (S/M/L) and pin-pruning suggestions.

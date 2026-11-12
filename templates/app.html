@@ -26,7 +26,9 @@
   <span class="demo-bar-actions"><a href="/login/"><button class="primary" type="button">Create free account →</button></a></span>
 </div>
 {% endif %}
-<main class="wrap" id="root"><p class="muted">Loading…</p></main>
+<div class="app-shell">
+  <main class="wrap" id="root"><p class="muted">Loading…</p></main>
+</div>
 {% include "_app_footer.html" %}
 <script type="module" src="{% static JS_DIR|add:'/app.js' %}"></script>
 {% endblock %}

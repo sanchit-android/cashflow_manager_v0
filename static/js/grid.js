@@ -260,6 +260,7 @@ function mountSheet(host, cfg) {
     const cell = td(active.r, active.c);
     const original = rawText(row, col);
     editing = { r: active.r, c: active.c, mode, col };
+    root.classList.add("xl-editing");
     if (col.type === "select") return openList(cell, col, initial ?? "");
     const input = document.createElement("input");
     input.className = "xl-editor"; input.spellcheck = false;
@@ -334,6 +335,7 @@ function mountSheet(host, cfg) {
     const cell = td(editing.r, editing.c);
     if (editing.cleanup) editing.cleanup();
     editing = null;
+    root.classList.remove("xl-editing");
     cell?.querySelectorAll(".xl-editor,.xl-list").forEach((e) => e.remove());
     root.focus({ preventScroll: true });
   }
@@ -657,6 +659,23 @@ function mountSheet(host, cfg) {
       tr.classList.remove("row-flash"); void tr.offsetWidth; tr.classList.add("row-flash");
       setTimeout(() => tr.classList.remove("row-flash"), 2600);
       return true;
+    },
+    jumpToBlank() {
+      const idx = rows.findIndex(isBlank);
+      const r = idx >= 0 ? idx : Math.max(0, rows.length - 1);
+      moveTo(r, 0);
+      root.focus({ preventScroll: true });
+      td(r, 0)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      startEdit("edit");
+    },
+    setQuickFilter(key, val) {
+      if (!val) delete filters[key];
+      else if (key === "description") filters[key] = { contains: String(val) };
+      else filters[key] = { values: new Set([String(val)]) };
+      renderBody(true);
+    },
+    getVisibleRowIds() {
+      return rows.filter((r) => r.id).map((r) => r.id);
     },
   };
 }

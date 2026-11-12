@@ -11,7 +11,38 @@ import { isBankAlert, parseBankAlerts } from "./bankalert.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const EXAMPLES = ["450 swiggy", "1200 petrol with atlas yesterday", "change swiggy to 500", "totals by category", "spend trend", "help"];
+const ASK_EXAMPLES = ["Where did my money go?", "food this month vs last month", "what's left to pay", "runway", "top merchants", "savings rate"];
+const FOLLOW_UPS = {
+  spend: ["totals by category", "spend trend", "compare with last month"],
+  categories: ["category trend", "top merchants", "what's left to pay"],
+  category: ["totals by category", "spend trend", "compare with last month"],
+  chart: ["totals by category", "savings rate", "top merchants"],
+  runway: ["savings rate", "what's left to pay", "spend trend"],
+  default: ["totals by category", "spend trend", "what's left to pay"],
+};
 const isPhone = () => window.matchMedia("(max-width: 640px)").matches;
+const CMD_HIST_KEY = "po.chat.hist";
+function getCmdHist() {
+  try { return JSON.parse(localStorage.getItem(CMD_HIST_KEY) || "[]"); } catch { return []; }
+}
+function recordCmdHist(text) {
+  const clean = String(text || "").trim();
+  if (!clean || clean.length > 80 || /^undo$/i.test(clean)) return;
+  try {
+    const list = getCmdHist();
+    const now = Date.now(), weekAgo = now - 7 * 86400e3;
+    const hit = list.find((x) => x.text.toLowerCase() === clean.toLowerCase());
+    if (hit) { hit.runs = [...(hit.runs || []).filter((t) => t > weekAgo), now]; hit.at = now; }
+    else list.unshift({ text: clean, runs: [now], at: now });
+    list.sort((a, b) => b.at - a.at);
+    localStorage.setItem(CMD_HIST_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch {}
+}
+function isRepeatedCmd(text) {
+  const clean = String(text || "").trim().toLowerCase();
+  const hit = getCmdHist().find((x) => x.text.toLowerCase() === clean);
+  return hit && (hit.runs || []).length >= 2;
+}
 
 // deps: { ctx(), save(drafts) -> { ids, txIds, summaries, sentences, notes }, undo(ids), reveal(txIds), refresh(), suggestions(prefix),
 //         addTo(target, amount, accountIds?) -> { skip } | { none, month } | { id, before, sentence, notes }, restore(id, before),
@@ -33,13 +64,18 @@ function cardHtml(c) {
 /** A command's answer: heading, sentence, small table, chart, example chips and buttons. */
 function richHtml(m, i) {
   const t = m.table;
+  const suggestPin = pinnable(m) && isRepeatedCmd(m.src);
+  const fups = m.followUps || (m.rich && !m.err && !m.examples ? (FOLLOW_UPS[m.what || m.kind] || FOLLOW_UPS.default) : null);
   return `${m.card ? cardHtml(m.card) : ""}${m.title ? `<strong class="msg-title">${esc(m.title)}</strong>` : ""}${m.text ? `<span class="msg-text">${esc(m.text)}</span>` : ""}
     ${t && t.rows.length ? `<table class="msg-table"><tbody>${t.rows.map(([l, v, sub]) => `<tr><td>${esc(l)}${sub ? `<small>${esc(sub)}</small>` : ""}</td><td class="num">${esc(v)}</td></tr>`).join("")}</tbody>${t.total ? `<tfoot><tr><td>${esc(t.total[0])}</td><td class="num">${esc(t.total[1])}</td></tr></tfoot>` : ""}</table>` : ""}
     ${m.chart ? `<div class="msg-chart" data-chart="${i}"></div>` : ""}
     ${m.examples ? m.examples.map(([g, ex]) => `<div class="msg-help"><small>${esc(g)}</small><div class="msg-chips">${ex.map((e) => `<button type="button" class="chat-chip" data-try="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`).join("") : ""}
     ${m.actions && !m.acted ? `<div class="msg-chips">${m.actions.map((a, j) => `<button type="button" class="chat-chip" data-act="${i}:${j}">${esc(a.label)}</button>`).join("")}</div>` : ""}
-    ${pinnable(m) ? `<button type="button" class="msg-pin" data-pin="${i}" title="Pin this answer to Home and Review">📌 Pin</button>` : ""}
-    ${m.month || (m.reveal && m.reveal.length) ? `<button type="button" class="msg-open" ${m.reveal && m.reveal.length ? `data-show="${i}"` : `data-month="${esc(m.month)}"`}>Show in the grid</button>` : ""}`;
+    <div class="msg-foot">
+      ${pinnable(m) ? `<button type="button" class="msg-pin${suggestPin ? " suggest" : ""}" data-pin="${i}" title="Pin this answer to Home and Review">${suggestPin ? "📌 Pin this?" : "📌 Pin"}</button>` : ""}
+      ${m.month || (m.reveal && m.reveal.length) ? `<button type="button" class="msg-open" ${m.reveal && m.reveal.length ? `data-show="${i}"` : `data-month="${esc(m.month)}"`}>See rows</button>` : ""}
+    </div>
+    ${fups && i === msgs.length - 1 ? `<div class="msg-chips msg-fups">${fups.filter((f) => f.toLowerCase() !== String(m.src || "").toLowerCase()).slice(0, 3).map((e) => `<button type="button" class="chat-chip" data-try="${esc(e)}">${esc(e)}</button>`).join("")}</div>` : ""}`;
 }
 let current = "";         // the message being handled, kept on bot replies (src) so an undo can report it
 let pending = null;       // { draft, rest: [drafts still to save after this one] }
@@ -59,73 +95,211 @@ export async function runPinned(text, period) {
 export const chatOpen = () => !!ui;
 
 /** Open the chat, or focus it if it's already open. */
-// Desktop: the assistant is a column docked on the right of every screen. Collapsing it leaves a slim rail.
+// Desktop: the assistant is a column docked on the right of every screen inside the centered app-shell. Collapsing it leaves a slim rail.
 const DOCK_KEY = "po.dock";
+const DOCK_W_KEY = "po.dock.w";
 export const dockCollapsed = () => { try { return localStorage.getItem(DOCK_KEY) === "closed"; } catch { return false; } };
 const setCollapsed = (on) => { try { on ? localStorage.setItem(DOCK_KEY, "closed") : localStorage.removeItem(DOCK_KEY); } catch {} };
+function applyDockWidth(w) {
+  const clamped = Math.max(280, Math.min(560, Math.round(+w || 360)));
+  document.documentElement.style.setProperty("--dock-w", clamped + "px");
+  return clamped;
+}
+try { const sw = localStorage.getItem(DOCK_W_KEY); if (sw) applyDockWidth(sw); } catch {}
+const hostContainer = () => (!isPhone() && document.querySelector(".app-shell")) || document.body;
+
 function showRail(open) {
   if (isPhone() || document.querySelector(".chat-rail")) return;
   const b = document.createElement("button");
   b.type = "button"; b.className = "chat-rail"; b.title = "Open the assistant (/ or Ctrl+K)"; b.setAttribute("aria-label", "Open the assistant");
   b.innerHTML = `${BUBBLE}<span>Ask</span>`;
-  b.onclick = () => { b.remove(); setCollapsed(false); open(); };
-  document.body.appendChild(b); document.body.classList.add("chat-railed");
+  b.onclick = () => { b.remove(); document.body.classList.remove("chat-railed"); setCollapsed(false); open(); };
+  hostContainer().appendChild(b); document.body.classList.add("chat-railed");
 }
 /** Desktop only: open the docked assistant unless the user collapsed it (then show the rail). */
 export function ensureDock(opts) {
   if (isPhone()) { document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed"); if (ui && !ui.phone) ui.close(true); return; }
-  if (ui) return;
+  if (ui) { if (ui.refreshIdle) ui.refreshIdle(); return; }
   if (dockCollapsed()) showRail(() => openChat({ ...opts, focus: true }));
   else openChat({ ...opts, focus: false });
 }
 
-export function openChat({ accountId, focus = true } = {}) {
-  if (ui) { ui.expand(); ui.input.focus(); return; }
+export function openChat({ accountId, focus = true, mode = "default" } = {}) {
+  if (ui) { if (mode && ui.setMode) ui.setMode(mode); ui.expand(); if (focus) ui.input.focus(); return; }
   document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed");
   const phone = isPhone();
+  let curMode = mode; // "default" | "type" | "keypad" | "ask"
   const wrap = document.createElement("div");
   wrap.className = phone ? "ml-back chat-back" : "chat-side";
-  wrap.innerHTML = `<section class="${phone ? "ml-sheet chat-panel" : "chat-dock"}" ${phone ? 'role="dialog" aria-modal="true"' : 'role="complementary"'} aria-label="Assistant">
+  wrap.innerHTML = `${!phone ? '<div class="chat-resize" title="Drag to resize · double-click to reset" aria-hidden="true"></div>' : ""}
+  <section class="${phone ? "ml-sheet chat-panel" : "chat-dock"}" ${phone ? 'role="dialog" aria-modal="true"' : 'role="complementary"'} aria-label="Assistant">
     ${phone ? '<div class="ml-grab" aria-hidden="true"></div>' : ""}
-    <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>${phone ? "Quick add" : "Assistant"}</strong>
-      <span class="chat-head-hint">${phone ? "Add, change or ask · type “help” for examples" : "Log, change, ask or go · runs on your device"}</span>
+    <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>${phone ? (curMode === "ask" ? "Ask" : "Add") : "Assistant"}</strong>
+      ${phone && curMode !== "ask" ? `<div class="seg chat-mode-seg" role="group" aria-label="Entry mode"><button type="button" data-cmode="type" class="${curMode !== "keypad" ? "on" : ""}">Type</button><button type="button" data-cmode="keypad" class="${curMode === "keypad" ? "on" : ""}">Keypad</button></div>` : `<span class="chat-head-hint">${phone ? "Ask about your spending, trends or bills" : "runs on your device 🔒"}</span>`}
+      ${!phone ? `<button type="button" class="chat-x chat-hist" aria-label="Recent commands" title="Recent commands">⟲</button>` : ""}
       <button type="button" class="chat-x chat-close" aria-label="${phone ? "Close chat" : "Collapse the assistant"}" title="${phone ? "Close" : "Collapse"}">${phone ? "✕" : COLLAPSE}</button></header>
+    <div class="chat-hist-pop" hidden></div>
+    <div class="chat-keypad" hidden></div>
     <div class="chat-thread" aria-live="polite"></div>
     <div class="chat-suggest" aria-label="Suggestions"></div>
     <form class="chat-bar" autocomplete="off">
-      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="${phone ? "e.g. “450 swiggy”, “change swiggy to 500”, “food trend”" : "Ask or log…  e.g. 450 swiggy · food trend   (/)"}">
+      <input class="chat-in" type="text" enterkeyhint="send" aria-label="Type an entry" placeholder="${phone ? (curMode === "ask" ? "Ask anything… e.g. food vs last month" : "e.g. 450 swiggy, 230 uber upi") : "Ask, log or go…  ⌘K /"}">
+      ${phone && curMode !== "ask" ? '<button type="button" class="chat-paste" title="Paste bank SMS / UPI alert">📋 SMS</button>' : ""}
       <button type="submit" class="chat-send" aria-label="Save">${SEND}</button>
     </form></section>`;
-  document.body.appendChild(wrap);
+  hostContainer().appendChild(wrap);
   document.body.classList.add(phone ? "ml-open" : "chat-side-open");
-  const panel = wrap.firstElementChild, thread = wrap.querySelector(".chat-thread"), input = wrap.querySelector(".chat-in"), sugEl = wrap.querySelector(".chat-suggest");
+  const panel = wrap.querySelector("section"), thread = wrap.querySelector(".chat-thread"), input = wrap.querySelector(".chat-in"), sugEl = wrap.querySelector(".chat-suggest"), kpEl = wrap.querySelector(".chat-keypad"), histPop = wrap.querySelector(".chat-hist-pop");
   const prevFocus = document.activeElement;
 
+  // Desktop resize handle
+  const resizer = wrap.querySelector(".chat-resize");
+  if (resizer) {
+    resizer.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const x0 = e.clientX, w0 = wrap.getBoundingClientRect().width;
+      document.body.classList.add("xl-resizing");
+      const move = (ev) => { applyDockWidth(w0 + (x0 - ev.clientX)); };
+      const up = () => {
+        window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+        document.body.classList.remove("xl-resizing");
+        const finalW = wrap.getBoundingClientRect().width;
+        try { localStorage.setItem(DOCK_W_KEY, String(Math.round(finalW))); } catch {}
+      };
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+    });
+    resizer.addEventListener("dblclick", () => {
+      applyDockWidth(360);
+      try { localStorage.removeItem(DOCK_W_KEY); } catch {}
+    });
+  }
+
   const close = (silent) => {
-    wrap.remove(); document.body.classList.remove("ml-open", "chat-docked", "chat-side-open"); ui = null; mini = false;
+    wrap.remove(); document.body.classList.remove("ml-open", "chat-docked", "chat-side-open", "chat-active"); ui = null; mini = false;
     if (!phone && silent !== true) { setCollapsed(true); showRail(() => openChat({ accountId, focus: true })); }
     if (window.visualViewport) window.visualViewport.removeEventListener("resize", fit);
     window.removeEventListener("resize", place);
     if (!phone && prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true });
   };
-  // Desktop: put the window where it was dragged to, kept fully on screen (it grows upwards as the conversation gets longer).
-  const place = () => {
-    if (phone || mini || true) return; // docked: nothing to place
-    const W = document.documentElement.clientWidth, H = document.documentElement.clientHeight, m = 8;
-    const w = panel.offsetWidth, h = panel.offsetHeight, left = (W - w) / 2, top = H - 16 - h; // where it sits undragged
-    pos = { x: Math.max(m - left, Math.min(W - m - w - left, pos.x)), y: Math.max(m - top, Math.min(H - m - h - top, pos.y)) };
-    panel.style.translate = `${pos.x}px ${pos.y}px`;
+  const place = () => {};
+  const setMode = (m) => {
+    curMode = m;
+    wrap.querySelectorAll("[data-cmode]").forEach((b) => b.classList.toggle("on", b.dataset.cmode === m));
+    if (kpEl) kpEl.hidden = m !== "keypad";
+    thread.hidden = m === "keypad";
+    wrap.querySelector(".chat-bar").hidden = m === "keypad";
+    sugEl.hidden = m === "keypad";
+    if (m === "keypad") renderKeypad();
+    else { render(); if (phone) keepFocus(); }
   };
-  const setMini = (on) => {
-    if (phone || mini === on) return;
-    mini = on;
-    wrap.classList.toggle("mini", on); document.body.classList.toggle("chat-docked", !on);
-    const b = wrap.querySelector(".chat-min");
-    b.innerHTML = on ? RESTORE : MINIMISE; b.title = on ? "Open" : "Minimise"; b.setAttribute("aria-label", on ? "Open chat" : "Minimise chat");
-    if (on) input.blur(); else { place(); thread.scrollTop = thread.scrollHeight; input.focus({ preventScroll: true }); }
-  };
-  ui = { el: wrap, input, close, phone, expand: () => {} };
+  ui = { el: wrap, input, close, phone, expand: () => {}, setMode, refreshIdle: () => { if (!msgs.length) render(); } };
   wrap.querySelector(".chat-close").onclick = () => close();
+  wrap.querySelectorAll("[data-cmode]").forEach((b) => (b.onclick = () => setMode(b.dataset.cmode)));
+
+  // History button (⟲)
+  const histBtn = wrap.querySelector(".chat-hist");
+  if (histBtn && histPop) {
+    histBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (!histPop.hidden) { histPop.hidden = true; return; }
+      const list = getCmdHist();
+      histPop.innerHTML = list.length
+        ? `<div class="chat-hist-head">Recent queries &amp; entries</div>` + list.slice(0, 10).map((x) => `<button type="button" class="chat-hist-item" data-hcmd="${esc(x.text)}"><span>${esc(x.text)}</span>${(x.runs || []).length > 1 ? `<small>${x.runs.length}×</small>` : ""}</button>`).join("")
+        : `<div class="chat-hist-head muted">No recent commands yet.</div>`;
+      histPop.hidden = false;
+      histPop.querySelectorAll("[data-hcmd]").forEach((b) => (b.onclick = () => {
+        histPop.hidden = true;
+        input.value = b.dataset.hcmd;
+        submit();
+      }));
+    };
+    document.addEventListener("click", (e) => { if (histPop && !histPop.hidden && !histPop.contains(e.target) && e.target !== histBtn) histPop.hidden = true; });
+  }
+
+  // Paste SMS button on mobile
+  const pasteBtn = wrap.querySelector(".chat-paste");
+  if (pasteBtn) {
+    pasteBtn.onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          msgs.push({ who: "me", text: text.trim() }); current = text.trim(); render(); enter(text.trim());
+          return;
+        }
+      } catch {}
+      input.placeholder = "Long-press here and tap Paste to paste your bank SMS…";
+      keepFocus();
+    };
+  }
+
+  // Keypad mode renderer (M2)
+  function renderKeypad() {
+    if (!kpEl) return;
+    const c = ctx(), accts = c.accounts || [], cats = c.categories || [];
+    let dir = "out", amtStr = "", merch = "", cat = cats[0] || "Food", acct = c.defaultAccountId || (accts[0] && accts[0].id) || "", toAcct = (accts.find((a) => a.id !== acct) || accts[0] || {}).id || "", dt = c.today;
+    const recentMerchs = (deps.suggestions ? deps.suggestions("") : []).slice(0, 8);
+    const evalAmt = (s) => {
+      const clean = String(s || "").replace(/[^0-9.+*/-]/g, "");
+      if (!clean) return 0;
+      try { const p = parseAmount(normalize(clean.replace(/\+/g, " + "))); if (p) return p.value; } catch {}
+      const parts = clean.split("+").map((x) => parseFloat(x) || 0);
+      return Math.round(parts.reduce((a, b) => a + b, 0) * 100) / 100;
+    };
+    const drawKp = () => {
+      kpEl.innerHTML = `<div class="kp-wrap">
+        <div class="seg kp-dir">${[["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]].map(([v, l]) => `<button type="button" data-kdir="${v}" class="${dir === v ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="kp-display"><span class="kp-cur">₹</span><span class="kp-val">${esc(amtStr || "0")}</span>${amtStr.includes("+") ? `<small class="kp-eq">= ${evalAmt(amtStr)}</small>` : ""}</div>
+        <div class="kp-row"><input class="kp-merch" placeholder="${dir === "transfer" ? "Note (optional)" : "Merchant / description (e.g. Swiggy)"}" value="${esc(merch)}" list="kp-merch-list">
+          <datalist id="kp-merch-list">${recentMerchs.map((m) => `<option value="${esc(m)}">`).join("")}</datalist>
+          <input type="date" class="kp-date" value="${esc(dt)}"></div>
+        ${dir !== "transfer" ? `<div class="kp-chips" aria-label="Category">${cats.slice(0, 8).map((k) => `<button type="button" class="chat-chip ${cat === k ? "on" : ""}" data-kcat="${esc(k)}">${esc(k)}</button>`).join("")}</div>` : ""}
+        <div class="kp-chips" aria-label="Account">${accts.map((a) => `<button type="button" class="chat-chip ${acct === a.id ? "on" : ""}" data-kacct="${esc(a.id)}">${esc(a.name)}</button>`).join("")}</div>
+        ${dir === "transfer" ? `<div class="kp-chips" aria-label="To account"><small class="muted">To:</small>${accts.filter((a) => a.id !== acct).map((a) => `<button type="button" class="chat-chip ${toAcct === a.id ? "on" : ""}" data-kto="${esc(a.id)}">${esc(a.name)}</button>`).join("")}</div>` : ""}
+        <div class="kp-pad">
+          ${["1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "0", "⌫"].map((k) => `<button type="button" class="kp-key" data-kkey="${k}">${k}</button>`).join("")}
+        </div>
+        <div class="kp-actions"><button type="button" class="primary kp-save" data-kmore="0">Save</button><button type="button" class="kp-save" data-kmore="1">Save + another</button></div>
+        <div class="kp-log"></div>
+      </div>`;
+      kpEl.querySelectorAll("[data-kdir]").forEach((b) => (b.onclick = () => { dir = b.dataset.kdir; drawKp(); }));
+      kpEl.querySelector(".kp-merch").oninput = (e) => {
+        merch = e.target.value;
+        if (c.infer && merch.length > 2) { const inf = c.infer(merch); if (inf && inf.category) cat = inf.category; }
+      };
+      kpEl.querySelector(".kp-date").onchange = (e) => { dt = e.target.value || c.today; };
+      kpEl.querySelectorAll("[data-kcat]").forEach((b) => (b.onclick = () => { cat = b.dataset.kcat; drawKp(); }));
+      kpEl.querySelectorAll("[data-kacct]").forEach((b) => (b.onclick = () => { acct = b.dataset.kacct; drawKp(); }));
+      kpEl.querySelectorAll("[data-kto]").forEach((b) => (b.onclick = () => { toAcct = b.dataset.kto; drawKp(); }));
+      kpEl.querySelectorAll("[data-kkey]").forEach((b) => (b.onclick = () => {
+        const k = b.dataset.kkey;
+        if (k === "⌫") amtStr = amtStr.slice(0, -1);
+        else if (k === "+" && (!amtStr || amtStr.endsWith("+"))) return;
+        else amtStr += k;
+        kpEl.querySelector(".kp-val").textContent = amtStr || "0";
+        const eq = kpEl.querySelector(".kp-eq");
+        if (eq) eq.textContent = amtStr.includes("+") ? `= ${evalAmt(amtStr)}` : "";
+      }));
+      kpEl.querySelectorAll(".kp-save").forEach((b) => (b.onclick = async () => {
+        const val = evalAmt(amtStr);
+        if (!(val > 0)) return;
+        const draft = {
+          date: dt, description: merch.trim() || (dir === "in" ? "Income" : dir === "transfer" ? "Transfer" : cat),
+          account_id: acct, direction: dir, to_account_id: dir === "transfer" ? toAcct : "",
+          category: dir === "transfer" ? "" : cat, nature: dir === "in" ? "income" : "variable", amount: val, raw: `${val} ${merch}`,
+        };
+        await saveBatch([draft]);
+        amtStr = ""; merch = "";
+        if (b.dataset.kmore === "1") drawKp();
+        else setMode("type");
+      }));
+    };
+    drawKp();
+  }
+
+  // Collapse hero strip on desktop while the assistant thread is actively focused
+  input.addEventListener("focus", () => { if (!phone && msgs.length) document.body.classList.add("chat-active"); });
+  document.addEventListener("mousedown", (e) => { if (!phone && !wrap.contains(e.target)) document.body.classList.remove("chat-active"); });
   if (phone) {
     wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
     let y0 = null; const grab = wrap.querySelector(".ml-grab");
@@ -143,9 +317,17 @@ export function openChat({ accountId, focus = true } = {}) {
 
   function render() {
     if (!msgs.length) {
-      thread.innerHTML = `<div class="chat-empty"><p>Type what you spent or received, in plain words. It's saved straight away and ${phone ? "I'll confirm what was added" : "highlighted in the grid"}. You can also change or delete rows, mark cards billed, add accounts and ask about any month. Type “help” to see how.</p>
-        <div class="chat-examples">${EXAMPLES.map((e) => `<button type="button" class="chat-chip" data-ex="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`;
-      thread.querySelectorAll("[data-ex]").forEach((b) => (b.onclick = () => { input.value = b.dataset.ex; keepFocus(); }));
+      const exList = curMode === "ask" ? ASK_EXAMPLES : EXAMPLES;
+      thread.innerHTML = `<div class="chat-empty">
+        ${!phone ? `<div class="chat-idle-pins"></div>` : ""}
+        <p>${curMode === "ask" ? "Ask anything about your money, trends, or categories." : `Type what you spent or received, in plain words. It's saved straight away and ${phone ? "I'll confirm what was added" : "highlighted in the grid"}. You can also change or delete rows, mark cards billed, add accounts and ask about any month. Type “help” to see how.`}</p>
+        <div class="chat-examples">${exList.map((e) => `<button type="button" class="chat-chip" data-ex="${esc(e)}">${esc(e)}</button>`).join("")}</div></div>`;
+      thread.querySelectorAll("[data-ex]").forEach((b) => (b.onclick = () => {
+        input.value = b.dataset.ex;
+        if (curMode === "ask") submit(); else keepFocus();
+      }));
+      const idleBox = thread.querySelector(".chat-idle-pins");
+      if (idleBox && deps.renderIdlePins) { try { deps.renderIdlePins(idleBox); } catch (_) {} }
       place();
       return;
     }
@@ -272,6 +454,8 @@ export function openChat({ accountId, focus = true } = {}) {
     const text = input.value.trim();
     if (!text) return;
     input.value = ""; sugEl.innerHTML = "";
+    recordCmdHist(text);
+    if (!phone) document.body.classList.add("chat-active");
     msgs.push({ who: "me", text });
     if (/^undo$/i.test(text)) { const m = [...msgs].reverse().find((x) => x.ids && !x.undone); if (m) undo(m); else { msgs.push({ who: "bot", text: "Nothing to undo." }); render(); } return; }
     // Answer to "How much?" — a bare amount fills the waiting entry.
@@ -299,6 +483,42 @@ export function openChat({ accountId, focus = true } = {}) {
     try { reply_({ kind: cmd.kind, ...(await deps.command(cmd)) }); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); miss("error", "", cmd.kind); }
   }
   async function enter(text) {
+    // Theme command: "theme dark", "dark mode", "light mode"
+    const thm = /^(?:(?:set|switch|change)\s+)?(?:theme\s+(?:to\s+)?([a-z0-9_-]+)|(dark|light)\s+mode)$/i.exec(text.trim());
+    if (thm && deps.setTheme) {
+      const name = (thm[1] || (thm[2].toLowerCase() === "dark" ? "dark" : "default")).toLowerCase();
+      await deps.setTheme(name);
+      msgs.push({ who: "bot", text: `Theme set to ${name}.` });
+      render();
+      return;
+    }
+    // Pin command: "pin food trend", "pin top merchants"
+    const pinM = /^pin\s+(.+)$/i.exec(text.trim());
+    if (pinM && deps.pin) {
+      const q = pinM[1].trim();
+      await deps.pin(q, q);
+      msgs.push({ who: "bot", text: `📌 Pinned “${q}” to Home & Review.` });
+      render();
+      return;
+    }
+    // Account filter: "show all accounts", "filter hdfc infinia"
+    const flt = /^(?:show|filter(?:\s+by)?)\s+(all\s+accounts?|.+?\s+(?:card|account|bank))$/i.exec(text.trim());
+    if (flt && deps.filterAccount) {
+      const q = flt[1].toLowerCase();
+      if (/^all\s+accounts?$/.test(q)) {
+        deps.filterAccount("__all");
+        msgs.push({ who: "bot", text: "Showing all accounts." });
+        render();
+        return;
+      }
+      const acc = (ctx().accounts || []).find((a) => a.name.toLowerCase().includes(q.replace(/\s+(?:card|account|bank)$/, "").trim()) || a.name.toLowerCase() === q);
+      if (acc) {
+        deps.filterAccount(acc.id);
+        msgs.push({ who: "bot", text: `Filtered to ${acc.name}.` });
+        render();
+        return;
+      }
+    }
     // Navigation: "go to plan", "open settings", "import", "year view"…
     const nav = /^(?:(?:go\s+to|open|show(?:\s+me)?|take\s+me\s+to)\s+(?:the\s+)?)?(home|ledger|review|plan|settings|accounts?|cards|import|year(?:\s+view)?|insights|savings|projection|checkpoints)(?:\s+(?:page|tab|screen))?$/i.exec(text.trim());
     if (nav && deps.go) {
@@ -356,6 +576,7 @@ export function openChat({ accountId, focus = true } = {}) {
   input.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     e.preventDefault(); e.stopPropagation();
+    document.body.classList.remove("chat-active");
     if (input.value) { input.value = ""; sugEl.innerHTML = ""; } else if (phone) close(); else input.blur();
   });
   render();
