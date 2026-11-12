@@ -173,7 +173,7 @@ export function openChat({ accountId, focus = true, mode = "default" } = {}) {
     ${phone ? '<div class="ml-grab" aria-hidden="true"></div>' : ""}
     <header class="chat-head"><span class="chat-head-ico" aria-hidden="true">${BUBBLE}</span><strong>${phone ? (curMode === "ask" ? "Ask" : "Add") : "Assistant"}</strong>
       ${phone && curMode !== "ask" ? `<div class="seg chat-mode-seg" role="group" aria-label="Entry mode"><button type="button" data-cmode="type" class="${curMode !== "keypad" ? "on" : ""}">Type</button><button type="button" data-cmode="keypad" class="${curMode === "keypad" ? "on" : ""}">Keypad</button></div>` : `<span class="chat-head-hint">${phone ? "Ask about your spending, trends or bills" : "runs on your device 🔒"}</span>`}
-      ${!phone ? `<button type="button" class="chat-x chat-hist" aria-label="Recent commands" title="Recent commands">⟲</button>` : ""}
+      ${!phone ? `<button type="button" class="chat-x chat-hist" aria-label="Recent commands" title="Recent commands">⟲</button><button type="button" class="chat-x chat-hist chat-clear" aria-label="Clear chat" title="Clear chat">🗑</button>` : ""}
       <button type="button" class="chat-x chat-close" aria-label="${phone ? "Close chat" : "Collapse the assistant"}" title="${phone ? "Close" : "Collapse"}">${phone ? "✕" : COLLAPSE}</button></header>
     <div class="chat-hist-pop" hidden></div>
     <div class="chat-keypad" hidden></div>
@@ -252,7 +252,18 @@ export function openChat({ accountId, focus = true, mode = "default" } = {}) {
         submit();
       }));
     };
-    document.addEventListener("click", (e) => { if (histPop && !histPop.hidden && !histPop.contains(e.target) && e.target !== histBtn) histPop.hidden = true; });
+    const onDocClick = (e) => { if (!document.contains(histPop)) { document.removeEventListener("click", onDocClick, true); document.removeEventListener("keydown", onDocKey, true); return; } if (!histPop.hidden && !histPop.contains(e.target) && !histBtn.contains(e.target)) histPop.hidden = true; };
+    const onDocKey = (e) => { if (e.key === "Escape" && !histPop.hidden && document.contains(histPop)) { e.preventDefault(); e.stopPropagation(); histPop.hidden = true; histBtn.focus(); } };
+    document.addEventListener("click", onDocClick, true);
+    document.addEventListener("keydown", onDocKey, true);
+  }
+  const clearBtn = wrap.querySelector(".chat-clear");
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      if (histPop) histPop.hidden = true;
+      msgs.length = 0; current = "";
+      render(); input.focus();
+    };
   }
 
   // Paste SMS button on mobile

@@ -1332,9 +1332,6 @@ body.menu-signout header.top > form { display: none; }
 #root[data-view="home"] .mx-row:has(> .mx-add-wrap:only-child) .mx-add { min-height: 26px; font-size: 12px; }
 #root[data-view="home"] .mx-row:has(> .mx-add-wrap:only-child) { margin-top: -4px; }
 
-/* Formula bar hidden until editing a cell or focused */
-.xl:not(.xl-editing) .xl-fbar:not(:focus-within) { display: none; }
-
 /* Account chips wrap cleanly across multiple lines — NO horizontal scrollbar */
 #root[data-view] .acct-bar {
   flex-direction: row;
@@ -1432,6 +1429,7 @@ body.menu-signout header.top > form { display: none; }
   border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, .18); padding: 6px;
   display: flex; flex-direction: column; gap: 2px;
 }
+.chat-hist-pop[hidden] { display: none; }
 .chat-hist-item { text-align: left; border: 0; background: transparent; padding: 6px 10px; font-size: 13px; border-radius: 6px; }
 .chat-hist-item:hover { background: var(--surface-2); }
 .chat-hist, .chat-paste { min-height: 0; padding: 4px 8px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); background: var(--surface-2); }
