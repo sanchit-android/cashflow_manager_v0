@@ -1224,3 +1224,14 @@ body.menu-signout header.top > form { display: none; }
 .tx-sheet-btns { display: flex; gap: 8px; align-items: center; }
 .danger-link { color: var(--bad); background: transparent; border-color: transparent; }
 @media (max-width: 640px) { #root[data-view] .acct-bar .acct-group { display: none; } }
+.pins-intro { padding: 12px 16px; }
+.pins-intro .chat-chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.whatif .wi-row { display: grid; grid-template-columns: 200px 1fr 90px; align-items: center; gap: 12px; margin: 6px 0; }
+.whatif output { font: 600 14px var(--num); text-align: right; }
+.whatif input[type=range] { accent-color: var(--accent); width: 100%; }
+@media (max-width: 640px) { .whatif .wi-row { grid-template-columns: 1fr 70px; } .whatif .wi-row label { grid-column: 1 / -1; } }
+.whatif .wi-row > label { display: block; margin: 0; font-size: 14px; }
+.whatif .wi-row > output { display: block; }
+.ml-tools { display: flex; gap: 8px; margin-bottom: 6px; } .ml-tools .ml-add { flex: 1; margin: 0; }
+.ml-sheetbtn { border-radius: var(--radius); padding: 8px 12px; font-size: 13px; }
+.ml-back-list { margin-bottom: 8px; }

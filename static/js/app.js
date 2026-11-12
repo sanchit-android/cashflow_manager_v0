@@ -522,6 +522,7 @@ initChat({
   reveal: revealTx,
   refresh: afterChatChange,
   command: (cmd) => runCommand(cmd),
+  go: (k) => goTab(k),
   pin: async (text, title) => {
     const pins = settingsRec().data.pins || [];
     if (pins.some((p) => p.cmd === text)) return;
@@ -974,6 +975,32 @@ function viewHome() {
   root.dataset.view = "home"; viewMonth(); $("#cats").hidden = true;
   const host = document.createElement("div"); host.className = "pins pins-home"; host.setAttribute("aria-label", "Pinned answers");
   $("#summary").after(host); mountPins(host, { max: 3, period: S.period, rows: 3 });
+  if (!pinsList().length && !settingsRec().data.pins_intro_done) pinsIntro(host);
+}
+// First visit: ask what to keep on Home, and pin those questions. Never blocks; ✕ dismisses for good.
+const STARTER_PINS = [["Where my money goes", "totals by category"], ["Spending trend", "spend trend"], ["What's left to pay", "what's left to pay"], ["Savings rate", "savings rate"], ["How long savings last", "runway"]];
+function pinsIntro(after) {
+  const box = document.createElement("div");
+  box.className = "card pins-intro";
+  box.innerHTML = `<div class="row"><strong>What do you want to see every time you open PlannedOut?</strong><span class="spacer"></span><button type="button" class="pin-x" id="pi-x" aria-label="Not now">✕</button></div>
+    <p class="muted small" style="margin:4px 0 8px">Pick up to three. They stay on Home and update each month. You can pin any other answer from the assistant later.</p>
+    <div class="msg-chips">${STARTER_PINS.map(([l, c], i) => `<button type="button" class="chat-chip" data-sp="${i}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>
+    <p style="margin:10px 0 0"><button type="button" class="primary" id="pi-go" disabled>Add to Home</button></p>`;
+  after.after(box);
+  const picked = new Set(), go = box.querySelector("#pi-go");
+  box.querySelectorAll("[data-sp]").forEach((b) => (b.onclick = () => {
+    const i = +b.dataset.sp;
+    if (picked.has(i)) picked.delete(i); else if (picked.size < 3) picked.add(i);
+    box.querySelectorAll("[data-sp]").forEach((x) => { const on = picked.has(+x.dataset.sp); x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); });
+    go.disabled = !picked.size;
+  }));
+  const finish = async (pins) => {
+    const d = settingsRec().data;
+    await store.save({ id: settingsRec().id, type: "settings", data: { ...d, pins_intro_done: true, pins: [...(d.pins || []), ...pins] } });
+    render();
+  };
+  box.querySelector("#pi-x").onclick = () => { track("pin:intro-skip"); finish([]); };
+  go.onclick = () => { track("pin:intro-" + picked.size); finish([...picked].map((i) => ({ id: Math.random().toString(36).slice(2, 9), cmd: STARTER_PINS[i][1], title: STARTER_PINS[i][0] }))); };
 }
 function viewLedger() { root.dataset.view = "ledger"; viewMonth(); $("#summary").hidden = true; }
 /** A row of sub-view buttons at the top of a destination. */
@@ -1331,7 +1358,7 @@ function mountTxGrid() {
   const isMain = !all && store.rows.get(sel)?.data?.is_default_spending;
   const rolled = isMain ? E.cardRollups(d, S.period).map((r) => ({ date: today().slice(0, 7) === S.period ? today() : `${S.period}-${String(new Date(+S.period.slice(0, 4), +S.period.slice(5), 0).getDate()).padStart(2, "0")}`, description: `${r.name} — card total for the month`, _card: true, to_account_id: r.card_id, amount: r.amount })) : [];
   const openAccts = () => accountOptions().filter(([v]) => { const a = store.rows.get(v)?.data || {}; return (all || v !== sel) && (!a.closed_from || S.period < a.closed_from); });
-  if (isPhone()) { S.grid = null; return mountTxList(host, rows, { all, sel, incoming, rolled }); }
+  if (isPhone() && !S.sheetView) { S.grid = null; return mountTxList(host, rows, { all, sel, incoming, rolled }); }
   const grid = mountGrid(host, {
     id: all ? "tx-all" : "tx", label: all ? "Transactions, all accounts" : `Transactions for ${name(sel)}`, readonlyRows: rolled,
     rows, blankRows: 10, period: () => S.period, suggest,
@@ -1360,6 +1387,12 @@ function mountTxGrid() {
     onChange: () => { monthSummary(); accountBar(); monthCloseBar(); },
   });
   S.grid = grid;
+  if (isPhone()) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ml-sheetbtn ml-back-list"; b.textContent = "☰ Back to list";
+    b.onclick = () => { S.sheetView = false; mountTxGrid(); };
+    host.prepend(b);
+  }
 }
 
 // ================= phone: transactions as a list, edited in a sheet =================
@@ -1370,7 +1403,7 @@ function mountTxList(host, rows, { all, sel, incoming, rolled }) {
   const dayLabel = (d) => new Date(d + "T00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
   const meta = (t) => [t.direction === "transfer" ? `→ ${acctName(t.to_account_id) || "?"}` : t.category, all || incoming(t) ? acctName(t.account_id) : ""].filter(Boolean).join(" · ");
   host.innerHTML = `<div class="ml-list" role="list">
-    <button type="button" class="ml-add" id="ml-add">＋ Add a row</button>
+    <div class="ml-tools"><button type="button" class="ml-add" id="ml-add">＋ Add a row</button><button type="button" class="ml-sheetbtn" id="ml-sheet" title="Spreadsheet view — best in landscape">⊞ Sheet</button></div>
     ${Object.entries(byDay).map(([d, list]) => {
       const tot = list.reduce((x, t) => x + (t.direction === "transfer" && !incoming(t) ? 0 : signed(t, sel, incoming)), 0);
       return `<div class="ml-day"><span>${esc(dayLabel(d))}</span><span class="num ${tot < 0 ? "" : "good"}">${tot ? (tot > 0 ? "+" : "−") + money(Math.abs(tot)) : ""}</span></div>`
@@ -1380,6 +1413,7 @@ function mountTxList(host, rows, { all, sel, incoming, rolled }) {
     }).join("") || '<p class="muted" style="padding:12px">Nothing this month yet. Tap ＋ or use Add below.</p>'}
     ${rolled.length ? `<p class="muted small" style="padding:8px 4px">Card totals counted on this account: ${rolled.map((r) => `${esc(acctName(r.to_account_id))} ${money(r.amount)}`).join(", ")}</p>` : ""}
   </div>`;
+  host.querySelector("#ml-sheet").onclick = () => { S.sheetView = true; track("list:sheet"); mountTxGrid(); };
   host.querySelector("#ml-add").onclick = () => txSheet(null, all ? (mainAccount() || {}).id : sel);
   host.querySelectorAll("[data-tx]").forEach((b) => (b.onclick = () => txSheet(b.dataset.tx)));
 }
@@ -2181,6 +2215,10 @@ function viewSavings() {
   html(`
     <h1>Savings and runway</h1>
     <div class="kpis" id="pk"></div>
+    <div class="card whatif"><h2>What if…</h2>
+      <div class="wi-row"><label for="wi-cut">Spend less each month</label><input id="wi-cut" type="range" min="0" max="40" step="5" value="0"><output id="wi-cut-o">0%</output></div>
+      <div class="wi-row"><label for="wi-inc">Extra income each month</label><input id="wi-inc" type="range" min="0" max="100000" step="5000" value="0"><output id="wi-inc-o">₹0</output></div>
+      <p class="muted small" id="wi-msg">Move a slider to see how long your savings last. Nothing is saved.</p></div>
     <div class="card"><h2>Where your savings are heading</h2><div id="pchart"></div>
       <p class="muted" id="pnote"></p></div>
     <div class="card"><h2>Assumptions</h2>
@@ -2191,7 +2229,20 @@ function viewSavings() {
     <div class="card"><h2>Checkpoints</h2><p class="muted">A checkpoint records what you hold and what you've committed on a date. Compare them to see whether the gap is closing.</p>
       <div id="snaps"></div><p><button class="primary" id="newsnap">New checkpoint</button></p><div id="snaped"></div></div>`);
   const read = () => Object.fromEntries(PROJ_FIELDS.map(([k]) => [k, $("#pf-" + k).value === "" ? (k === "start_override" ? null : defaults[k]) : +$("#pf-" + k).value]));
-  const draw = () => drawProjection(db(), period, read());
+  // What-if: adjust burn without touching the saved assumptions.
+  const whatif = (o) => { const cut = +$("#wi-cut").value, inc = +$("#wi-inc").value; return cut || inc ? { ...o, burn: Math.max(0, o.burn * (1 - cut / 100) - inc) } : o; };
+  const draw = () => {
+    const base = read(), o = whatif(base);
+    $("#wi-cut-o").textContent = $("#wi-cut").value + "%"; $("#wi-inc-o").textContent = money(+$("#wi-inc").value);
+    if (o !== base) {
+      const st = base.start_override != null ? base.start_override : P.currentLiquid(db(), period).amount;
+      const a = P.project(db(), base, period, st), b = P.project(db(), o, period, st);
+      const when = (x) => (x.runs_out ? `until ${P.periodLabel(x.runs_out)}` : `beyond ${base.horizon_year}`);
+      $("#wi-msg").innerHTML = `Monthly burn ${money(base.burn)} → <strong>${money(o.burn)}</strong>. Savings last ${when(a)} → <strong>${when(b)}</strong>${!b.runs_out ? `, ending around ${money(b.end)} (vs ${money(a.end)})` : ""}. Nothing is saved.`;
+    } else $("#wi-msg").textContent = "Move a slider to see how long your savings last. Nothing is saved.";
+    drawProjection(db(), period, o);
+  };
+  $$(".whatif input").forEach((i) => (i.oninput = () => { track("whatif:slide"); draw(); }));
   $$(".proj-form input").forEach((i) => (i.oninput = draw));
   $("#psave").onclick = async () => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, projection: read() } }); $("#pmsg").textContent = "Saved"; };
   $("#pdef").onclick = () => { PROJ_FIELDS.forEach(([k]) => { $("#pf-" + k).value = k === "start_override" ? "" : defaults[k]; }); draw(); };

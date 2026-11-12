@@ -306,3 +306,19 @@ What to watch after launch, from your own Admin dashboard (no baseline needed): 
 - **Hero definition:** are you happy with "free to spend after investing", or should investing count as discretionary (in which case keep ₹90,583 but change the wording)?
 - **Default ledger view on desktop: All accounts or Main?** I recommend All, because card spends otherwise sit hidden behind chips.
 - **Games:** move them to Settings, or remove them from the app entirely?
+
+## 8. Build status (12 Nov 2026)
+Done:
+- Shell with 4 tabs and the ☰ menu
+- Assistant docked on the right on desktop, collapsible to a rail
+- Home compacted: waterfall in "How?", to-pay chips, shortcuts collapsed
+- Ledger with All accounts and an Account column
+- Review = Insights + Year, with the year chart on one shared scale
+- Plan = Plan + Savings, with what-if sliders
+- Pins on Home and Review, plus the first-visit starter-pins prompt
+- Phone: new bottom nav, ledger list + row edit sheet, optional Sheet view
+- Bank SMS/UPI alert parsing: last-4 matching, bank-name fallback, multi-alert paste
+- Assistant navigation commands ("go to plan", "import", "settings"…)
+- Hero shows free to spend after investing; games moved to Settings
+
+Not done: Review board drag/resize (S/M/L) and pin-pruning suggestions.

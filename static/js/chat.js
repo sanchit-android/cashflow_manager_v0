@@ -299,6 +299,15 @@ export function openChat({ accountId, focus = true } = {}) {
     try { reply_({ kind: cmd.kind, ...(await deps.command(cmd)) }); } catch (e) { msgs.push({ who: "bot", text: "Couldn't do that: " + (e.message || e), err: true }); render(); miss("error", "", cmd.kind); }
   }
   async function enter(text) {
+    // Navigation: "go to plan", "open settings", "import", "year view"…
+    const nav = /^(?:(?:go\s+to|open|show(?:\s+me)?|take\s+me\s+to)\s+(?:the\s+)?)?(home|ledger|review|plan|settings|accounts?|cards|import|year(?:\s+view)?|insights|savings|projection|checkpoints)(?:\s+(?:page|tab|screen))?$/i.exec(text.trim());
+    if (nav && deps.go) {
+      const w = nav[1].toLowerCase().replace(/\s+view$/, "");
+      const k = { home: "month", account: "accounts", cards: "accounts", projection: "savings", checkpoints: "savings" }[w] || w;
+      msgs.push({ who: "bot", text: `Opened ${w.replace(/^\w/, (c) => c.toUpperCase())}.` });
+      render(); deps.go(k); if (phone) close();
+      return;
+    }
     // A pasted bank SMS / UPI alert: rewrite each alert as a plain sentence the entry parser already understands.
     if (isBankAlert(text)) {
       const c = ctx(), MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
