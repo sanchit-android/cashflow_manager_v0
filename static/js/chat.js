@@ -108,25 +108,62 @@ function applyDockWidth(w) {
 try { const sw = localStorage.getItem(DOCK_W_KEY); if (sw) applyDockWidth(sw); } catch {}
 const hostContainer = () => (!isPhone() && document.querySelector(".app-shell")) || document.body;
 
+const PANEL_RIGHT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>';
+const EXPAND_LEFT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+
+function ensureHeaderToggle(open) {
+  const top = document.querySelector("header.top");
+  if (!top) return null;
+  let t = document.getElementById("chat-side-toggle");
+  if (isPhone()) { t?.remove(); return null; }
+  if (!t) {
+    t = document.createElement("button");
+    t.type = "button";
+    t.id = "chat-side-toggle";
+    t.className = "chat-side-toggle";
+    const tabs = top.querySelector("#tabs");
+    if (tabs && tabs.nextSibling) top.insertBefore(t, tabs.nextSibling);
+    else top.appendChild(t);
+  }
+  const isOpen = !!ui;
+  t.classList.toggle("on", isOpen);
+  t.setAttribute("aria-pressed", String(isOpen));
+  t.title = isOpen ? "Collapse assistant sidebar" : "Expand assistant sidebar (/ or Ctrl+K)";
+  t.setAttribute("aria-label", t.title);
+  t.innerHTML = `${PANEL_RIGHT}`;
+  t.onclick = () => {
+    if (ui) ui.close();
+    else { setCollapsed(false); open(); }
+  };
+  return t;
+}
+
 function showRail(open) {
-  if (isPhone() || document.querySelector(".chat-rail")) return;
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "chat-rail"; b.title = "Open the assistant (/ or Ctrl+K)"; b.setAttribute("aria-label", "Open the assistant");
-  b.innerHTML = `${BUBBLE}<span>Ask</span>`;
+  ensureHeaderToggle(open);
+  if (isPhone()) return;
+  let b = document.querySelector(".chat-rail");
+  if (!b) {
+    b = document.createElement("button");
+    b.type = "button"; b.className = "chat-rail"; b.title = "Expand assistant (/ or Ctrl+K)"; b.setAttribute("aria-label", "Expand assistant");
+    b.innerHTML = `${EXPAND_LEFT}${BUBBLE}<span class="chat-rail-label">Assistant</span>`;
+    hostContainer().appendChild(b);
+  }
   b.onclick = () => { b.remove(); document.body.classList.remove("chat-railed"); setCollapsed(false); open(); };
-  hostContainer().appendChild(b); document.body.classList.add("chat-railed");
+  document.body.classList.add("chat-railed");
 }
 /** Desktop only: open the docked assistant unless the user collapsed it (then show the rail). */
 export function ensureDock(opts) {
-  if (isPhone()) { document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed"); if (ui && !ui.phone) ui.close(true); return; }
+  if (isPhone()) { document.querySelector(".chat-rail")?.remove(); document.getElementById("chat-side-toggle")?.remove(); document.body.classList.remove("chat-railed"); if (ui && !ui.phone) ui.close(true); return; }
+  const open = () => openChat({ ...opts, focus: true });
+  ensureHeaderToggle(open);
   if (ui) { if (ui.refreshIdle) ui.refreshIdle(); return; }
-  if (dockCollapsed()) showRail(() => openChat({ ...opts, focus: true }));
+  if (dockCollapsed()) showRail(open);
   else openChat({ ...opts, focus: false });
 }
 
 export function openChat({ accountId, focus = true, mode = "default" } = {}) {
   if (ui) { if (mode && ui.setMode) ui.setMode(mode); ui.expand(); if (focus) ui.input.focus(); return; }
-  document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed");
+  document.querySelector(".chat-rail")?.remove(); document.body.classList.remove("chat-railed"); setCollapsed(false);
   const phone = isPhone();
   let curMode = mode; // "default" | "type" | "keypad" | "ask"
   const wrap = document.createElement("div");
@@ -194,6 +231,7 @@ export function openChat({ accountId, focus = true, mode = "default" } = {}) {
     else { render(); if (phone) keepFocus(); }
   };
   ui = { el: wrap, input, close, phone, expand: () => {}, setMode, refreshIdle: () => { if (!msgs.length) render(); } };
+  if (!phone) ensureHeaderToggle(() => openChat({ accountId, focus: true }));
   wrap.querySelector(".chat-close").onclick = () => close();
   wrap.querySelectorAll("[data-cmode]").forEach((b) => (b.onclick = () => setMode(b.dataset.cmode)));
 

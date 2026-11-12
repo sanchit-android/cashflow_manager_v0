@@ -914,7 +914,7 @@ function renderTabs() {
       dd.addEventListener("toggle", () => {
         if (!dd.open) return;
         const r = dd.querySelector("summary").getBoundingClientRect(), p = dd.querySelector(".dd-panel");
-        p.style.top = r.bottom + 6 + "px"; p.style.left = Math.max(8, Math.min(r.left, innerWidth - p.offsetWidth - 8)) + "px";
+        p.style.top = r.bottom + 6 + "px"; p.style.left = Math.max(8, Math.min(r.right - p.offsetWidth, innerWidth - p.offsetWidth - 8)) + "px";
       });
       document.addEventListener("click", (e) => { if (dd.open && !dd.contains(e.target)) dd.open = false; });
       window.addEventListener("scroll", () => { dd.open = false; }, { passive: true });

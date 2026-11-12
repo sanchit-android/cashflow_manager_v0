@@ -1230,32 +1230,77 @@ body.chat-resizing, body.chat-resizing * {
 .chat-side .chat-x:hover { background: var(--surface-2); }
 .chat-side .chat-thread { flex: 1; min-height: 0; overflow: auto; max-height: none; }
 
-/* Collapsed: a slim rail inside .app-shell */
-.chat-rail {
-  position: sticky;
-  top: 72px;
-  z-index: 25;
-  flex: none;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  width: 44px;
-  padding: 10px 0;
+/* Collapsed: zero-width in .app-shell; fixed VS Code style sidebar toggle tab on the right edge + header toggle button */
+.chat-side-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--accent);
-  color: var(--accent-text, #fff);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.chat-side-toggle:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.chat-side-toggle.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.chat-side-toggle svg { width: 18px; height: 18px; }
+@media (max-width: 640px) { .chat-side-toggle { display: none; } }
+
+.chat-rail {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 30px;
+  min-height: 0;
+  padding: 12px 4px;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: -2px 4px 14px rgba(0, 0, 0, .1);
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
+  transition: background .15s, color .15s, width .15s;
 }
-.chat-rail svg { width: 20px; height: 20px; }
+.chat-rail:hover {
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  border-color: var(--accent);
+  width: 34px;
+}
+.chat-rail svg { width: 16px; height: 16px; flex: none; }
+.chat-rail-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: .04em;
+  line-height: 1;
+}
 @media (min-width: 641px) and (max-width: 1100px) { :root { --dock-w: 320px; } }
 
 /* Menu replaces the separate Sign out */
 body.menu-signout header.top > form { display: none; }
 .tab-menu > summary { font-size: 18px; padding-inline: 12px; }
-.tab-menu .dd-panel { right: 16px; left: auto !important; min-width: 200px; }
+.tab-menu .dd-panel { min-width: 200px; }
 .tab-menu .dd-panel [data-signout] { border-top: 1px solid var(--border); color: var(--bad); }
 .menu-btn { display: none; }
 @media (max-width: 640px) { .menu-btn { display: inline-grid; place-items: center; order: -1; padding: 4px 10px; } }
@@ -1299,7 +1344,9 @@ body.menu-signout header.top > form { display: none; }
   padding-bottom: 2px;
 }
 #root[data-view] .acct-bar > * {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1313,6 +1360,8 @@ body.menu-signout header.top > form { display: none; }
   width: auto;
 }
 #root[data-view] .acct-bar .acct-chips {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
