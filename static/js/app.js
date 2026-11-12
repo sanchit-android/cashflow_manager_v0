@@ -913,8 +913,11 @@ function renderTabs() {
       // The tab bar scrolls sideways, so the panel is fixed-positioned under the summary to avoid being clipped.
       dd.addEventListener("toggle", () => {
         if (!dd.open) return;
-        const r = dd.querySelector("summary").getBoundingClientRect(), p = dd.querySelector(".dd-panel");
-        p.style.top = r.bottom + 6 + "px"; p.style.left = Math.max(8, Math.min(r.right - p.offsetWidth, innerWidth - p.offsetWidth - 8)) + "px";
+        const s = dd.querySelector("summary"), p = dd.querySelector(".dd-panel");
+        const r = s.getBoundingClientRect(), pr = p.offsetParent ? p.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+        const left = Math.max(8, Math.min(r.right - p.offsetWidth, innerWidth - p.offsetWidth - 8));
+        p.style.top = r.bottom - pr.top + 6 + "px";
+        p.style.left = left - pr.left + "px";
       });
       document.addEventListener("click", (e) => { if (dd.open && !dd.contains(e.target)) dd.open = false; });
       window.addEventListener("scroll", () => { dd.open = false; }, { passive: true });
