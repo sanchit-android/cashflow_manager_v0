@@ -71,7 +71,8 @@ export function openChat({ accountId } = {}) {
   wrap.querySelector(".chat-close").onclick = close;
   if (!phone) {
     const head = wrap.querySelector(".chat-head");
-    wrap.querySelector(".chat-min").onclick = () => setMini(!mini);
+    // Stop here: setMini swaps the button's icon, so the header's click handler below would see a detached target and reopen straight away.
+    wrap.querySelector(".chat-min").onclick = (e) => { e.stopPropagation(); setMini(!mini); };
     head.addEventListener("click", (e) => { if (mini && !e.target.closest("button")) setMini(false); });
     // Drag the window by its header.
     head.addEventListener("pointerdown", (e) => {
