@@ -47,3 +47,16 @@ test("suggestions learn from past descriptions", () => {
   assert.equal(s.infer("Swiggy instamart").category, "Grocery", "falls back to first word");
   assert.equal(s.infer("unknown thing"), null);
 });
+
+test("formulas can use other cells and functions", () => {
+  const vals = { a1: 10, b2: 15, c3: null };
+  const lookup = (k, id) => { if (!(id in vals)) throw new Error("#REF!"); return vals[id]; };
+  assert.equal(X.evalFormula("={amount:a1}+{amount:b2}", lookup), 25);
+  assert.equal(X.evalFormula("=SUM({amount:a1},{amount:b2},{amount:c3})*2", lookup), 50);
+  assert.equal(X.evalFormula("={amount:b2}*10%", lookup), 1.5);
+  assert.equal(X.evalFormula("=max(1,2,3)+round(2.345,1)"), 5.3);
+  assert.equal(X.evalFormula("=1,20,000+5"), 120005);
+  assert.throws(() => X.evalFormula("={amount:zz}+1", lookup), /#REF/);
+  assert.throws(() => X.evalFormula("=foo(1)"), /Unknown function/);
+  assert.deepEqual(X.parseAmountInput("={amount:a1}-3", lookup), { value: 7, formula: "={amount:a1}-3" });
+});

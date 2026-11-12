@@ -1,11 +1,30 @@
 import { num } from "./currency.js";
 // Pure helpers for the grid: formulas, date entry, formatting, and description suggestions.
 
-// ---------- formulas: =121+347+103, =(115000+50000)*1.01475, =45000*5% ----------
-/** Evaluate an arithmetic formula safely (no eval). Returns a number or throws. */
-export function evalFormula(text) {
-  const src = String(text).trim().replace(/^=/, "").replace(/,/g, "");
-  const toks = src.match(/\d+(?:\.\d+)?%?|\.\d+%?|[-+*/()]|\S/g) || [];
+// ---------- formulas: =121+347+103, =(115000+50000)*1.01475, =45000*5%, =C2+C3, =SUM(C2:C6) ----------
+// Cell references are stored by record id, e.g. {amount:3f9a1c}, so sorting or filtering the grid never
+// points a formula at a different row. The grid turns them into C2-style names for display.
+export const REF_RE = /\{([a-z_][a-z0-9_]*):([^{}]+)\}/gi;
+export const hasRefs = (f) => /\{[a-z_][a-z0-9_]*:[^{}]+\}/i.test(String(f || ""));
+const FN = {
+  sum: (...a) => a.reduce((x, y) => x + y, 0),
+  avg: (...a) => a.reduce((x, y) => x + y, 0) / a.length,
+  average: (...a) => a.reduce((x, y) => x + y, 0) / a.length,
+  min: (...a) => Math.min(...a),
+  max: (...a) => Math.max(...a),
+  abs: (x) => Math.abs(x),
+  round: (x, d = 0) => { const f = 10 ** d; return Math.round(x * f) / f; },
+};
+
+/**
+ * Evaluate a formula safely (no eval). Returns a number or throws.
+ * lookup(key, id) gives a referenced cell's value (blank counts as 0) and throws if the row is gone.
+ */
+export function evalFormula(text, lookup) {
+  let src = String(text).trim().replace(/^=/, "");
+  // "1,20,000" style thousands separators, unless commas separate function arguments
+  if (!/[a-z]\s*\(/i.test(src)) src = src.replace(/,/g, "");
+  const toks = src.match(/\{[^{}]*\}|\d+(?:\.\d+)?%?|\.\d+%?|[A-Za-z]+|[-+*/(),]|\S/g) || [];
   let i = 0;
   const peek = () => toks[i], next = () => toks[i++];
   const num = (t) => (t.endsWith("%") ? parseFloat(t) / 100 : parseFloat(t));
@@ -15,6 +34,22 @@ export function evalFormula(text) {
     if (t === "+") return factor();
     if (t === "(") { const v = expr(); if (next() !== ")") throw new Error("Missing )"); return v; }
     if (t !== undefined && /^[\d.]/.test(t)) return num(t);
+    if (t !== undefined && t[0] === "{") {
+      const m = /^\{([a-z_][a-z0-9_]*):([^{}]+)\}$/i.exec(t);
+      if (!m || !lookup) throw new Error("Check the formula");
+      const v = lookup(m[1], m[2]);
+      return v === null || v === undefined || v === "" ? 0 : +v;
+    }
+    if (t !== undefined && /^[A-Za-z]/.test(t)) {
+      const f = FN[t.toLowerCase()];
+      if (!f) throw new Error(/^[A-Za-z]\d/.test(t) ? "Check the formula" : `Unknown function ${t.toUpperCase()}`);
+      if (next() !== "(") throw new Error(`${t.toUpperCase()} needs ( )`);
+      const args = [];
+      if (peek() !== ")") { args.push(expr()); while (peek() === ",") { next(); args.push(expr()); } }
+      if (next() !== ")") throw new Error("Missing )");
+      if (!args.length) throw new Error(`${t.toUpperCase()} needs a value`);
+      return f(...args);
+    }
     throw new Error("Check the formula");
   }
   function term() {
@@ -38,14 +73,14 @@ export function evalFormula(text) {
 }
 
 /** Parse what a user typed into an amount cell. Returns { value, formula } or null for empty. */
-export function parseAmountInput(text) {
+export function parseAmountInput(text, lookup) {
   const s = String(text ?? "").trim();
   if (!s) return null;
-  if (s.startsWith("=")) return { value: evalFormula(s), formula: s };
+  if (s.startsWith("=")) return { value: evalFormula(s, lookup), formula: s };
   const clean = s.replace(/[₹$€£¥৳,\s]|AED|SAR|QAR|CHF|RM|Rs\.?|[A-Z]{0,2}\$/gi, "");
   const neg = /^\(.*\)$/.test(clean);
   const n = parseFloat(clean.replace(/[()]/g, ""));
-  if (!Number.isFinite(n)) throw new Error("Enter a number, or a formula starting with =");
+  if (!Number.isFinite(n)) throw new Error("Enter a number, or a formula like =C2+C3");
   return { value: neg ? -n : n, formula: null };
 }
 

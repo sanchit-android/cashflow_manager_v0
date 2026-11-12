@@ -5,7 +5,8 @@
 // and move (after typing over a cell) — the same two modes Excel has.
 // Shortcuts: Ctrl+C/X/V (works with Excel ranges), Ctrl+D fill down, Ctrl+Z undo, Delete clears,
 // Ctrl+; today, Ctrl+- delete row, Ctrl+arrows/Home/End/PageUp/PageDown, Alt+Down opens a list.
-import { formatAmount, formatDate, parseAmountInput, parseDateInput, normDesc } from "./cells.js";
+import { formatAmount, formatDate, parseAmountInput, parseDateInput, normDesc, evalFormula, hasRefs, REF_RE } from "./cells.js";
+import { track } from "./track.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const letter = (i) => String.fromCharCode(65 + i);
@@ -69,6 +70,89 @@ function mountSheet(host, cfg) {
   const optionLabel = (col, v) => { const o = col.options().find(([x]) => String(x) === String(v ?? "")); return o ? o[1] : ""; };
   const valueFor = (row, col) => row.data[col.key];
   const readOnly = (row, col) => row.ro || col.type === "readonly" || (col.readonlyIf && col.readonlyIf(row.data));
+
+  // ---------- cell references (=C2+C3, =SUM(C2:C6)) ----------
+  // Typed as letter+row number; stored as {key:rowId} so a sort or filter never changes what a formula points at.
+  const byId = (id) => all.find((x) => x.id === id);
+  function lookup(key, id) {
+    const row = byId(id), col = cols.find((c) => c.key === key && c.type === "number");
+    if (!row || !col) throw new Error("#REF! A referenced row was deleted or moved");
+    return row.data[key];
+  }
+  /** Stored formula -> what the user sees (C2+C3). Rows hidden by a filter keep their stored form. */
+  function toDisplay(f) {
+    return String(f).replace(REF_RE, (m, key, id) => {
+      const r = rows.findIndex((x) => x.id === id), c = cols.findIndex((x) => x.key === key);
+      return r >= 0 && c >= 0 ? `${letter(c)}${r + 1}` : m;
+    });
+  }
+  /** Typed formula -> stored formula. selfR is the row being edited (by view position). */
+  function toStored(text, selfR, selfKey) {
+    const ref = (L, n) => {
+      const c = L.toUpperCase().charCodeAt(0) - 65, r = +n - 1, col = cols[c], row = rows[r];
+      const name = `${L.toUpperCase()}${n}`;
+      if (!col || col.type !== "number") throw new Error(`${name} isn't a number column`);
+      if (!row || isBlank(row)) throw new Error(`${name} is an empty row`);
+      if (row.ro) throw new Error(`${name} is a calculated row and can't be used in a formula`);
+      if (r === selfR && col.key === selfKey) throw new Error("A cell can't refer to itself");
+      if (!row.id) throw new Error(`Row ${n} isn't saved yet`);
+      return `{${col.key}:${row.id}}`;
+    };
+    // only rewrite outside already-stored {key:id} tokens
+    return String(text).split(/(\{[^{}]*\})/).map((part, i) => i % 2 ? part : part
+      // one pass for ranges (C2:C6) and single cells (C2), so stored tokens are never rescanned
+      .replace(/\$?\b([A-Za-z])\$?(\d+)(?:\s*:\s*\$?([A-Za-z])\$?(\d+))?\b(?!\s*\()/g, (m, L1, n1, L2, n2) => {
+        if (!L2) return ref(L1, n1);
+        const a = L1.toUpperCase().charCodeAt(0), b = L2.toUpperCase().charCodeAt(0);
+        const c1 = Math.min(a, b), c2 = Math.max(a, b), r1 = Math.min(+n1, +n2), r2 = Math.max(+n1, +n2), out = [];
+        if ((r2 - r1 + 1) * (c2 - c1 + 1) > 500) throw new Error("That range is too big");
+        for (let n = r1; n <= r2; n++) for (let c = c1; c <= c2; c++) {
+          const row = rows[n - 1];
+          // ranges skip blank rows and the cell itself, like SUM in Excel skips empty cells
+          if (!row || isBlank(row) || row.ro || (n - 1 === selfR && cols[c - 65]?.key === selfKey)) continue;
+          out.push(ref(String.fromCharCode(c), n));
+        }
+        if (!out.length) throw new Error(`${m.toUpperCase()} has no numbers`);
+        return out.join(",");
+      })).join("");
+  }
+  /** Would a formula on (key, id) that uses `stored` loop back to itself? */
+  function circular(stored, key, id) {
+    if (!id) return false;
+    const seen = new Set(), stack = [...String(stored).matchAll(REF_RE)].map((m) => [m[1], m[2]]);
+    while (stack.length) {
+      const [k, i] = stack.pop();
+      if (k === key && i === id) return true;
+      if (seen.has(k + ":" + i)) continue;
+      seen.add(k + ":" + i);
+      const f = byId(i)?.data[k + "_formula"];
+      if (f) for (const m of String(f).matchAll(REF_RE)) stack.push([m[1], m[2]]);
+    }
+    return false;
+  }
+  /** Re-evaluate formulas that use this row, and the ones that use those, saving changed values. */
+  function recalcDependents(row, seen = new Set([row])) {
+    if (!row.id) return;
+    const numCols = cols.filter((c) => c.type === "number");
+    for (const dep of all) {
+      if (!dep.id || seen.has(dep)) continue;
+      let changed = false;
+      const before = { ...dep.data };
+      for (const col of numCols) {
+        const f = dep.data[col.key + "_formula"];
+        if (!f || !String(f).includes(`:${row.id}}`)) continue;
+        let v;
+        try { v = evalFormula(f, lookup); } catch (e) { continue; }
+        if (v !== dep.data[col.key]) { dep.data[col.key] = v; changed = true; }
+      }
+      if (!changed) continue;
+      seen.add(dep);
+      const r = rows.indexOf(dep);
+      if (r >= 0) renderRow(r);
+      persist(dep, before, false);
+      recalcDependents(dep, seen);
+    }
+  }
   function cellHTML(row, col, r) {
     if (col.type === "delete") return row.ro ? "" : `<span class="xl-x" title="Delete row (Enter)">✕</span>`;
     if (col.type === "readonly") return row.id ? col.render(row) : "";
@@ -79,6 +163,8 @@ function mountSheet(host, cfg) {
       return !row.id && cfg.newRow ? `<span class="xl-ghost">${esc(formatDate(cfg.newRow().date || ""))}</span>` : "";
     }
     if (col.type === "number") {
+      const f = row.data[col.key + "_formula"];
+      if (hasRefs(f)) { try { evalFormula(f, lookup); } catch (e) { return `<span class="xl-neg" title="${esc(e.message)}">#REF!</span><span class="xl-fmark" title="Formula"></span>`; } }
       if (v === null || v === undefined || v === "") return "";
       return `<span class="${v < 0 ? "xl-neg" : ""}">${esc(formatAmount(v))}</span>${row.data[col.key + "_formula"] ? '<span class="xl-fmark" title="Formula"></span>' : ""}`;
     }
@@ -99,7 +185,7 @@ function mountSheet(host, cfg) {
 
   function rawText(row, col) {
     const v = valueFor(row, col);
-    if (col.type === "number") return row.data[col.key + "_formula"] || (v ?? "");
+    if (col.type === "number") { const f = row.data[col.key + "_formula"]; return f ? toDisplay(f) : v ?? ""; }
     if (col.type === "date") return v ? formatDate(v) : "";
     if (col.type === "select") return optionLabel(col, v);
     if (col.type === "readonly" || col.type === "delete") return "";
@@ -193,14 +279,26 @@ function mountSheet(host, cfg) {
       }
     }
     renderRow(r);
+    recalcDependents(row);
     if (filled.length) say(`Filled ${filled.map((k) => (cfg.columns.find((c) => c.key === k) || { label: k }).label.toLowerCase()).join(", ")} from earlier "${patch[ak]}"`);
     return persist(row, before, record);
   }
 
   /** Turn typed text into a value for a column. Throws a friendly error on bad input. */
-  function parseFor(col, text) {
+  function parseFor(col, text, r) {
     const s = String(text ?? "");
-    if (col.type === "number") { const p = parseAmountInput(s); return { [col.key]: p ? p.value : null, [col.key + "_formula"]: p ? p.formula : null }; }
+    if (col.type === "number") {
+      let t = s.trim(), refs = false;
+      if (t.startsWith("=") && r !== undefined) {
+        const stored = toStored(t, r, col.key);
+        refs = hasRefs(stored);
+        if (refs && circular(stored, col.key, rows[r]?.id)) throw new Error("Circular reference: this formula ends up using its own cell");
+        t = stored;
+      }
+      const p = parseAmountInput(t, lookup);
+      if (refs) track("grid:formula-ref");
+      return { [col.key]: p ? p.value : null, [col.key + "_formula"]: p ? p.formula : null };
+    }
     if (col.type === "date") {
       const d = parseDateInput(s, cfg.period && cfg.period());
       if (!d) throw new Error("Enter a date like 5, 5/10, 05-10-2026 or t for today");
@@ -234,7 +332,7 @@ function mountSheet(host, cfg) {
     if (!u) return say("Nothing to undo");
     const items = u.t === "batch" ? [...u.items].reverse() : [u];
     for (const it of items) {
-      if (it.t === "edit") { const r = rows.indexOf(it.row); if (r >= 0) { it.row.data = { ...it.before }; renderRow(r); await persist(it.row, null, false); } }
+      if (it.t === "edit") { const r = rows.indexOf(it.row); if (r >= 0) { it.row.data = { ...it.before }; renderRow(r); await persist(it.row, null, false); recalcDependents(it.row); } }
       if (it.t === "create") { await cfg.remove(it.row.id); all.splice(all.indexOf(it.row), 1); ensureBlanks(); renderBody(true); }
       if (it.t === "delete") { const row = { id: null, data: { ...it.data }, touched: new Set() }; all.splice(Math.min(it.index, all.length), 0, row); renderBody(true); await persist(row, null, false); }
     }
@@ -351,7 +449,7 @@ function mountSheet(host, cfg) {
     const { r, col } = editing;
     if (text === rawText(rows[r], col) && !(col.type === "date" && !rows[r].data[col.key] && text)) { endEdit(); if (dr || dc) step(dr, dc); else paint(); return; }
     let patch;
-    try { patch = parseFor(col, text); }
+    try { patch = parseFor(col, text, r); }
     catch (e) { say(e.message, true); editing.el.focus(); editing.el.select(); return; }
     commitValue(patch, dr, dc);
   }
@@ -389,8 +487,14 @@ function mountSheet(host, cfg) {
     for (let r = from; r <= r2; r++) for (let c = c1; c <= c2; c++) {
       const col = cols[c];
       if (col.type === "delete" || readOnly(rows[r], col)) continue;
-      const patch = { [col.key]: rows[src].data[col.key] ?? null };
-      if (col.type === "number") patch[col.key + "_formula"] = rows[src].data[col.key + "_formula"] || null;
+      let patch = { [col.key]: rows[src].data[col.key] ?? null };
+      const f = col.type === "number" && rows[src].data[col.key + "_formula"];
+      if (col.type === "number") patch[col.key + "_formula"] = f || null;
+      if (hasRefs(f)) { // C2+B2 filled one row down becomes C3+B3, as in Excel
+        const shifted = toDisplay(f).split(/(\{[^{}]*\})/).map((part, i) => i % 2 ? part
+          : part.replace(/(\$?)\b([A-Za-z])(\$?)(\d+)\b(?!\s*\()/g, (m, d1, L, d2, n) => `${d1}${L}${d2}${d2 ? n : +n + (r - src)}`)).join("");
+        try { patch = parseFor(col, shifted, r); } catch (e) { continue; }
+      }
       cells.push([r, c, patch]);
     }
     applyMany(cells, "Filled down");
@@ -490,7 +594,7 @@ function mountSheet(host, cfg) {
         const c = active.c + j, col = cols[c];
         if (!col || col.type === "delete" || readOnly(rows[r], col)) return;
         if (!String(v).trim() && col.type !== "text") return;
-        try { cells.push([r, c, parseFor(col, v)]); } catch (x) { errors.push(`${letter(c)}${r + 1}`); }
+        try { cells.push([r, c, parseFor(col, v, r)]); } catch (x) { errors.push(`${letter(c)}${r + 1}`); }
       });
     });
     renderBody();
@@ -504,7 +608,7 @@ function mountSheet(host, cfg) {
       e.preventDefault();
       const col = cols[active.c];
       if (col.type === "delete" || readOnly(rows[active.r], col)) return;
-      try { apply(active.r, parseFor(col, fbar.value)); root.focus(); step(1, 0); } catch (x) { say(x.message, true); }
+      try { apply(active.r, parseFor(col, fbar.value, active.r)); root.focus(); step(1, 0); } catch (x) { say(x.message, true); }
     } else if (e.key === "Escape") { e.preventDefault(); root.focus(); paint(); }
   });
 
@@ -643,6 +747,24 @@ function mountSheet(host, cfg) {
   });
 
   computeView();
+  // Formulas whose inputs changed elsewhere (another screen, chat) catch up when the grid opens.
+  for (let pass = 0; pass < 5; pass++) {
+    let any = false;
+    for (const row of all) {
+      if (!row.id) continue;
+      const before = { ...row.data };
+      let changed = false;
+      for (const col of cols) {
+        const f = col.type === "number" && row.data[col.key + "_formula"];
+        if (!hasRefs(f)) continue;
+        let v;
+        try { v = evalFormula(f, lookup); } catch (e) { continue; }
+        if (v !== row.data[col.key]) { row.data[col.key] = v; changed = true; }
+      }
+      if (changed) { any = true; persist(row, before, false); }
+    }
+    if (!any) break;
+  }
   renderBody();
   fit();
   return {

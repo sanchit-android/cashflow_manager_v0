@@ -4,7 +4,7 @@ import { api, device, store } from "./store.js";
 import { readXlsx } from "./xlsx.js";
 import * as I from "./importer.js";
 import { mountGrid, isPhone } from "./grid.js";
-import { buildSuggest, parseAmountInput } from "./cells.js";
+import { buildSuggest, parseAmountInput, hasRefs } from "./cells.js";
 import * as P from "./plan.js";
 import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
@@ -1577,7 +1577,7 @@ function txSheet(id, accountId) {
   back.className = "ml-back";
   back.innerHTML = `<form class="ml-sheet tx-sheet" role="dialog" aria-modal="true" aria-label="${r ? "Edit" : "Add"} transaction"><div class="ml-grab" aria-hidden="true"></div>
     <div class="tx-sheet-top"><input name="description" placeholder="Description" value="${esc(t.description || "")}" aria-label="Description" autocomplete="off">
-      <input name="amount" inputmode="decimal" placeholder="₹ 0" value="${esc(t.amount_formula || t.amount || "")}" aria-label="Amount (you can type 120+340)"></div>
+      <input name="amount" inputmode="decimal" placeholder="₹ 0" value="${esc((!hasRefs(t.amount_formula) && t.amount_formula) || t.amount || "")}" aria-label="Amount (you can type 120+340)"></div>
     <div class="seg tx-dir" role="group" aria-label="Type">${[["out", "Spent"], ["in", "Received"], ["transfer", "Transfer"]].map(([v, l]) => `<button type="button" data-dir="${v}" class="${t.direction === v ? "on" : ""}">${l}</button>`).join("")}</div>
     <label>Date<input type="date" name="date" value="${esc(t.date || "")}"></label>
     <label>Account<select name="account_id">${selOpts(accts, t.account_id)}</select></label>
@@ -1620,11 +1620,12 @@ function txSheet(id, accountId) {
   f.onsubmit = async (e) => {
     e.preventDefault();
     const raw0 = f.amount.value.trim(), raw = /\d\s*[+*/-]\s*\d/.test(raw0) && !raw0.startsWith("=") ? "=" + raw0 : raw0;
-    let pa = null; try { pa = parseAmountInput(raw); } catch (err) { /* shown below */ }
+    const keepRefs = hasRefs(t.amount_formula) && raw0 === String(t.amount ?? "");
+    let pa = null; try { pa = keepRefs ? { value: +t.amount, formula: t.amount_formula } : parseAmountInput(raw); } catch (err) { /* shown below */ }
     const amt = pa ? pa.value : NaN;
     if (!raw || !isFinite(amt)) { f.querySelector("#tx-err").textContent = "Enter an amount."; return; }
     if (dir === "transfer" && !f.to_account_id.value) { f.querySelector("#tx-err").textContent = "Pick where the money went."; return; }
-    const data = prepTx({ ...t, description: f.description.value.trim(), note: f.note.value.trim(), amount: Math.round(amt * 100) / 100, ...(pa && typeof pa === "object" && pa.formula ? { amount_formula: pa.formula } : {}), direction: dir, date: f.date.value, account_id: f.account_id.value, to_account_id: f.to_account_id.value, category: f.category.value, nature: f.nature.value });
+    const data = prepTx({ ...t, description: f.description.value.trim(), note: f.note.value.trim(), amount: Math.round(amt * 100) / 100, amount_formula: pa && typeof pa === "object" && pa.formula ? pa.formula : null, direction: dir, date: f.date.value, account_id: f.account_id.value, to_account_id: f.to_account_id.value, category: f.category.value, nature: f.nature.value });
     try { await saveRec("transaction")(id, data); close(); afterChatChange(); track(r ? "list:edit" : "list:add"); }
     catch (err) { f.querySelector("#tx-err").textContent = err.message || String(err); }
   };

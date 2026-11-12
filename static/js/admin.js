@@ -147,6 +147,8 @@ function business(box, d) {
       "Changes to the transition setting. Users who never change it see Fade (or None with reduced motion on).")}
     ${card("Free calculators (public pages)", table(["Calculator", "Uses"], (d.calcs || []).map((r) => [esc({ "savings-runway": "Savings runway", "emergency-fund": "Emergency fund", "sinking-fund": "Sinking fund", "50-30-20-budget": "50/30/20 budget" }[r.event] || r.event), num(r.count)])),
       "Counted once per page view, after the visitor changes a number. Most visitors aren't signed in, so there is no user count.")}
+    ${card("Spreadsheet formulas", table(["Action", "Count", "Users"], (d.grid || []).map((r) => [esc({ "formula-ref": "Formula using other cells (=C2+C3)" }[r.event] || r.event), num(r.count), num(r.users)])),
+      "Counted each time a formula that refers to other cells is entered, pasted or filled down. Plain arithmetic (=120+340) isn't counted.")}
     ${card("Buttons used", table(["Screen : button", "Clicks", "Users"], d.clicks.map((r) => [esc(r.event), num(r.count), num(r.users)])),
       "Named by button id. Useful to see whether features like export, checkpoints or custom themes get used.")}
     ${card("Settings changed", table(["Screen : field", "Changes", "Users"], d.changes.filter((r) => !r.event.startsWith("savings:")).map((r) => [esc(r.event), num(r.count), num(r.users)])))}
