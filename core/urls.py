@@ -39,6 +39,7 @@ urlpatterns = [
     path("api/admin/business", monitor.business),
     path("api/admin/admins", monitor.admins),
     path("api/admin/indexing", monitor.indexing),
+    path("api/admin/search-queries", monitor.search_queries),
     path("api/admin/internal", monitor.internal),
     path("api/admin/traffic", monitor.traffic),
     path("api/admin/chat", monitor.chat_stats),

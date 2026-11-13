@@ -1,8 +1,7 @@
-"""Google Search Console: check whether each public page is in Google's index.
+"""Google Search Console: check whether each public page is in Google's index, and fetch search queries & ranks.
 
-Uses the URL Inspection API, which is read-only: it reports a page's status but can't request
-indexing. Pages that aren't indexed are listed on the admin page (Indexing view), so you only need
-to click "Request indexing" in Search Console for those few.
+Uses the URL Inspection API (read-only) for index status and the Search Analytics API for queries,
+landing pages, clicks, impressions and average SERP position.
 
 Setup (once):
   1. Google Cloud console: enable the "Google Search Console API", create a service account and
@@ -30,6 +29,7 @@ from . import seo
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 INSPECT_URL = "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect"
+ANALYTICS_URL = "https://searchconsole.googleapis.com/webmasters/v3/sites/{}/searchAnalytics/query"
 SCOPE = "https://www.googleapis.com/auth/webmasters.readonly"
 TIMEOUT = 20
 STALE_AFTER = timedelta(days=6)
@@ -128,3 +128,55 @@ def is_stale():
     from .models import IndexStatus
     last = IndexStatus.objects.order_by("-checked_at").values_list("checked_at", flat=True).first()
     return last is None or timezone.now() - last > STALE_AFTER
+
+
+def _query_analytics(token, start, end, dimensions, row_limit=100):
+    url = ANALYTICS_URL.format(urllib.parse.quote(property_url(), safe=""))
+    body = json.dumps({"startDate": start.isoformat(), "endDate": end.isoformat(),
+                       "dimensions": dimensions, "rowLimit": row_limit}).encode()
+    data = _post(url, body, {"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    return data.get("rows") or []
+
+
+def _fmt_row(r, keys):
+    return {**dict(zip(keys, r.get("keys", []))),
+            "clicks": int(r.get("clicks", 0)), "impressions": int(r.get("impressions", 0)),
+            "ctr": round(100 * float(r.get("ctr", 0)), 1), "position": round(float(r.get("position", 0)), 1)}
+
+
+def _path_of(url):
+    p = urllib.parse.urlparse(url).path or "/"
+    return p if p.startswith("/") else "/" + p
+
+
+def search_analytics(days=28):
+    """Fetch top Google search queries, landing pages, and query+page pairs with rank positions."""
+    from django.core.cache import cache
+    days = max(1, min(365, int(days)))
+    cache_key = f"gsc:analytics:{days}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    end = timezone.localdate() - timedelta(days=2)  # Search Console data lags ~2 days
+    start = end - timedelta(days=days - 1)
+    token = cached_token()
+    q_rows = [_fmt_row(r, ["query"]) for r in _query_analytics(token, start, end, ["query"], 100)]
+    p_rows = [_fmt_row(r, ["page"]) for r in _query_analytics(token, start, end, ["page"], 50)]
+    for r in p_rows:
+        r["path"] = _path_of(r["page"])
+    qp_rows = [_fmt_row(r, ["query", "page"]) for r in _query_analytics(token, start, end, ["query", "page"], 100)]
+    for r in qp_rows:
+        r["path"] = _path_of(r["page"])
+    tot_clicks = sum(r["clicks"] for r in p_rows)
+    tot_impr = sum(r["impressions"] for r in p_rows)
+    avg_pos = round(sum(r["position"] * r["impressions"] for r in p_rows) / tot_impr, 1) if tot_impr else None
+    out = {
+        "days": days, "from": start.isoformat(), "to": end.isoformat(),
+        "totals": {"clicks": tot_clicks, "impressions": tot_impr,
+                   "ctr": round(100 * tot_clicks / tot_impr, 1) if tot_impr else 0,
+                   "position": avg_pos, "queries": len(q_rows)},
+        "queries": q_rows, "pages": p_rows, "query_pages": qp_rows,
+    }
+    cache.set(cache_key, out, 60 * 30)
+    return out
+

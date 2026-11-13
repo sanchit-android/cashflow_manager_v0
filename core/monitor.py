@@ -1036,6 +1036,9 @@ def traffic(request):
             "demo_sources": _top(Counter(p["source"] for p in dlist), 10),
             "demo_names": _top(Counter(p["source_name"] for p in dlist if p["source_name"]), 10),
         },
+        "ai_bot_pages": _top(Counter(p["path"] for p in pv if p["source"] == "bot"
+                                         and any(w in p["source_name"].lower() for w in AI_BOT_WORDS)), 10),
+        "ai_landing": _top(Counter(p["path"] for p in vlist if p["source"] == "ai"), 10),
         "bot_names": _top(Counter(p["source_name"] for p in pv if p["source"] == "bot"), 15),
         "options": {"sources": SOURCES,
                     "names": sorted(set(PageView.objects.exclude(source_name="").exclude(source="bot")
@@ -1090,3 +1093,26 @@ def indexing(request):
     except Exception as e:  # bad key, no access to the property, network
         return JsonResponse(_indexing_json(f"Check failed: {e}"))
     return JsonResponse(_indexing_json("; ".join(errors[:3])))
+
+
+@require_GET
+@admin_required
+def search_queries(request):
+    """GET: Google Search Console search queries, landing pages, clicks, impressions, and average rank position."""
+    from . import gsc
+    try:
+        days = max(1, min(365, int(request.GET.get("days", 28))))
+    except ValueError:
+        days = 28
+    if not gsc.enabled():
+        return JsonResponse({"enabled": False, "property": gsc.property_url(), "days": days, "error": "",
+                             "totals": {"clicks": 0, "impressions": 0, "ctr": 0, "position": None, "queries": 0},
+                             "queries": [], "pages": [], "query_pages": []})
+    try:
+        data = gsc.search_analytics(days)
+        return JsonResponse({"enabled": True, "property": gsc.property_url(), "error": "", **data})
+    except Exception as e:
+        return JsonResponse({"enabled": True, "property": gsc.property_url(), "days": days, "error": str(e),
+                             "totals": {"clicks": 0, "impressions": 0, "ctr": 0, "position": None, "queries": 0},
+                             "queries": [], "pages": [], "query_pages": []})
+

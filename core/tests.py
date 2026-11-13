@@ -350,6 +350,33 @@ class IndexingTests(TestCase):
         h, c, s = sent["assertion"].split(".")
         k.public_key().verify(base64.urlsafe_b64decode(s + "=="), f"{h}.{c}".encode(), padding.PKCS1v15(), hashes.SHA256())
 
+    def test_search_queries_and_rank(self):
+        from unittest import mock
+        from django.core.cache import cache
+        from . import gsc
+        cache.clear()
+        gsc._token["value"] = None
+
+        def fake_post(url, data, headers):
+            body = json.loads(data.decode())
+            dims = body["dimensions"]
+            if dims == ["query"]:
+                return {"rows": [{"keys": ["budget app india"], "clicks": 12, "impressions": 150, "ctr": 0.08, "position": 3.4}]}
+            if dims == ["page"]:
+                return {"rows": [{"keys": ["https://plannedout.in/budget-planner-india/"], "clicks": 12, "impressions": 150, "ctr": 0.08, "position": 3.4}]}
+            return {"rows": [{"keys": ["budget app india", "https://plannedout.in/budget-planner-india/"], "clicks": 12, "impressions": 150, "ctr": 0.08, "position": 3.4}]}
+
+        with mock.patch.object(gsc, "access_token", return_value="t"), mock.patch.object(gsc, "_post", fake_post):
+            d = self.client.get("/api/admin/search-queries?days=28").json()
+        self.assertTrue(d["enabled"])
+        self.assertEqual(d["totals"]["clicks"], 12)
+        self.assertEqual(d["totals"]["position"], 3.4)
+        self.assertEqual(d["queries"][0]["query"], "budget app india")
+        self.assertEqual(d["queries"][0]["position"], 3.4)
+        self.assertEqual(d["pages"][0]["path"], "/budget-planner-india/")
+        self.assertEqual(d["query_pages"][0]["path"], "/budget-planner-india/")
+
+
 
 @override_settings(OWNER_EMAIL=OWNER)
 class ChatMissTests(TestCase):

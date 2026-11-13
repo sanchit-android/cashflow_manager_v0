@@ -305,7 +305,14 @@ async function traffic(box) {
         ${card("Other websites linking here", table(["Website", "Visits"], b.referrers.map((x) => [esc(x.label), num(x.value)])))}
         ${card("Devices", table(["Device", "Visits"], b.devices.map((x) => [esc(x.label), num(x.value)])))}
       </div>
+      <div class="adm-2">
+        ${card("AI assistant landing pages", table(["Page", "Visits from AI"], (d.ai_landing || []).map((x) => [esc(x.label), num(x.value)]), "No AI visits in this period."),
+          "Pages where visitors from ChatGPT, Perplexity, Claude or Gemini arrived (reflects the topic they asked about).")}
+        ${card("Pages AI bots read", table(["Page", "Fetches"], (d.ai_bot_pages || []).map((x) => [esc(x.label), num(x.value)]), "No AI bot fetches in this period."),
+          "Pages fetched by ChatGPT-User, Perplexity-User, ClaudeBot, GPTBot…")}
+      </div>
       ${T.bots ? card("Bots and crawlers", table(["Bot", "Fetches"], d.bot_names.map((x) => [esc(x.label), num(x.value)]))) : ""}
+      <div id="tr-gsc"><p class="muted">Loading Google search queries &amp; rank positions…</p></div>
       <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`;
     let series;
     if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (s.name === "bot" ? "Bots" : s.name === "demo" ? "Demo (all sources)" : SRC[s.name] || s.name) : s.name, dashed: (s.name === "bot" || s.name === "demo") && T.split === "source", color: PALETTE[i % PALETTE.length], values: s.values }));
@@ -313,6 +320,8 @@ async function traffic(box) {
       .filter(([k]) => T.show[k]).map(([k, name, color, dashed]) => ({ name, color, values: d.series[k], dashed }));
     const el = out.querySelector("#tr-chart");
     if (series.length) lines(el, { labels, fmt: num, axis: num, series }); else el.innerHTML = '<p class="muted">Pick at least one line.</p>';
+    const gscDays = T.range === "7" || T.range === "today" ? 7 : T.range === "90" ? 90 : 28;
+    renderSearchQueries(out.querySelector("#tr-gsc"), gscDays);
   };
 
   box.innerHTML = `<div class="card adm-filters">
@@ -391,10 +400,73 @@ async function traffic(box) {
   await load();
 }
 
+// ================= Google search queries & rank =================
+const fmtPos = (p) => {
+  if (p == null || !p) return "—";
+  const page = Math.ceil(p / 10);
+  const cls = p <= 3 ? "good" : p <= 10 ? "" : "muted";
+  return `<span class="${cls}">#${p.toFixed(1)}</span> <small class="muted">(p.${page})</small>`;
+};
+
+async function renderSearchQueries(el, days = 28) {
+  if (!el) return;
+  let sq;
+  try { sq = await api(`/api/admin/search-queries?days=${days}`); } catch (e) { el.innerHTML = ""; return; }
+  if (!el.isConnected) return;
+  if (!sq.enabled) {
+    el.innerHTML = card("Google search queries & rank position",
+      `<p class="muted">Connect Google Search Console (<code>GSC_SERVICE_ACCOUNT_JSON</code>) to see what users searched on Google and where we ranked in the search results.</p>`);
+    return;
+  }
+  if (sq.error) {
+    el.innerHTML = card("Google search queries & rank position", `<p class="error" role="alert">${esc(sq.error)}</p>`);
+    return;
+  }
+  const t = sq.totals || {};
+  const period = sq.from && sq.to ? `${short(sq.from)} – ${short(sq.to)} (${sq.days}d, Search Console lags ~2 days)` : `${days} days`;
+  el.innerHTML = `
+    <div class="card">
+      <div class="row" style="flex-wrap:wrap;gap:8px"><h2 style="margin:0">Google search queries &amp; SERP rank</h2><span class="spacer"></span>
+        <div class="seg" role="group" aria-label="Search Console period">${[7, 28, 90].map((n) => `<button type="button" data-sq-days="${n}" class="${sq.days === n ? "on" : ""}" aria-pressed="${sq.days === n}">${n}d</button>`).join("")}</div>
+      </div>
+      <p class="muted">${esc(period)} · Property: ${esc(sq.property)}. Position #1–10 is page 1 of Google results; #11–20 is page 2.</p>
+      <div class="kpis">
+        ${metric("Search clicks", num(t.clicks), "from Google search")}
+        ${metric("Impressions", num(t.impressions), "times shown in results")}
+        ${metric("Click-through rate", (t.ctr ?? 0) + "%", "clicks ÷ impressions")}
+        ${metric("Average rank", t.position != null ? "#" + t.position.toFixed(1) : "—", t.position != null ? `page ${Math.ceil(t.position / 10)} on average` : "no impressions yet")}
+        ${metric("Distinct queries", num(t.queries))}
+      </div>
+      <div class="adm-2">
+        <div>
+          <h3>What people searched</h3>
+          ${table(["Search query", "Avg rank", "Clicks", "Impr.", "CTR"],
+            (sq.queries || []).slice(0, 30).map((r) => [esc(r.query), fmtPos(r.position), num(r.clicks), num(r.impressions), r.ctr + "%"]),
+            "No search queries recorded for this period yet.")}
+        </div>
+        <div>
+          <h3>Query → Landing page &amp; rank</h3>
+          ${table(["Query", "Page", "Rank", "Clicks", "Impr."],
+            (sq.query_pages || []).slice(0, 30).map((r) => [esc(r.query), `<a href="${esc(r.path)}" target="_blank" rel="noopener">${esc(r.path)}</a>`, fmtPos(r.position), num(r.clicks), num(r.impressions)]),
+            "No query/page pairs recorded yet.")}
+        </div>
+      </div>
+      <h3>Pages in Google search results</h3>
+      ${table(["Page", "Avg rank", "Clicks", "Impressions", "CTR"],
+        (sq.pages || []).slice(0, 25).map((r) => [`<a href="${esc(r.path)}" target="_blank" rel="noopener">${esc(r.path)}</a>`, fmtPos(r.position), num(r.clicks), num(r.impressions), r.ctr + "%"]),
+        "No pages shown in Google search results in this period.")}
+    </div>`;
+  el.querySelectorAll("[data-sq-days]").forEach((b) => (b.onclick = () => {
+    const n = +b.dataset.sqDays;
+    el.innerHTML = '<p class="muted">Loading Google search queries &amp; rank positions…</p>';
+    renderSearchQueries(el, n);
+  }));
+}
+
 // ================= Google indexing =================
 async function indexing(box) {
   // Pages are checked one request at a time, so no request runs long enough to time out.
-  const S = { d: await api("/api/admin/indexing"), current: null, running: false, stop: false, errors: [] };
+  const S = { d: await api("/api/admin/indexing"), current: null, running: false, stop: false, errors: [], sqDays: 28 };
   const checkOne = async (path) => {
     S.current = path; draw();
     try {
@@ -435,12 +507,14 @@ async function indexing(box) {
       ${S.running
         ? `<button type="button" id="idx-stop">Stop</button> <span class="muted" aria-live="polite">Checking ${done + 1} of ${d.pages.length}…</span>`
         : `<button type="button" class="primary" id="idx-check" ${busy ? "disabled" : ""}>Check all</button>
-           ${missing.length || d.pages.some((p) => !p.checked) ? `<button type="button" id="idx-check-missing" ${busy ? "disabled" : ""}>Check unindexed &amp; unchecked</button>` : ""}`}`;
+           ${missing.length || d.pages.some((p) => !p.checked) ? `<button type="button" id="idx-check-missing" ${busy ? "disabled" : ""}>Check unindexed &amp; unchecked</button>` : ""}`}
+      <div id="idx-gsc" style="margin-top:16px"><p class="muted">Loading Google search queries &amp; rank positions…</p></div>`;
     const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
     on("#idx-check", () => checkAll(d.pages.map((p) => p.path)));
     on("#idx-check-missing", () => checkAll(d.pages.filter((p) => !p.indexed).map((p) => p.path)));
     on("#idx-stop", () => { S.stop = true; box.querySelector("#idx-stop").disabled = true; });
     box.querySelectorAll("[data-idx]").forEach((b) => (b.onclick = () => { S.errors = []; checkOne(b.dataset.idx); }));
+    if (!busy) renderSearchQueries(box.querySelector("#idx-gsc"), S.sqDays);
   };
   draw();
 }
