@@ -30,5 +30,6 @@
   <main class="wrap" id="root"><p class="muted">Loading…</p></main>
 </div>
 {% include "_app_footer.html" %}
+{{ ent|json_script:"po-ent" }}
 <script type="module" src="{% static JS_DIR|add:'/app.js' %}"></script>
 {% endblock %}

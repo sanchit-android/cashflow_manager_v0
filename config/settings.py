@@ -13,6 +13,8 @@ if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
 CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
 
 # Public address used for canonical links, sitemap and social previews.
+# Pro features (paid layouts) are unlocked for everyone while this is on. Set PRO_PREVIEW=0 once payments are live.
+PRO_PREVIEW = os.environ.get("PRO_PREVIEW", "1") == "1"
 SITE_URL = os.environ.get("SITE_URL", "https://plannedout.in").rstrip("/")
 # IndexNow key. Optional: if unset, a stable key is derived from DJANGO_SECRET_KEY.
 INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY", "")

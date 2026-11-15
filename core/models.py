@@ -82,6 +82,21 @@ class UserFlag(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class Entitlement(models.Model):
+    """A paid feature a user has unlocked (e.g. sku="layout_cockpit"). One row per purchase or grant.
+    expires_at=None means it never expires (one-time unlock)."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="entitlements")
+    sku = models.CharField(max_length=40, db_index=True)
+    source = models.CharField(max_length=20, default="grant")  # grant | razorpay | promo
+    ref = models.CharField(max_length=100, blank=True, default="")  # payment / order id from the provider
+    amount_paise = models.PositiveIntegerField(default=0)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "sku"])]
+
+
 class PageView(models.Model):
     """One HTML page view: where the visitor came from and what they saw."""
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

@@ -319,7 +319,19 @@ def app_page(request):
         return redirect("/app")  # signed in: the app offers to move the browser-only data into the account
     if not request.user.is_authenticated and not (demo or local):
         return redirect(settings.LOGIN_URL)
-    return render(request, "app.html", {"demo": demo, "local": local})
+    return render(request, "app.html", {"demo": demo, "local": local, "ent": _entitlements(request, demo or local)})
+
+
+def _entitlements(request, preview_anyway):
+    """What paid features this user has, for the client's entitled() check. Demo and browser-only users get a preview."""
+    from django.db.models import Q
+    from .models import Entitlement
+    skus = []
+    if request.user.is_authenticated:
+        now = timezone.now()
+        skus = sorted(set(Entitlement.objects.filter(user=request.user).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+                          .values_list("sku", flat=True)))
+    return {"preview": bool(settings.PRO_PREVIEW or preview_anyway), "skus": skus}
 
 
 @require_GET

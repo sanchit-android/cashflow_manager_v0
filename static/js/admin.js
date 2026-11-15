@@ -145,6 +145,11 @@ function business(box, d) {
       "Showing, hiding and deleting numbers are under Buttons used (month : mxShow, mxHide, mxDel).")}
     ${card("Screen transitions", table(["Picked", "Times", "Users"], (d.motion || []).map((r) => [esc({ fade: "Fade", slide: "Slide", zoom: "Zoom", blur: "Blur", cascade: "Cascade", none: "None" }[r.event] || r.event), num(r.count), num(r.users)])),
       "Changes to the transition setting. Users who never change it see Fade (or None with reduced motion on).")}
+    ${card("Home layouts & Pro", table(["Event", "Times", "Users"], [
+        ...(d.layouts || []).map((r) => [`Picked layout: ${esc(r.event)}`, num(r.count), num(r.users)]),
+        ...(d.upgrade || []).map((r) => [`Upgrade ${esc(r.event.replace(":", " → "))}`, num(r.count), num(r.users)]),
+        ...(d.entitlements || []).map((r) => [`Unlocked: ${esc(r.sku)} (₹${num(Math.round(r.paise / 100))} paid)`, "—", num(r.users)])]),
+      "Layout switches in Settings; upgrade view = opened a locked Pro layout, want = tapped “I want this” (demand before payments are live).")}
     ${card("Free calculators (public pages)", table(["Calculator", "Uses"], (d.calcs || []).map((r) => [esc({ "savings-runway": "Savings runway", "emergency-fund": "Emergency fund", "sinking-fund": "Sinking fund", "50-30-20-budget": "50/30/20 budget" }[r.event] || r.event), num(r.count)])),
       "Counted once per page view, after the visitor changes a number. Most visitors aren't signed in, so there is no user count.")}
     ${card("Spreadsheet formulas", table(["Action", "Count", "Users"], (d.grid || []).map((r) => [esc({ "formula-ref": "Formula using other cells (=C2+C3)" }[r.event] || r.event), num(r.count), num(r.users)])),

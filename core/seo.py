@@ -36,7 +36,7 @@ BENEFITS = [
     ("Free, no install",
      "Works in any modern browser on laptop or phone. Start without signing up, then add a free account "
      "(Google or an email code) to back up and sync. "
-     "15 themes (Excel, dark, Liquid Glass, Metro and more), plus a custom theme builder for your own "
+     "5 themes (Clean, Paper, Excel, dark and Liquid Glass), plus a custom theme builder for your own "
      "colours, font and corner style."),
 ]
 
@@ -1325,21 +1325,11 @@ CALC_HUB = {
 # ---------- Features, themes and changelog pages ----------
 # Keep in step with the app: THEMES mirrors THEMES in static/js/app.js (name, background, accent, note).
 THEMES = [
-    ("excel", "Excel", "#ffffff", "#217346", "Classic green spreadsheet look, the default"),
-    ("planned", "PlannedOut", "#1c1e24", "#34d399", "Charcoal and teal brand theme, dark"),
+    ("clean", "Clean", "#f6f7f9", "#111827", "Neutral greys with a near-black accent, the default"),
     ("paper", "Paper", "#f7f6f2", "#2457c5", "Warm off-white with blue ink"),
-    ("sky", "Sky", "#f3f7fc", "#1f6feb", "Cool light blue"),
-    ("lavender", "Lavender", "#f7f5fc", "#6b4fbb", "Soft purple"),
-    ("sand", "Sand", "#faf6ee", "#a0612a", "Earthy beige and brown"),
-    ("rose", "Rose", "#fdf6f7", "#b4325b", "Pale pink with deep rose"),
-    ("mint", "Mint", "#eef6f3", "#0f7a5c", "Fresh green"),
-    ("chai", "Chai", "#f6efe4", "#9a4a12", "Warm tea tones with a serif font"),
-    ("ink", "Ink", "#ffffff", "#000000", "High-contrast black and white"),
-    ("night", "Night", "#121417", "#7aa7ff", "Dark mode with blue accents"),
-    ("metro-light", "Metro Light", "#ffffff", "#1ba1e2", "Bold tiles in four colours, light"),
-    ("metro-dark", "Metro Dark", "#000000", "#d80073", "Bold tiles in four colours, dark"),
+    ("excel", "Excel", "#ffffff", "#217346", "Classic green spreadsheet look"),
+    ("planned", "PlannedOut Dark", "#1c1e24", "#34d399", "Charcoal and teal brand theme, dark"),
     ("glass", "Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "#007aff", "Frosted translucent panels over a pastel gradient"),
-    ("glass-dark", "Glass Dark", "linear-gradient(135deg,#0f172a,#3b0764,#042f2e)", "#38bdf8", "Frosted panels over a deep gradient, dark"),
 ]
 # Themes that have a real screenshot in static/img/screenshots/themes/ (made by scripts/make_theme_shots.py).
 # The rest fall back to a colour preview.
@@ -1352,11 +1342,11 @@ THEME_TOKENS = ["Page background", "Cards and cells", "Panels", "Text", "Seconda
 THEMES_PAGE = {
     "title": "Budget App Themes: 15 Looks, Dark Mode & a Custom Theme Builder",
     "h1": "Make your budget look the way you like",
-    "description": "PlannedOut has 15 themes, including an Excel look, dark mode, Liquid Glass and Metro, plus a "
+    "description": "PlannedOut has 5 themes: Clean, Paper, Excel, a dark theme and Liquid Glass, plus a "
                    "custom theme builder for your own colours, font and corner style. Free, and you can try them in the demo.",
     "faq": [
         ("Does PlannedOut have a dark mode?",
-         "Yes. PlannedOut, Night, Metro Dark and Glass Dark are dark themes. Pick one in Settings → Theme."),
+         "Yes. PlannedOut Dark is a dark theme. Pick it in Settings → Look."),
         ("Can I make my budget look like Excel?",
          "Yes. The Excel theme is the default: white cells, green headers and gridlines, like a spreadsheet."),
         ("Can I create my own theme?",
@@ -1413,9 +1403,9 @@ FEATURES = [
      ["Credit card bills tracked separately from the spending on them",
       "Close a month to lock it, and bill cards as entered",
       "Big yearly bills (insurance, school fees, property tax) kept out of day-to-day trends"]),
-    ("themes", "15 themes and a custom theme builder",
+    ("themes", "5 themes and a custom theme builder",
      "Make it look like a spreadsheet, a dark-mode app or something of your own.",
-     ["Excel, PlannedOut, Paper, Sky, Lavender, Sand, Rose, Mint, Chai, Ink, Night, Metro Light, Metro Dark, Liquid Glass and Glass Dark",
+     ["Clean, Paper, Excel, PlannedOut Dark and Liquid Glass",
       "Custom theme builder: 12 colours, 4 fonts and corner roundness, with a live preview",
       "Screen motion: fade, slide or none, and it respects reduced-motion settings"]),
     ("security", "Encrypted in your browser",
@@ -1453,7 +1443,7 @@ FEATURES_PAGE = {
     "title": "PlannedOut Features: Private Budget Planner With Projections, Themes & Encryption",
     "h1": "Everything PlannedOut does",
     "description": "An on-device assistant for entries and questions, spreadsheet-style entry with formulas, monthly insights, savings projections and runway, card "
-                   "tracking, 15 themes with a custom theme builder, a Pong game mode, 20 currencies and browser-side encryption. Free.",
+                   "tracking, 5 themes with a custom theme builder, a Pong game mode, 20 currencies and browser-side encryption. Free.",
 }
 
 # Newest first. (date, title, points). Add an entry when you ship something visitors would notice.

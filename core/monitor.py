@@ -170,6 +170,17 @@ def visitor_hash(request):
 
 # ---------- recording ----------
 
+def _entitlement_rows():
+    """Paid unlocks by sku: how many users and how much was paid."""
+    try:
+        from django.db.models import Count, Sum
+        from .models import Entitlement
+        return [{"sku": r["sku"], "users": r["users"], "paise": r["paise"] or 0}
+                for r in Entitlement.objects.values("sku").annotate(users=Count("user", distinct=True), paise=Sum("amount_paise")).order_by("sku")]
+    except Exception:
+        return []
+
+
 def log_event(user_id, event, n=1, day=None):
     """Add n to a (day, user, event) counter. Never raises."""
     day = day or timezone.localdate()
@@ -861,6 +872,9 @@ def business(request):
         "calcs": feature_rows("calc:"),
         "grid": feature_rows("grid:"),
         "motion": feature_rows("motion:"),
+        "layouts": feature_rows("layout:"),
+        "upgrade": feature_rows("upgrade:"),
+        "entitlements": _entitlement_rows(),
         "saves": feature_rows("save:"), "edits": feature_rows("edit:"), "deletes": feature_rows("delete:"),
         "clicks": feature_rows("click:")[:40],
         "changes": feature_rows("change:")[:40],

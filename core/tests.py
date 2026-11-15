@@ -246,7 +246,7 @@ class CalculatorTests(TestCase):
         self.assertContains(self.client.get("/themes/"), "ImageObject")
         self.assertContains(self.client.get("/themes/"), "data-lightbox")
         self.assertContains(self.client.get("/themes/"), "lightbox.js")
-        self.assertEqual(len(seo.THEMES), 15)
+        self.assertEqual(len(seo.THEMES), 5)
         self.assertNotIn("Five themes", self.client.get("/").content.decode())
         llms = self.client.get("/llms.txt")
         self.assertContains(llms, "/themes/")

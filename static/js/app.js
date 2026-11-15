@@ -9,7 +9,7 @@ import * as P from "./plan.js";
 import * as N from "./insights.js";
 import { stackedBars, lines, hbars, money } from "./charts.js";
 import { catIcon } from "./icons.js";
-import { setCurrency, currencyOptions, guessCurrency } from "./currency.js";
+import { setCurrency, currencyOptions, guessCurrency, compact } from "./currency.js";
 import { track, startTracking } from "./track.js";
 import { viewAdmin, ADMIN_VIEWS } from "./admin.js";
 import * as F from "./formula.js";
@@ -27,14 +27,31 @@ const $ = (sel) => root.querySelector(sel);
 const $$ = (sel) => [...root.querySelectorAll(sel)];
 
 const THEMES = {
-  planned: ["PlannedOut", "#1c1e24", "#34d399"],
-  excel: ["Excel", "#ffffff", "#217346"], paper: ["Paper", "#f7f6f2", "#2457c5"], sky: ["Sky", "#f3f7fc", "#1f6feb"],
-  lavender: ["Lavender", "#f7f5fc", "#6b4fbb"], sand: ["Sand", "#faf6ee", "#a0612a"], rose: ["Rose", "#fdf6f7", "#b4325b"],
-  mint: ["Mint", "#eef6f3", "#0f7a5c"], chai: ["Chai", "#f6efe4", "#9a4a12"], ink: ["Ink", "#ffffff", "#000000"], night: ["Night", "#121417", "#7aa7ff"],
-  "metro-dark": ["Metro Dark", "#000000", "conic-gradient(#1ba1e2 0 90deg,#d80073 90deg 180deg,#fa6800 180deg 270deg,#60a917 270deg)"],
-  "metro-light": ["Metro Light", "#ffffff", "conic-gradient(#1ba1e2 0 90deg,#d80073 90deg 180deg,#fa6800 180deg 270deg,#60a917 270deg)"],
+  clean: ["Clean", "#f6f7f9", "#111827"],
+  paper: ["Paper", "#f7f6f2", "#2457c5"],
+  excel: ["Excel", "#ffffff", "#217346"],
+  planned: ["PlannedOut Dark", "#1c1e24", "#34d399"],
   glass: ["Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "linear-gradient(135deg,rgba(255,255,255,.95),#007aff)"],
-  "glass-dark": ["Glass Dark", "linear-gradient(135deg,#0f172a,#3b0764,#042f2e)", "linear-gradient(135deg,#e0f2fe,#38bdf8)"],
+};
+// Themes we no longer offer map to the closest one we keep (also done in theme.js before first paint).
+const LEGACY_THEME = { night: "planned", "metro-dark": "planned", "glass-dark": "planned", ink: "clean", "metro-light": "clean",
+  sky: "paper", lavender: "paper", sand: "paper", rose: "paper", mint: "paper", chai: "paper" };
+const themeKey = (t) => (t === "custom" || THEMES[t] ? t : LEGACY_THEME[t] || "clean");
+
+// ---- Paid features. The server sends what this user has unlocked; "preview" unlocks everything (launch period, demo).
+const ENT = (() => { try { return JSON.parse(document.getElementById("po-ent")?.textContent || "{}"); } catch (e) { return {}; } })();
+// Paywall switched off: every layout is free and no "Pro" labels show. Set to true to bring back the
+// entitlement check, Pro badges and upsell (see documentation/PAID-LAYOUTS-PLAN.md).
+const PAYWALL = false;
+const entitled = (sku) => !PAYWALL || !!(ENT.preview || (ENT.skus || []).includes(sku));
+// Home layouts: [key, name, description, sku (null = free)]
+const LAYOUTS = [
+  ["classic", "Classic", "Summary on top, transactions below. Works everywhere.", null],
+  ["cockpit", "Cockpit", "Accounts in a sidebar, waterfall chart, runway and averages side by side. Desktop only.", "layout_cockpit"],
+];
+const homeLayout = () => {
+  const k = settingsRec().data.home_layout, l = LAYOUTS.find(([x]) => x === k);
+  return l && (!l[3] || entitled(l[3])) && !isPhone() ? k : "classic";
 };
 // Tokens a custom theme can set, with labels for the editor.
 const THEME_VARS = [["--bg", "Page background"], ["--surface", "Cards and cells"], ["--surface-2", "Panels"], ["--text", "Text"], ["--muted", "Secondary text"],
@@ -51,6 +68,8 @@ function themeStyle(custom) {
   return vars;
 }
 function applyTheme(t, custom) {
+  t = themeKey(t);
+  if (custom && custom.base) custom = { ...custom, base: themeKey(custom.base) };
   const de = document.documentElement;
   for (const k of [...THEME_VARS.map(([k]) => k), "--font", "--grid-font", "--radius", "--grid-active"]) de.style.removeProperty(k);
   if (t === "custom" && custom) {
@@ -566,7 +585,7 @@ initChat({
     mountPins(box, { max: 3, period: S.period, rows: 3 });
   },
   setTheme: async (name) => {
-    const key = THEMES[name] ? name : name === "dark" ? "night" : name === "light" ? "paper" : "excel";
+    const key = THEMES[name] ? name : name === "dark" ? "planned" : name === "light" ? "clean" : themeKey(name);
     applyTheme(key, settingsRec().data.custom_theme);
     await store.save({ id: settingsRec().id, type: "settings", data: { ...settingsRec().data, theme: key } });
   },
@@ -1183,10 +1202,15 @@ function viewMonth() {
   const curPeriod = E.currentPeriod(dd, today());
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
-  html(`
-    <div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<button type="button" id="menubtn" class="menu-btn" aria-label="Menu">☰</button></div>
+  const nav = `<div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<button type="button" id="menubtn" class="menu-btn" aria-label="Menu">☰</button></div>`;
+  const txcard = `<div class="card" id="txcard"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>`;
+  root.dataset.layout = homeLayout();
+  if (homeLayout() === "cockpit") html(`<div class="ck"><aside class="card ck-side">${nav}<div id="cockside"></div></aside>
+    <div class="ck-main"><div id="summary"></div>${txcard}<div id="cats"></div></div></div>`);
+  else html(`
+    ${nav}
     <div id="summary" style="margin-top:12px"></div>
-    <div class="card" id="txcard"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>
+    ${txcard}
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
   $("#next").onclick = (e) => goPeriod(E.shiftPeriod(S.period, 1), e.currentTarget);
@@ -1645,33 +1669,49 @@ function monthSummary() {
   const curDay = today().slice(0, 7) === S.period ? +today().slice(8, 10) : S.period < today().slice(0, 7) ? daysInMonth : 1;
   const progPct = Math.min(100, Math.round((curDay / daysInMonth) * 100));
   const inv = s.investments ? ` after investing ${inr(s.investments)}` : "";
-  const verdict = v.kind === "ahead"
-    ? `<span class="big good" data-count="${Math.max(0, s.headroom)}" data-suffix=" free to spend">${inr(Math.max(0, s.headroom))} free to spend</span>Left this month${inv}${s.commitments_pending ? ` and ${inr(s.commitments_pending)} of commitments still due` : ""}, without touching savings.`
-    : `<span class="big bad" data-count="${v.amount}" data-suffix=" from savings">${inr(v.amount)} from savings</span>This month spends${s.investments ? " and invests" : ""} more than comes in.${s.commitments_pending ? ` Another ${inr(s.commitments_pending)} of commitments is still due.` : ""}`;
-  const todoItems = [
-    ...unbilledCards.map((c) => `<span class="todo-chip">${esc(acctName(c.id))} <span class="num">${inr(c.computed)}</span><button type="button" data-todobill="${c.id}" title="Mark card billed">Bill card</button></span>`),
-    ...pending.map((c) => `<span class="todo-chip">${esc(c.label)} <span class="num">${inr(c.amount)}</span><button type="button" data-pay="${c.id}" title="Mark paid">✓ Paid</button></span>`),
-    ...(uncatCount ? [`<span class="todo-chip">${uncatCount} under Other<button type="button" id="todo-uncat">Review</button></span>`] : []),
-    ...(canClose ? [`<span class="todo-chip">All cards billed<button type="button" id="todo-close">${LOCK} Close month</button></span>`] : []),
-  ];
-  $("#summary").innerHTML = `
-    <div class="card verdict">${verdict}
-      <div class="hero-prog-wrap">
-        <div class="hero-prog"><span style="width:${progPct}%"></span></div>
-        <div class="hero-strip">
-          <span>Day ${curDay} of ${daysInMonth}</span>
-          <span>In <strong class="good">${inr(s.regular_inflow + s.oneoff_inflow)}</strong></span>
-          <span>Out <strong>${inr(s.monthly_expense + s.annual_expense)}</strong></span>
-          ${s.commitments_pending ? `<span>Due <strong>${inr(s.commitments_pending)}</strong></span>` : ""}
-        </div>
+  const totIn = s.regular_inflow + s.oneoff_inflow, totOut = s.monthly_expense + s.annual_expense;
+  const scale = Math.max(totIn, totOut, 1), perDay = Math.round(totOut / Math.max(1, curDay));
+  const drawing = v.kind !== "ahead";
+  const heroLeft = `<div class="card verdict hero-l">
+      <span class="hero-badge ${drawing ? "bad" : "good"}">${drawing ? "⚠ Spends exceed income" : "✓ Within income"}</span>
+      ${drawing
+        ? `<span class="big bad" data-count="${v.amount}">${inr(v.amount)}</span><div class="muted">drawn from savings so far this month${s.commitments_pending ? ` · ${inr(s.commitments_pending)} of commitments still due` : ""}</div>`
+        : `<span class="big good" data-count="${Math.max(0, s.headroom)}">${inr(Math.max(0, s.headroom))}</span><div class="muted">free to spend this month${inv}${s.commitments_pending ? ` and ${inr(s.commitments_pending)} of commitments still due` : ""}</div>`}
+      <div class="io-bars">
+        <span class="io-l">In</span><div class="io-bar"><span class="in" style="width:${(totIn / scale) * 100}%"></span></div><span class="num">${inr(totIn)}</span>
+        <span class="io-l">Out</span><div class="io-bar"><span class="out" style="width:${(totOut / scale) * 100}%"></span></div><span class="num">${inr(totOut)}</span>
       </div>
-      ${r.months != null && r.savings > 0 ? `<p class="muted" style="margin:6px 0 0">At your 3-month average burn of ${inr(r.burn)}, your ${inr(r.savings)} in bank and savings lasts about ${r.months} months.</p>` : ""}</div>
-    <details class="flow-d"><summary>How your balance moved · opening ${inr(s.opening)} → closing ${inr(s.closing)}</summary>${balanceFlow(s)}</details>
+      <div class="hero-note ${drawing ? "bad" : "muted"}">${totIn > 0 && totOut > totIn ? `Spending is ${(totOut / totIn).toFixed(1)}× income · ` : ""}${inr(perDay)} a day so far</div>
+    </div>`;
+  const exact = r.burn > 0 ? r.savings / r.burn : null;
+  const segs = Array.from({ length: 6 }, (_, i) => `<div class="rw-seg"><div class="rw-track"><span style="width:${exact == null ? 0 : Math.max(0, Math.min(1, exact - i)) * 100}%"></span></div><small>${i + 1}${i === 5 ? " mo" : ""}</small></div>`).join("");
+  const heroRight = `<div class="card hero-r"><div class="rw-head">Runway</div>
+      ${r.burn == null || r.burn <= 0 ? `<div class="rw-big good">Not drawing down</div><p class="muted">Over the last 3 months income covered spending.</p>`
+        : !(r.savings > 0) ? `<p class="muted">Add your bank and savings balances to see how long they last.</p>`
+        : `<div class="rw-big"><strong class="${r.months < 3 ? "bad" : ""}">~${r.months}</strong> <span class="muted">months of savings left at current burn</span></div><div class="rw-segs">${segs}</div>`}
+      <div class="rw-foot"><div><div class="label">Total savings</div><div class="value">${inr(r.savings)}</div></div>
+        <div><div class="label">Est. burn (3-month avg)</div><div class="value">${r.burn > 0 ? `${inr(r.burn)}<small class="muted"> /mo</small>` : "—"}</div></div></div>
+    </div>`;
+  const neededCards = st.cards.filter((c) => c.active || c.billed);
+  const toBill = unbilledCards.reduce((x, c) => x + c.computed, 0);
+  const todoRows = [
+    ...unbilledCards.map((c) => `<div class="todo-row"><span>${esc(acctName(c.id))}</span><span class="num bad">${inr(c.computed)}</span><button type="button" data-todobill="${c.id}" title="Mark card billed">Bill card</button></div>`),
+    ...pending.map((c) => `<div class="todo-row"><span>${esc(c.label)}</span><span class="num">${inr(c.amount)}</span><button type="button" data-pay="${c.id}" title="Mark paid">✓ Paid</button></div>`),
+    ...(uncatCount ? [`<div class="todo-row"><span class="muted">${uncatCount} under Other need review</span><span></span><button type="button" id="todo-uncat" class="link-btn">Review →</button></div>`] : []),
+    ...(canClose ? [`<div class="todo-row"><span>All cards billed</span><span></span><button type="button" id="todo-close">${LOCK} Close month</button></div>`] : []),
+  ];
+  if (homeLayout() === "cockpit") {
+    $("#cockside").innerHTML = cockpitSide(d, st, unbilledCards, pending, uncatCount, canClose, curDay, daysInMonth, progPct);
+    $("#summary").innerHTML = cockpitSummary(s, r, drawing, totIn, totOut, scale);
+  } else $("#summary").innerHTML = `
+    <div class="sum-status"><div class="hero-prog"><span style="width:${progPct}%"></span></div><span>Day ${curDay} of ${daysInMonth}</span>${neededCards.length ? `<span>${neededCards.length - unbilledCards.length} of ${neededCards.length} cards billed</span>` : ""}</div>
+    <div class="hero-grid">${heroLeft}${heroRight}</div>
+    ${balanceFlow(s)}
     ${extraMetrics(s, r)}
-    ${todoItems.length ? `<div class="todo-line" aria-label="To-do this month"><strong>To-do (${todoItems.length})</strong>${todoItems.join("")}</div>` : ""}`;
+    ${todoRows.length ? `<div class="card todo-card" aria-label="To-do this month"><h2>To do <span class="todo-count">${todoRows.length} open</span></h2>${todoRows.join("")}${toBill ? `<div class="muted todo-foot">${inr(toBill)} to bill across ${unbilledCards.length} card${unbilledCards.length > 1 ? "s" : ""}</div>` : ""}</div>` : ""}`;
   cardCategoryChart(d);
   const saveMx = async (on) => { await saveMxLayout({ month_metrics: on }); monthSummary(); };
-  const curMx = () => $$("[data-mx-hide]").map((b) => b.dataset.mxHide);
+  const curMx = () => mxParts("").on;
   $$("[data-mx-hide]").forEach((b) => (b.onclick = () => saveMx(curMx().filter((k) => k !== b.dataset.mxHide))));
   mxDrag($(".mx-grid"), (rows) => {
     track(`metric:${rows.length > 1 ? "rows" : "reorder"}`);
@@ -1715,11 +1755,95 @@ function monthSummary() {
     if (S.grid && S.grid.setQuickFilter) S.grid.setQuickFilter("category", "Other");
   };
   if ($("#todo-close")) $("#todo-close").onclick = () => $("#mclose-btn")?.click();
+  $$("[data-ckacct]").forEach((b) => (b.onclick = () => {
+    S.account = b.dataset.ckacct;
+    try { localStorage.setItem("account", S.account); } catch (e) { /* ignore */ }
+    $$(".ck-acct").forEach((x) => x.classList.toggle("on", x.contains(b)));
+    mountTxGrid();
+  }));
+  if ($("#ck-new")) $("#ck-new").onclick = () => S.grid && S.grid.jumpToBlank && S.grid.jumpToBlank();
+  if ($("#ck-imp")) $("#ck-imp").onclick = openImportModal;
+  if ($("#ck-sc")) $("#ck-sc").onclick = showShortcutsModal;
+}
+
+/** Cockpit layout (Pro): left sidebar with the month's progress, accounts and what needs doing. */
+function cockpitSide(d, st, unbilled, pending, uncatCount, canClose, curDay, daysInMonth, progPct) {
+  const accts = barAccounts(d), sel = selectedAccount();
+  const needed = st.cards.filter((c) => c.active || c.billed);
+  const row = (a, amt, extra = "") => `<div class="ck-acct${a.id === sel ? " on" : ""}"><button type="button" data-ckacct="${a.id}"><span>${esc(a.data.name)}</span>${amt != null ? `<span class="num">${money(amt)}</span>` : ""}</button>${extra}</div>`;
+  const spend = accts.filter((a) => a.data.role === "spending"), cards = accts.filter((a) => a.data.role === "card"),
+    saves = accts.filter((a) => a.data.role !== "spending" && a.data.role !== "card");
+  const m = (a) => E.accountMonth(d, a.id, S.period);
+  return `<div class="ck-prog"><div class="hero-prog"><span style="width:${progPct}%"></span></div>
+      <div class="ck-prog-t"><span>Day ${curDay} of ${daysInMonth}</span>${needed.length ? `<span>${needed.length - unbilled.length} of ${needed.length} cards billed</span>` : ""}</div></div>
+    <div class="ck-acct${sel === ALL ? " on" : ""}"><button type="button" data-ckacct="${ALL}"><span>All accounts</span></button></div>
+    ${spend.map((a) => row(a, m(a).closing)).join("")}
+    ${cards.length ? `<div class="ck-sec"><span>Cards</span>${unbilled.length ? `<span class="ck-pill">${unbilled.length} to bill</span>` : ""}</div>
+      ${cards.map((a) => { const u = unbilled.find((c) => c.id === a.id); return row(a, u ? u.computed : m(a).spent || null, u ? `<button type="button" class="ck-bill" data-todobill="${a.id}">Bill</button>` : ""); }).join("")}` : ""}
+    ${saves.length ? `<div class="ck-sec"><span>Savings & investments</span></div>${saves.map((a) => row(a, null)).join("")}` : ""}
+    ${pending.length ? `<div class="ck-sec"><span>Due this month</span></div>${pending.map((c) => `<div class="ck-acct"><button type="button" disabled><span>${esc(c.label)}</span><span class="num">${money(c.amount)}</span></button><button type="button" class="ck-bill" data-pay="${c.id}">✓</button></div>`).join("")}` : ""}
+    ${uncatCount ? `<div class="ck-note"><span>${uncatCount} item${uncatCount > 1 ? "s" : ""} need review</span><button type="button" id="todo-uncat" class="link-btn">Review →</button></div>` : ""}
+    ${canClose ? `<div class="ck-note"><span>All cards billed</span><button type="button" id="todo-close" class="link-btn">${LOCK} Close month</button></div>` : ""}
+    <div class="ck-tools"><button type="button" class="link small" id="ck-new">+ New row</button><button type="button" class="link small" id="ck-imp">Import</button><button type="button" class="link small" id="ck-sc">Shortcuts</button></div>`;
+}
+
+/** Cockpit layout (Pro): banner, waterfall of the balance, runway and "vs average" side by side. */
+function cockpitSummary(s, r, drawing, totIn, totOut, scale) {
+  const v = s.verdict;
+  const banner = `<div class="card ck-banner ${drawing ? "bad" : "good"}">
+      <div><div class="ck-big"><strong>${inr(drawing ? v.amount : Math.max(0, s.headroom))}</strong> <span>${drawing ? "from savings" : "free to spend"}</span></div>
+        <div class="ck-sub">${drawing ? `⚠ Spends exceed income${totIn > 0 ? ` · ${(totOut / totIn).toFixed(1)}×` : ""}` : `✓ Within income${s.commitments_pending ? ` · ${inr(s.commitments_pending)} still due` : ""}`}</div></div>
+      <div class="io-bars">
+        <span class="io-l">In</span><div class="io-bar"><span class="in" style="width:${(totIn / scale) * 100}%"></span></div><span class="num">${inr(totIn)}</span>
+        <span class="io-l">Out</span><div class="io-bar"><span class="out" style="width:${(totOut / scale) * 100}%"></span></div><span class="num">${inr(totOut)}</span>
+      </div></div>`;
+  const exact = r.burn > 0 ? r.savings / r.burn : null;
+  const runway = `<div class="card ck-card"><div class="rw-head">Runway</div>
+      ${exact == null ? `<div class="rw-big good">Not drawing down</div>` : !(r.savings > 0) ? `<p class="muted">Add your bank and savings balances.</p>`
+        : `<div class="rw-big"><strong class="${r.months < 3 ? "bad" : ""}">~${r.months}</strong> <span class="muted">months left</span></div>
+        <div class="rw-segs ck-segs">${Array.from({ length: 6 }, (_, i) => `<div class="rw-track"><span style="width:${Math.max(0, Math.min(1, exact - i)) * 100}%"></span></div>`).join("")}</div>`}
+      <div class="ck-kv"><span>Total savings</span><strong>${inr(r.savings)}</strong></div>
+      <div class="ck-kv"><span>Burn (3-mo avg)</span><strong>${r.burn > 0 ? `${inr(r.burn)} /mo` : "—"}</strong></div></div>`;
+  return `${banner}<div class="ck-grid">${waterfall(s)}<div class="ck-col">${runway}${cockpitMetrics(s, r)}</div></div>`;
+}
+
+/** Waterfall: opening → each flow → closing. The axis starts above zero when every level is well above it, so the flows stay readable. */
+function waterfall(s) {
+  const steps = balanceSteps(s);
+  let lvl = s.opening;
+  const bars = [{ l: "Opening", from: 0, to: s.opening, kind: "end" }];
+  for (const [l, n, hint] of steps) { bars.push({ l, from: lvl, to: lvl + n, n, hint, kind: n > 0 ? "in" : "out" }); lvl += n; }
+  bars.push({ l: "Closing", from: 0, to: s.closing, kind: "close" });
+  const levels = bars.flatMap((b) => (b.kind === "in" || b.kind === "out" ? [b.from, b.to] : [b.to]));
+  const hi = Math.max(...levels, 1), lo = Math.min(...levels, 0);
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(1, hi))));
+  const floor = lo >= 0 ? Math.max(0, Math.floor((Math.min(...levels) * 0.8) / mag) * mag) : lo;
+  const y = (n) => ((n - floor) / (hi - floor || 1)) * 100;
+  const net = s.closing - s.opening;
+  return `<div class="card ck-card ck-wf"><h2>How your balance moved ${floor > 0 ? `<small class="muted">Scale starts at ${compact(floor)}</small>` : ""}</h2>
+    <div class="wf">${bars.map((b) => {
+      const a = y(Math.max(floor, Math.min(b.from, b.to))), z = y(Math.max(b.from, b.to));
+      const val = b.kind === "in" || b.kind === "out" ? `${b.n > 0 ? "+" : "−"}${inr(Math.abs(b.n))}` : compact(b.to);
+      return `<div class="wf-col" ${b.hint ? `title="${esc(b.hint)}"` : ""}><div class="wf-plot"><div class="wf-bar wf-${b.kind}" style="bottom:${a}%;height:${Math.max(1, z - a)}%"><span class="wf-v">${val}</span></div></div><div class="wf-l">${esc(b.l)}</div></div>`;
+    }).join("")}</div>
+    <div class="ck-wf-foot"><span>Opening <strong>${inr(s.opening)}</strong></span><span>Closing <strong>${inr(s.closing)}</strong></span><span class="${net < 0 ? "bad" : "good"}"><strong>${net < 0 ? "−" : "+"} ${inr(Math.abs(net))}</strong> this month</span></div></div>`;
+}
+
+/** The user's chosen numbers as a compact list, each with a bar against this year's average. */
+function cockpitMetrics(s, r) {
+  const { shown, add } = mxParts("+ Add");
+  const avg = yearAverages(shown), yr = S.period.slice(0, 4);
+  return `<div class="card ck-card ck-mx"><div class="ck-mx-head"><span class="rw-head">vs ${yr} average</span>${add}</div>
+    ${shown.map(([k, l, f, hint, , fmt = inr]) => {
+      const v = f(s, r), a = avg[k], ok = a != null && v != null && a > 0 && v >= 0, mx = ok ? Math.max(v, a) : 1;
+      return `<div class="ck-mrow" ${hint ? `title="${esc(hint)}"` : ""}><div class="ck-kv"><span>${esc(l)}</span><strong class="${v < 0 ? "bad" : ""}">${fmtValue(fmt, v)}</strong></div>
+        ${ok ? `<div class="mx-bar"><span style="width:${(v / mx) * 100}%"></span><i style="left:${(a / mx) * 100}%"></i></div><div class="mx-avg2"><span>${Math.round((v / a) * 100)}%</span><span>avg ${fmtValue(fmt, a)}</span></div>` : ""}</div>`;
+    }).join("") || '<p class="muted">Add numbers to compare with your average.</p>'}</div>`;
 }
 
 /** Opening balance → what came in and went out → closing balance. Always adds up exactly. */
-function balanceFlow(s) {
-  const steps = [
+function balanceSteps(s) {
+  return [
     ["Regular income", s.regular_inflow, "Salary, rent and other regular money in"],
     ["One-off income", s.oneoff_inflow, "Bonuses, refunds, gifts"],
     ["From savings", s.drawn_from_savings, "Moved in from savings or investment accounts"],
@@ -1729,14 +1853,24 @@ function balanceFlow(s) {
     ["Investments", -s.investments, "Moved to savings or investments — not spending"],
     ["Card timing & other", s.other_movement, "Card spending not yet paid, card bills for earlier months, and money on other accounts"],
   ].filter(([, n]) => n);
+}
+function balanceFlow(s) {
+  const steps = balanceSteps(s);
   const sign = (n) => (n > 0 ? "+" : "−");
   const net = s.closing - s.opening;
-  return `<div class="card flow"><h2>How your balance moved</h2>
+  const base = Math.max(1, s.opening + steps.filter(([, n]) => n > 0).reduce((x, [, n]) => x + n, 0));
+  const pct = (n) => Math.max(0, (n / base) * 100);
+  const keep = Math.max(0, s.closing), outs = steps.filter(([, n]) => n < 0);
+  const bar = `<div class="flow-bar">
+      <span class="fb-keep" style="width:${pct(keep)}%">${pct(keep) >= 14 ? `Still in balance · ${Math.round(pct(keep))}%` : ""}</span>
+      ${outs.map(([l, n], i) => `<span class="fb-out fb-o${i % 4}" style="width:${pct(-n)}%" title="${esc(l)} ${inr(-n)}">${pct(-n) >= 12 ? `${esc(l.split(" ")[0])} · ${Math.round(pct(-n))}%` : ""}</span>`).join("")}
+    </div>`;
+  return `<div class="card flow"><h2>How your balance moved <small class="muted flow-hint">Bar is to scale: opening balance + money in</small></h2>
     <div class="flow-row">
       <div class="flow-end"><div class="label">Opening</div><div class="value">${inr(s.opening)}</div></div>
       <div class="flow-steps">${steps.map(([l, n, hint]) => `<div class="flow-step ${n > 0 ? "in" : "out"}" title="${esc(hint)}"><span class="label">${l}</span><span class="value">${sign(n)} ${inr(Math.abs(n))}</span></div>`).join("") || '<p class="muted">No money moved this month.</p>'}</div>
-      <div class="flow-end"><div class="label">Closing</div><div class="value ${s.closing < 0 ? "bad" : ""}">${inr(s.closing)}</div><div class="sub ${net < 0 ? "bad" : "good"}">${sign(net || 1)} ${inr(Math.abs(net))} this month</div></div>
-    </div></div>`;
+      <div class="flow-end flow-close"><div class="label">Closing</div><div class="value ${s.closing < 0 ? "bad" : ""}">${inr(s.closing)}</div><div class="sub ${net < 0 ? "bad" : "good"}">${sign(net || 1)} ${inr(Math.abs(net))} this month</div></div>
+    </div>${steps.length ? bar : ""}</div>`;
 }
 
 /** Numbers that sit outside the balance math. The user picks which ones show. */
@@ -1905,13 +2039,28 @@ function mxRows(keys) {
   }
   return rows;
 }
-function extraMetrics(s, r) {
+/** Which numbers are shown, and the "add a number" button + popover (shared by both layouts). */
+function mxParts(addLabel) {
   let on = ["regular_expense", "regular_net", "pending"];
   const v = mxSetting("month_metrics", "monthMetrics"); if (v) on = v;
   const all = allMetrics();
   const shown = on.map((k) => all.find(([x]) => x === k)).filter(Boolean);
   const hidden = all.filter(([k, , , , , , c]) => !c && !on.includes(k));
   const customs = all.filter(([, , , , , , c]) => c);
+  const customRows = customs.map(([k, l, , hint, , , c]) => {
+    const isOn = on.includes(k);
+    return `<div class="mx-crow"><button type="button" class="mx-opt" ${isOn ? "disabled" : `data-mx-show="${esc(k)}"`}><span>${esc(l)}${isOn ? ' <em class="mx-on">shown</em>' : ""}</span><small class="mx-code">${esc(hint)}</small></button>`
+      + `<button type="button" class="mx-ico" data-mx-edit="${esc(c.id)}" aria-label="Edit ${esc(l)}" title="Edit">${PENCIL}</button>`
+      + `<button type="button" class="mx-ico del" data-mx-del="${esc(c.id)}" aria-label="Delete ${esc(l)}" title="Delete">${BIN}</button></div>`;
+  }).join("");
+  const add = `<div class="mx-add-wrap"><button class="mx-add" id="mx-add" type="button" aria-expanded="false">${addLabel}</button>
+    <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}
+      ${customs.length ? `<div class="mx-sec">Your numbers</div>${customRows}` : ""}
+      <button type="button" class="mx-opt mx-new" id="mx-new"><span>+ Create a custom number</span><small>Your own formula on these numbers: a percent, average, difference…</small></button></div></div>`;
+  return { on, shown, add };
+}
+function extraMetrics(s, r) {
+  const { shown, add } = mxParts("+ Add custom number");
   const avg = yearAverages(shown);
   const tileHtml = shown.map(([k, l, f, hint, better, fmt = inr]) => {
     // An average already smooths months out, so comparing it to the year average adds noise.
@@ -1922,19 +2071,13 @@ function extraMetrics(s, r) {
       const good = (v > a) === (better > 0);
       arrow = `<span class="mx-trend ${good ? "good" : "bad"}" title="${good ? "Better" : "Worse"} than this year's average">${v > a ? "▲" : "▼"}</span>`;
     }
-    const avgHtml = a != null ? `<div class="mx-avg"><span>${S.period.slice(0, 4)} avg</span>${fmtValue(fmt, a)}</div>` : "";
+    const yr = S.period.slice(0, 4);
+    const barOk = a != null && v != null && a > 0 && v >= 0, mx = barOk ? Math.max(v, a) : 1;
+    const avgHtml = a == null ? "" : barOk
+      ? `<div class="mx-bar"><span style="width:${(v / mx) * 100}%"></span><i style="left:${(a / mx) * 100}%"></i></div><div class="mx-avg"><span>${Math.round((v / a) * 100)}% of ${yr} avg</span><span>avg ${fmtValue(fmt, a)}</span></div>`
+      : `<div class="mx-avg"><span>${yr} avg</span>${fmtValue(fmt, a)}</div>`;
     return `<div class="card metric mx-tile" data-mx-key="${esc(k)}" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${esc(k)}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${esc(l)}</div><div class="value">${fmtValue(fmt, v)}${arrow}</div>${avgHtml}</div>`;
   });
-  const customRows = customs.map(([k, l, , hint, , , c]) => {
-    const isOn = on.includes(k);
-    return `<div class="mx-crow"><button type="button" class="mx-opt" ${isOn ? "disabled" : `data-mx-show="${esc(k)}"`}><span>${esc(l)}${isOn ? ' <em class="mx-on">shown</em>' : ""}</span><small class="mx-code">${esc(hint)}</small></button>`
-      + `<button type="button" class="mx-ico" data-mx-edit="${esc(c.id)}" aria-label="Edit ${esc(l)}" title="Edit">${PENCIL}</button>`
-      + `<button type="button" class="mx-ico del" data-mx-del="${esc(c.id)}" aria-label="Delete ${esc(l)}" title="Delete">${BIN}</button></div>`;
-  }).join("");
-  const add = `<div class="mx-add-wrap"><button class="mx-add" id="mx-add" type="button" aria-expanded="false">+ Add a number</button>
-    <div class="mx-pop" id="mx-pop" hidden>${hidden.map(([k, l, , hint]) => `<button type="button" class="mx-opt" data-mx-show="${k}"><span>${l}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</button>`).join("")}
-      ${customs.length ? `<div class="mx-sec">Your numbers</div>${customRows}` : ""}
-      <button type="button" class="mx-opt mx-new" id="mx-new"><span>+ Create a custom number</span><small>Your own formula on these numbers: a percent, average, difference…</small></button></div></div>`;
   const rows = mxRows(shown.map(([k]) => k)), byKey = Object.fromEntries(shown.map(([k], i) => [k, tileHtml[i]]));
   if (rows.length && rows[rows.length - 1].length < MX_PER_ROW) rows[rows.length - 1].push(null); else rows.push([null]);
   return `<h2 class="mx-head">Other numbers</h2><div class="mx-grid">${rows.map((r) => `<div class="mx-row">${r.map((k) => (k ? byKey[k] : add)).join("")}</div>`).join("")}<div class="mx-row mx-newrow">Drop here for a new row</div></div>`;
@@ -2722,10 +2865,17 @@ function viewSettings() {
   const keys = store.vault.keys;
   html(`
     <div class="card row" style="align-items:center"><h2 style="margin:0">Games</h2><span class="muted" style="margin-left:8px">A short break between entries.</span><span class="spacer"></span><span id="gcloud"></span></div>
-    <div class="card"><h2>Look</h2>${themePicker(s.data.theme || "paper", s.data.custom_theme)}
+    <div class="card"><h2>Look</h2>${themePicker(themeKey(s.data.theme || "clean"), s.data.custom_theme)}
       <p><button id="customize">${s.data.custom_theme ? "Edit my theme" : "Create my own theme"}</button></p><div id="themeed"></div>
       <label>Screen transitions</label><div class="motion-pick">${MOTIONS.map(([k, l]) => `<button type="button" data-motion-pick="${k}" class="${motion() === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <p class="muted" style="margin:4px 0 0">How screens change when you switch tabs. Saved on this device and with your settings.</p></div>
+    <div class="card"><h2>Home layout</h2><div class="layout-pick">${LAYOUTS.map(([k, n, desc, sku]) => {
+      const locked = sku && !entitled(sku), on = (s.data.home_layout || "classic") === k;
+      return `<button type="button" class="layout-opt${on ? " on" : ""}" data-layout-pick="${k}"${locked ? ' data-locked="1"' : ""}>
+        <span class="layout-thumb lt-${k}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="layout-name">${n}${sku && PAYWALL ? ` <span class="pro-badge">${locked ? "🔒 Pro" : ENT.preview ? "Pro · free in preview" : "Pro"}</span>` : ""}</span>
+        <small class="muted">${desc}</small></button>`;
+    }).join("")}</div><p class="muted" style="margin:6px 0 0">On a phone the Classic layout is always used.</p><div id="upsell"></div></div>
     <div class="card"><h2>Months</h2>
       <label for="pm">Months run</label><select id="pm" style="max-width:320px"><option value="calendar">Calendar month (1st to end)</option><option value="pay_cycle">Salary day to salary day</option></select>
       <label for="fm2">Household is funded by</label><select id="fm2" style="max-width:320px"><option value="salary">Salary / regular income</option><option value="savings">Savings (no regular income)</option><option value="both">Both</option></select>
@@ -2759,6 +2909,13 @@ function viewSettings() {
   $("#fm2").value = s.data.funding_mode || "both";
   wireThemePicker(async (t) => { await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, theme: t } }); }, s.data.custom_theme);
   $("#customize").onclick = () => themeEditor();
+  $$("[data-layout-pick]").forEach((b) => (b.onclick = async () => {
+    const k = b.dataset.layoutPick;
+    if (b.dataset.locked) { track("upgrade:view:" + k); return upsell(k); }
+    $$("[data-layout-pick]").forEach((x) => x.classList.toggle("on", x === b));
+    track("layout:" + k);
+    await store.save({ id: s.id, type: "settings", data: { ...settingsRec().data, home_layout: k } });
+  }));
   $$("[data-motion-pick]").forEach((b) => (b.onclick = async () => {
     const m = b.dataset.motionPick;
     if (m === motion()) return;
@@ -2832,11 +2989,22 @@ function viewSettings() {
   };
 }
 
+/** Shown when someone picks a Pro layout they haven't unlocked. Payments aren't live yet: this records interest. */
+function upsell(k) {
+  const l = LAYOUTS.find(([x]) => x === k);
+  $("#upsell").innerHTML = `<div class="upsell"><strong>${esc(l[1])} is part of PlannedOut Pro</strong>
+    <p class="muted">Pro layouts are coming soon as a one-time unlock. Tap below and we'll turn it on for you as soon as it's available.</p>
+    <p class="row"><button type="button" class="primary" id="up-want">I want this</button><button type="button" class="link-btn" id="up-x">Not now</button></p></div>`;
+  $("#up-want").onclick = () => { track("upgrade:want:" + k); $("#upsell").innerHTML = '<p class="good">Thanks, noted. We\'ll let you know.</p>'; };
+  $("#up-x").onclick = () => { $("#upsell").innerHTML = ""; };
+}
+
 // ================= custom theme editor =================
 function themeEditor() {
   const s = settingsRec();
-  const start = s.data.custom_theme || { base: s.data.theme && s.data.theme !== "custom" ? s.data.theme : "excel", font: "office", radius: 4, vars: {} };
+  const start = s.data.custom_theme || { base: s.data.theme && s.data.theme !== "custom" ? themeKey(s.data.theme) : "clean", font: "office", radius: 4, vars: {} };
   const draft = JSON.parse(JSON.stringify(start));
+  draft.base = themeKey(draft.base);
   const current = (k) => draft.vars[k] || resolveColor(k);
   $("#themeed").innerHTML = `
     <h3>My theme</h3>
