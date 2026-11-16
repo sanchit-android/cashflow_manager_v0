@@ -1238,13 +1238,18 @@ function viewMonth() {
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
   const nav = `<div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>`;
-  const txcard = `<div class="card" id="txcard"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>`;
+  const cockpit = homeLayout() === "cockpit";
+  const acctbar = `<div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div>`;
+  // Classic: To-do and the account chips share one row as two proportional cards.
+  const homeTop = `<div class="home-top"><div id="todoslot"></div><div class="card acct-card"><div class="acct-card-head"><h2>Accounts</h2><span class="spacer"></span><div id="acct-tools" class="acct-tools"></div></div>${acctbar}</div></div>`;
+  const txcard = `<div class="card" id="txcard"><h2>Transactions</h2>${cockpit ? acctbar : ""}<div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>`;
   root.dataset.layout = homeLayout();
   if (homeLayout() === "cockpit") html(`<div class="ck"><aside class="card ck-side">${nav}<div id="cockside"></div></aside>
     <div class="ck-main"><div id="summary"></div>${txcard}<div id="cats"></div></div></div>`);
   else html(`
     ${nav}
     <div id="summary" style="margin-top:12px"></div>
+    ${homeTop}
     ${txcard}
     <div id="cats"></div>`);
   $("#prev").onclick = (e) => goPeriod(E.shiftPeriod(S.period, -1), e.currentTarget);
@@ -1308,9 +1313,11 @@ function accountBar() {
     return `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${esc(a.data.name)}${n ? ` · ${money(hint)}` : ""}</option>`;
   };
   // Desktop: chips only, with Shortcuts / New row / Import in the empty space of the first line. Phone: dropdown only.
-  const tools = `<span class="spacer"></span><button type="button" class="link small sc-btn" id="sc-open" title="Keyboard shortcuts">? Shortcuts</button><button type="button" class="link small sc-btn" id="jump-new" title="Jump to new entry row">＋ New row</button><button type="button" class="link small sc-btn" id="imp-open" title="Import a .csv or .xlsx file">📥 Import</button>`;
-  const allChip = `<div class="acct-group acct-first"><div class="acct-chips"><button type="button" data-acct="${ALL}" class="${sel === ALL ? "on" : ""}" aria-pressed="${sel === ALL}">All accounts</button></div>`;
-  const chipRows = groups.map(([label, list], i) => `${i ? '<div class="acct-group">' : ""}<span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div>${i ? "" : tools}</div>`).join("");
+  const tools = `<button type="button" class="icon-btn" id="jump-new" title="New row" aria-label="Jump to new entry row">＋</button><button type="button" class="icon-btn" id="imp-open" title="Import .csv / .xlsx" aria-label="Import a .csv or .xlsx file">⇪</button><button type="button" class="icon-btn" id="sc-open" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>`;
+  const toolHost = $("#acct-tools");
+  if (toolHost) toolHost.innerHTML = isPhone() ? "" : tools;
+  const allChip = `<div class="acct-group acct-first"><div class="acct-chips"><button type="button" data-acct="${ALL}" class="${sel === ALL ? "on" : ""}" aria-pressed="${sel === ALL}">All accounts</button></div></div>`;
+  const chipRows = groups.map(([label, list]) => `<div class="acct-group"><span class="acct-group-label">${label}</span><div class="acct-chips">${list.map(chip).join("")}</div></div>`).join("");
   const select = `<select class="acct-select" id="acctselect" aria-label="Account" style="display:block"><option value="${ALL}"${sel === ALL ? " selected" : ""}>All accounts</option>${groups.map(([label, list]) => `<optgroup label="${label}">${list.map(opt).join("")}</optgroup>`).join("")}</select>`;
   $("#acctbar").innerHTML = groups.length
     ? (isPhone() ? select : allChip + chipRows)
@@ -1741,8 +1748,9 @@ function monthSummary() {
     <div class="sum-status"><div class="hero-prog"><span style="width:${progPct}%"></span></div><span>Day ${curDay} of ${daysInMonth}</span>${neededCards.length ? `<span>${neededCards.length - unbilledCards.length} of ${neededCards.length} cards billed</span>` : ""}</div>
     <div class="hero-grid">${heroLeft}${heroRight}</div>
     ${balanceFlow(s)}
-    ${extraMetrics(s, r)}
-    ${todoRows.length ? `<div class="card todo-card" aria-label="To-do this month"><h2>To do <span class="todo-count">${todoRows.length} open</span></h2>${todoRows.join("")}${toBill ? `<div class="muted todo-foot">${inr(toBill)} to bill across ${unbilledCards.length} card${unbilledCards.length > 1 ? "s" : ""}</div>` : ""}</div>` : ""}`;
+    ${extraMetrics(s, r)}`;
+  const todoSlot = $("#todoslot");
+  if (todoSlot) todoSlot.innerHTML = homeLayout() !== "cockpit" && todoRows.length ? `<div class="card todo-card" aria-label="To-do this month"><h2>To do <span class="todo-count">${todoRows.length} open</span></h2>${todoRows.join("")}${toBill ? `<div class="muted todo-foot">${inr(toBill)} to bill across ${unbilledCards.length} card${unbilledCards.length > 1 ? "s" : ""}</div>` : ""}</div>` : "";
   cardCategoryChart(d);
   const saveMx = async (on) => { await saveMxLayout({ month_metrics: on }); monthSummary(); };
   const curMx = () => mxParts("").on;

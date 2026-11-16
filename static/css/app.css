@@ -30,7 +30,7 @@ header.top .brand .tld { color: #109868; }
 [data-theme="planned"] header.top .brand .tld { color: #34d399; }
 header.top form { margin: 0; flex: none; white-space: nowrap; }
 header.top button.primary { padding-top: 6px; padding-bottom: 6px; line-height: 1.2; }
-nav.tabs { display: flex; gap: 4px; flex-wrap: nowrap; position: relative; isolation: isolate; overflow-x: auto; scrollbar-width: none; }
+nav.tabs { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; position: relative; isolation: isolate; overflow-x: auto; scrollbar-width: none; }
 nav.tabs::-webkit-scrollbar { display: none; }
 nav.tabs::before { content: ""; position: absolute; left: 0; top: 0; width: var(--tab-w, 0px); height: var(--tab-h, 0px); transform: translate3d(var(--tab-x, 0px), var(--tab-y, 0px), 0); background: var(--surface-2); border-radius: var(--radius); z-index: 0; pointer-events: none; opacity: 0; }
 nav.tabs.ready::before { opacity: 1; transition: transform .26s cubic-bezier(.2, .8, .2, 1), width .26s cubic-bezier(.2, .8, .2, 1), height .26s cubic-bezier(.2, .8, .2, 1), background-color .15s; }
@@ -40,7 +40,7 @@ nav.tabs button.on { background: var(--surface-2); color: var(--text); font-weig
 nav.tabs.ready button.on { background: transparent; }
 nav.tabs.ready button:focus-visible { outline: none; }
 /* Admin dropdown inside the tab bar (panel is fixed so the scrolling bar doesn't clip it). */
-nav.tabs .tab-dd { flex: none; position: relative; z-index: 1; }
+nav.tabs .tab-dd { flex: none; position: relative; z-index: 1; display: flex; align-items: stretch; }
 nav.tabs .tab-dd > .dd-btn { flex-direction: row; list-style: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; transition: color .2s ease; }
 nav.tabs .tab-dd > .dd-panel[hidden] { display: none; }
 nav.tabs .tab-dd > .dd-btn::after { content: "▾"; font-size: 11px; margin-left: 4px; height: auto; visibility: visible; font-weight: 400; }
@@ -1373,6 +1373,21 @@ body.menu-signout header.top > form { display: none; }
 .mx-bar span { display: block; height: 100%; border-radius: 2px; background: var(--muted); }
 .mx-bar i { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--text); }
 .todo-card h2 { display: flex; align-items: center; gap: 8px; }
+/* Home: To-do and Accounts side by side (accounts take the full row when nothing is to do). */
+.home-top { display: flex; gap: 16px; align-items: stretch; margin-bottom: 16px; }
+.home-top > #todoslot { flex: 2 1 0; min-width: 0; }
+.home-top > #todoslot:empty { display: none; }
+.home-top > .acct-card { flex: 3 1 0; min-width: 0; }
+.home-top > * > .card, .home-top > .card { margin: 0; height: 100%; box-sizing: border-box; }
+.acct-card-head { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.acct-card-head h2 { margin: 0; }
+.acct-card .acct-bar { margin: 0; }
+.acct-card .acct-group { flex-direction: column; align-items: stretch; gap: 4px; }
+.acct-card .acct-group-label { width: auto; }
+.acct-tools { display: flex; gap: 4px; }
+.icon-btn { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; }
+.icon-btn:hover { color: var(--text); background: var(--surface-2); }
+@media (max-width: 900px) { .home-top { flex-direction: column; } }
 .todo-count { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--warn, #d97706) 18%, transparent); color: var(--text); }
 .todo-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .todo-row .num { font-family: var(--num); font-weight: 600; }
