@@ -1910,7 +1910,7 @@ function balanceFlow(s) {
   return `<div class="card flow"><h2>How your balance moved <small class="muted flow-hint">Bar is to scale: opening balance + money in</small></h2>
     <div class="flow-row">
       <div class="flow-end"><div class="label">Opening</div><div class="value">${inr(s.opening)}</div></div>
-      <div class="flow-steps">${steps.map(([l, n, hint]) => `<div class="flow-step ${n > 0 ? "in" : "out"}" title="${esc(hint)}"><span class="label">${l}</span><span class="value">${sign(n)} ${inr(Math.abs(n))}</span></div>`).join("") || '<p class="muted">No money moved this month.</p>'}</div>
+      <div class="flow-steps">${steps.map(([l, n, hint]) => `<div class="flow-step ${n > 0 ? "in" : `out fs-o${outs.findIndex(([ol]) => ol === l) % 4}`}" title="${esc(hint)}"><span class="label">${l}</span><span class="value">${sign(n)} ${inr(Math.abs(n))}</span></div>`).join("") || '<p class="muted">No money moved this month.</p>'}</div>
       <div class="flow-end flow-close"><div class="label">Closing</div><div class="value ${s.closing < 0 ? "bad" : ""}">${inr(s.closing)}</div><div class="sub ${net < 0 ? "bad" : "good"}">${sign(net || 1)} ${inr(Math.abs(net))} this month</div></div>
     </div>${steps.length ? bar : ""}</div>`;
 }

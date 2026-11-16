@@ -1329,8 +1329,12 @@ body.menu-signout header.top > form { display: none; }
 .flow-bar > span { overflow: hidden; padding: 0 6px; }
 .fb-keep { background: color-mix(in srgb, var(--good) 22%, var(--surface)); color: var(--text); }
 .fb-out { color: #fff; border-left: 1px solid var(--surface); }
-.fb-o0 { background: var(--bad); } .fb-o1 { background: color-mix(in srgb, var(--bad) 75%, var(--surface)); }
-.fb-o2 { background: color-mix(in srgb, var(--bad) 50%, var(--surface)); } .fb-o3 { background: color-mix(in srgb, var(--bad) 35%, var(--surface)); }
+/* Each money-out step gets its own hue, shared by its box above and its bar segment. */
+.fb-o0, .fs-o0 { --fo: var(--bad); } .fb-o1, .fs-o1 { --fo: #d97706; }
+.fb-o2, .fs-o2 { --fo: #7c3aed; } .fb-o3, .fs-o3 { --fo: #0e7490; }
+.fb-out { background: var(--fo); }
+.flow-step.out[class*="fs-o"] { background: color-mix(in srgb, var(--fo) 8%, var(--surface)); border-color: color-mix(in srgb, var(--fo) 45%, transparent); }
+.flow-step.out[class*="fs-o"] .value { color: var(--fo); }
 .mx-tile:has(.mx-bar) .mx-avg { position: static; transform: none; display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; }
 .mx-tile:has(.mx-bar) .mx-avg span { display: inline; }
 .mx-bar { position: relative; height: 6px; margin-top: 8px; border-radius: 2px; background: var(--surface-2); }
