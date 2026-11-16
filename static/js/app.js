@@ -408,7 +408,7 @@ const PHONE_TABS = [["month", "Home", '<path d="M4 11l8-7 8 7v9H4z"/><path d="M1
   ["plan", "Plan", '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>']];
 function syncTabIndicator(nav) {
   if (!nav || nav.hidden) return;
-  const b = nav.querySelector(":scope > button.on, :scope > details > summary.on");
+  const b = nav.querySelector(":scope > button.on, :scope > .tab-dd > .dd-btn.on");
   if (!b || !b.offsetWidth) return;
   // Measure against the nav itself: the Admin summary sits inside a positioned <details>, so its offsetLeft would be ~0.
   const nr = nav.getBoundingClientRect(), br = b.getBoundingClientRect();
@@ -458,7 +458,8 @@ function moreSheet() {
   const back = document.createElement("div");
   back.className = "ml-back";
   back.innerHTML = `<div class="ml-sheet" role="dialog" aria-modal="true" aria-label="More"><div class="ml-grab" aria-hidden="true"></div>
-    ${[...MENU_TABS, ...(store.isAdmin ? ADMIN_TABS.map(([k, l]) => [k, "Admin · " + l]) : [])].map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${MENU_TABS.map(([k, l]) => `<button type="button" class="more-item" data-go="${k}">${l}</button>`).join("")}
+    ${store.isAdmin ? `<p class="more-head">Admin</p>${ADMIN_TABS.map(([k, l]) => `<button type="button" class="more-item more-sub" data-go="${k}">${l}</button>`).join("")}` : ""}
     <button type="button" class="more-item" data-go="signout">${store.isDemo ? "Exit demo" : store.isLocal ? "Exit" : "Sign out"}</button></div>`;
   document.body.appendChild(back); document.body.classList.add("ml-open");
   const close = () => { back.remove(); document.body.classList.remove("ml-open"); };
@@ -912,43 +913,76 @@ document.addEventListener("keydown", (e) => {
 // Re-lay out when crossing the phone breakpoint (e.g. rotating a tablet).
 window.matchMedia("(max-width: 640px)").addEventListener("change", () => { if (store.key && settingsRec()) { renderTabs(); render(); } });
 
+// Header dropdowns (☰ and Admin): a button + panel we open/close ourselves. <details> plus a scroll-to-close
+// listener didn't open on phones, where a tap itself fires scroll events (address bar moving).
+let openDD = null;
+function placeDD(dd) {
+  const s = dd.querySelector(".dd-btn"), p = dd.querySelector(".dd-panel");
+  // A transformed/filtered ancestor (glass themes) becomes the containing block of position:fixed.
+  const r = s.getBoundingClientRect(), pr = p.offsetParent ? p.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+  p.style.top = r.bottom - pr.top + 6 + "px";
+  p.style.left = Math.max(8, Math.min(r.right - p.offsetWidth, innerWidth - p.offsetWidth - 8)) - pr.left + "px";
+}
+function closeDD() {
+  if (!openDD) return;
+  openDD.classList.remove("open");
+  openDD.querySelector(".dd-btn").setAttribute("aria-expanded", "false");
+  openDD.querySelector(".dd-panel").hidden = true;
+  openDD = null;
+}
+function toggleDD(dd) {
+  const was = openDD === dd;
+  closeDD();
+  if (was) return;
+  openDD = dd; dd.classList.add("open");
+  dd.querySelector(".dd-btn").setAttribute("aria-expanded", "true");
+  dd.querySelector(".dd-panel").hidden = false;
+  placeDD(dd);
+}
+document.addEventListener("pointerdown", (e) => { if (openDD && !openDD.contains(e.target)) closeDD(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openDD) { const b = openDD.querySelector(".dd-btn"); closeDD(); b.focus(); } });
+window.addEventListener("resize", () => openDD && placeDD(openDD));
+window.addEventListener("scroll", () => openDD && placeDD(openDD), { passive: true });
+tabsEl.addEventListener("scroll", () => openDD && placeDD(openDD), { passive: true });
+
+// Phones: a ☰ in the header on every screen opens the "More" sheet.
+function ensurePhoneMenuBtn() {
+  if (document.getElementById("menubtn")) return;
+  const b = document.createElement("button");
+  b.type = "button"; b.id = "menubtn"; b.className = "menu-btn"; b.setAttribute("aria-label", "Menu");
+  b.textContent = "☰"; b.onclick = moreSheet;
+  document.querySelector("header.top").appendChild(b);
+}
+
 function renderTabs() {
   renderBottomNav();
+  ensurePhoneMenuBtn();
   tabsEl.hidden = false;
   const list = tabList(), keys = list.map(([k]) => k).join(",");
   if (tabsEl.dataset.keys !== keys) {
     tabsEl.dataset.keys = keys;
     tabsEl.classList.remove("ready");
+    closeDD();
     const btn = ([k, l]) => `<button type="button" data-tab="${k}" data-label="${l}">${l}</button>`;
-    const menu = list.filter(([k]) => inMenu(k)).map(([k, l]) => [k, isAdminTab(k) ? "Admin · " + l : l]);
+    const item = ([k, l]) => `<button type="button" role="menuitem" data-tab="${k}">${l}</button>`;
     const out = store.isDemo ? "Exit demo" : store.isLocal ? "Exit" : "Sign out";
+    const dd = (cls, label, aria, inner) => `<div class="tab-dd ${cls}"><button type="button" class="dd-btn" data-label="${label}" aria-haspopup="menu" aria-expanded="false" aria-label="${aria}">${label}</button><div class="dd-panel" role="menu" hidden>${inner}</div></div>`;
     tabsEl.innerHTML = list.filter(([k]) => !inMenu(k)).map(btn).join("")
-      + `<details class="tab-dd tab-menu"><summary data-label="Menu" aria-label="Menu: accounts, import, settings${store.isAdmin ? ", admin" : ""}, sign out">☰</summary><div class="dd-panel" role="menu">${menu.map(btn).join("")}<button type="button" data-signout>${out}</button></div></details>`;
-    tabsEl.querySelector("[data-signout]").onclick = () => { if (store.isDemo || store.isLocal) { location.href = "/"; return; } document.querySelector("header form").requestSubmit(); };
+      + (store.isAdmin ? dd("tab-admin", "Admin", "Admin pages", ADMIN_TABS.map(item).join("")) : "")
+      + dd("tab-menu", "☰", "Menu: accounts, import, settings, sign out", MENU_TABS.map(item).join("") + `<button type="button" role="menuitem" data-signout>${out}</button>`);
+    tabsEl.querySelector("[data-signout]").onclick = () => { closeDD(); if (store.isDemo || store.isLocal) { location.href = "/"; return; } document.querySelector("header form").requestSubmit(); };
     document.body.classList.add("menu-signout");
-    tabsEl.querySelectorAll("button[data-tab]").forEach((b) => (b.onclick = () => { const dd = b.closest("details"); if (dd) dd.open = false; goTab(b.dataset.tab, false); }));
-    const dd = tabsEl.querySelector(".tab-dd");
-    if (dd) {
-      // The tab bar scrolls sideways, so the panel is fixed-positioned under the summary to avoid being clipped.
-      dd.addEventListener("toggle", () => {
-        if (!dd.open) return;
-        const s = dd.querySelector("summary"), p = dd.querySelector(".dd-panel");
-        const r = s.getBoundingClientRect(), pr = p.offsetParent ? p.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
-        const left = Math.max(8, Math.min(r.right - p.offsetWidth, innerWidth - p.offsetWidth - 8));
-        p.style.top = r.bottom - pr.top + 6 + "px";
-        p.style.left = left - pr.left + "px";
-      });
-      document.addEventListener("click", (e) => { if (dd.open && !dd.contains(e.target)) dd.open = false; });
-      window.addEventListener("scroll", () => { dd.open = false; }, { passive: true });
-    }
+    tabsEl.querySelectorAll("button[data-tab]").forEach((b) => (b.onclick = () => { closeDD(); goTab(b.dataset.tab, false); }));
+    tabsEl.querySelectorAll(".tab-dd").forEach((d) => (d.querySelector(".dd-btn").onclick = () => toggleDD(d)));
   }
   tabsEl.querySelectorAll("button[data-tab]").forEach((b) => {
     const on = b.dataset.tab === navTab(S.tab);
     b.classList.toggle("on", on);
     b.setAttribute("aria-current", on ? "page" : "false");
   });
-  const sum = tabsEl.querySelector(".tab-dd > summary");
-  if (sum) sum.classList.toggle("on", inMenu(S.tab));
+  const adm = tabsEl.querySelector(".tab-admin > .dd-btn"), men = tabsEl.querySelector(".tab-menu > .dd-btn");
+  if (adm) adm.classList.toggle("on", isAdminTab(S.tab));
+  if (men) men.classList.toggle("on", MENU_TABS.some(([t]) => t === S.tab));
   syncTabIndicator(tabsEl);
 }
 // ================= motion =================
@@ -963,6 +997,7 @@ function applyMotion(m) {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let switching = 0;
 async function goTab(k, scroll = true) {
+  if (k === "admin-tech") k = "admin-traffic";
   if (TAB_HOME[k]) { const [t, sub] = TAB_HOME[k]; S.sub = { ...S.sub, [t]: sub }; if (S.tab === t) { render(); return; } k = t; }
   if (k === S.tab) return;
   const order = tabList().map(([t]) => t), dir = order.indexOf(k) >= order.indexOf(S.tab) ? "m-fwd" : "m-back";
@@ -1202,7 +1237,7 @@ function viewMonth() {
   const curPeriod = E.currentPeriod(dd, today());
   const [y, m] = S.period.split("-").map(Number);
   const label = new Date(y, m - 1, 1).toLocaleString("en-IN", { month: "long", year: "numeric" });
-  const nav = `<div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}<button type="button" id="menubtn" class="menu-btn" aria-label="Menu">☰</button></div>`;
+  const nav = `<div class="row month-nav"><button id="prev" aria-label="Previous month">←</button><div class="month-pick"><button id="mpick" class="month-title" aria-haspopup="true" aria-expanded="false"><h1 style="margin:0">${esc(label)}<sup id="mlock" class="mlock"></sup> <span class="caret" aria-hidden="true">▾</span></h1></button><div id="mmenu" class="month-menu" hidden>${Array.from({ length: 12 }, (_, i) => { const p = `${y}-${String(i + 1).padStart(2, "0")}`; const cl = E.closeOf(dd, p)?.closed; return `<button data-p="${p}" class="${p === S.period ? "on" : ""}${cl ? " closed" : ""}"${cl ? ' title="Closed"' : ""}>${new Date(y, i, 1).toLocaleString("en-IN", { month: "short" })}${cl ? LOCK : ""}</button>`; }).join("")}</div></div><span id="mclose" class="mclose"></span>${settings.period_mode === "pay_cycle" ? ` <span class="muted" style="font-size:14px">cycle from day ${settings.cycle_day}</span>` : ""}<button id="next" aria-label="Next month">→</button>${S.period !== curPeriod ? '<button id="today" class="link-btn">This month</button>' : ""}</div>`;
   const txcard = `<div class="card" id="txcard"><h2>Transactions</h2><div class="acct-bar" id="acctbar" role="group" aria-label="Account"></div><div id="acctsum" class="acct-sum" aria-live="polite"></div><div id="ltools"></div><div id="billbox"></div><div id="rollask"></div><div id="txgrid"></div></div>`;
   root.dataset.layout = homeLayout();
   if (homeLayout() === "cockpit") html(`<div class="ck"><aside class="card ck-side">${nav}<div id="cockside"></div></aside>
@@ -1227,7 +1262,6 @@ function viewMonth() {
   monthCloseBar();
   monthSummary();
   mountTxGrid();
-  $("#menubtn").onclick = moreSheet;
 }
 
 /** Tidy a transaction before saving, the same way for the grid and the chat box. */

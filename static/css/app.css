@@ -41,10 +41,10 @@ nav.tabs.ready button.on { background: transparent; }
 nav.tabs.ready button:focus-visible { outline: none; }
 /* Admin dropdown inside the tab bar (panel is fixed so the scrolling bar doesn't clip it). */
 nav.tabs .tab-dd { flex: none; position: relative; z-index: 1; }
-nav.tabs .tab-dd > summary { list-style: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; transition: color .2s ease; }
-nav.tabs .tab-dd > summary::-webkit-details-marker { display: none; }
-nav.tabs .tab-dd > summary::after { content: "▾"; font-size: 11px; margin-left: 4px; }
-nav.tabs .tab-dd > summary.on { color: var(--text); font-weight: 600; }
+nav.tabs .tab-dd > .dd-btn { flex-direction: row; list-style: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius); color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; transition: color .2s ease; }
+nav.tabs .tab-dd > .dd-panel[hidden] { display: none; }
+nav.tabs .tab-dd > .dd-btn::after { content: "▾"; font-size: 11px; margin-left: 4px; height: auto; visibility: visible; font-weight: 400; }
+nav.tabs .tab-dd > .dd-btn.on { color: var(--text); font-weight: 600; }
 nav.tabs .tab-dd > .dd-panel { position: fixed; z-index: 50; min-width: 180px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
 nav.tabs .tab-dd > .dd-panel button { align-items: flex-start; color: var(--text); padding: 8px 10px; }
 nav.tabs .tab-dd > .dd-panel button:hover { background: var(--border); }
@@ -1142,11 +1142,19 @@ body.chat-resizing, body.chat-resizing * {
 
 /* Menu replaces the separate Sign out */
 body.menu-signout header.top > form { display: none; }
-.tab-menu > summary { font-size: 18px; padding-inline: 12px; }
+.tab-menu > .dd-btn { font-size: 18px; padding-inline: 12px; }
 .tab-menu .dd-panel { min-width: 200px; }
 .tab-menu .dd-panel [data-signout] { border-top: 1px solid var(--border); color: var(--bad); }
 .menu-btn { display: none; }
-@media (max-width: 640px) { .menu-btn { display: inline-grid; place-items: center; order: -1; padding: 4px 10px; } }
+.more-head { margin: 10px 4px 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.more-item.more-sub { padding-left: 20px; }
+.kpis.compact { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.kpis.compact .metric { padding: 8px 10px; }
+.kpis.compact .metric .value { font-size: 20px; }
+.kpis.compact .metric .sub { font-size: 11px; }
+.adm-more { margin-top: 16px; }
+.adm-more > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+@media (max-width: 640px) { header.top .menu-btn { display: inline-grid; place-items: center; margin-left: auto; padding: 4px 12px; font-size: 20px; } }
 
 /* Sub-views inside a destination */
 .subnav { margin: 0 0 12px; }

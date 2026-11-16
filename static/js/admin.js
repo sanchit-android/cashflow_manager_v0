@@ -19,13 +19,17 @@ const card = (title, body, note = "") => `<div class="card"><h2>${esc(title)}</h
 const table = (heads, rows, empty = "Nothing yet.") => rows.length
   ? `<div class="yt-wrap"><table class="yt adm-t"><thead><tr>${heads.map((h, i) => `<th class="${i ? "" : "rowh"}">${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i ? `<td>${c}</td>` : `<th class="rowh">${c}</th>`)).join("")}</tr>`).join("")}</tbody></table></div>`
   : `<p class="muted">${empty}</p>`;
+const tiles = (...m) => `<div class="kpis compact">${m.join("")}</div>`;
+// Secondary numbers: kept (every feature keeps a stats card) but collapsed so the page leads with what matters.
+const more = (inner, label = "More detail") => `<details class="adm-more"><summary>${esc(label)}</summary>${inner}</details>`;
 const bars = (id) => `<div id="${id}"></div>`;
 const drawBars = (id, items, color) => { const el = host.querySelector("#" + id); if (el) { if (items.length) hbars(el, { items, color, fmt: num }); else el.innerHTML = '<p class="muted">Nothing yet.</p>'; } };
 
-export const ADMIN_VIEWS = [["business", "Business"], ["traffic", "Traffic"], ["tech", "Technical"], ["indexing", "Indexing"], ["chat", "Chat stats"], ["admins", "Admins"]];
+export const ADMIN_VIEWS = [["business", "Business"], ["traffic", "Traffic & health"], ["indexing", "Indexing"], ["chat", "Chat stats"], ["admins", "Admins"]];
 
 // Each admin view is its own tab ("admin-business", "admin-tech", ...).
 export async function viewAdmin(root, view) {
+  if (view === "tech") view = "traffic";
   host = root; A.view = view;
   const title = (ADMIN_VIEWS.find(([k]) => k === view) || [, "Admin"])[1];
   host.innerHTML = `<div class="row"><h1 style="margin:0">Admin · ${esc(title)}</h1><span class="spacer"></span>
@@ -41,7 +45,7 @@ export async function viewAdmin(root, view) {
     if (view === "traffic") return traffic(box);
     const d = await api(`/api/admin/${view}?days=${A.days}${view === "chat" && A.chatInternal ? "&internal=1" : ""}`);
     if (host.querySelector("#adm") !== box || A.view !== view) return; // user left the tab
-    (view === "business" ? business : view === "chat" ? chat : tech)(box, d);
+    (view === "business" ? business : chat)(box, d);
   } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
@@ -65,13 +69,13 @@ function chat(box, d) {
     <label class="adm-toggle"><input type="checkbox" id="c-internal" ${d.with_internal ? "checked" : ""}> Include internal testers
       <span class="muted">(${num(d.internal_count)} message${d.internal_count === 1 ? "" : "s"} from internal users in this period${d.with_internal ? ", included below" : ", left out"})</span></label>
     <p class="muted">Messages in the chat that didn't get a useful answer, or that the user undid. Amounts, dates, numbers and account names were replaced in the browser before sending (<code>&lt;amt&gt;</code>, <code>&lt;date&gt;</code>, <code>&lt;acct&gt;</code>), and no user is stored. Rows are deleted after ${d.retention_days} days.</p>
-    <div class="kpis">${metric("Logged", num(d.total), `in ${d.days} days`)}${d.reasons.map((r) => metric(r.label, num(r.count), esc(REASON_HINT[r.key] || ""))).join("")}</div>
+    ${tiles(metric("Logged", num(d.total), `in ${d.days} days`), ...shown.slice(0, 3).map((r) => metric(r.label, num(r.count), esc(REASON_HINT[r.key] || ""))))}
     ${card("By day", bars("c-days"))}
     <div class="adm-2">
       ${card("Read as", bars("c-kinds"), "What the message was taken for: entry, add_to, edit, remove, query, chart, bill, account, metric. entry_amount / entry_account… are follow-up questions that were skipped.")}
       ${card("Most repeated", table(["Message", "Why", "Times", "Last"], d.top.map((r) => [esc(r.text), tag(r.reason), num(r.count), when(r.last)])), "The same redacted text more than once is the best place to add a rule.")}
     </div>
-    ${card("Latest", table(["Message", "Why", "Read as", "Device", "When"], d.recent.map((r) => [esc(r.text) + (r.internal ? ' <span class="adm-tag">internal</span>' : ""), tag(r.reason), esc(r.kind || ""), esc(r.device), when(r.created_at)]), "Nothing logged yet."))}`;
+    ${more(`<div class="kpis">${d.reasons.map((r) => metric(r.label, num(r.count), esc(REASON_HINT[r.key] || ""))).join("")}</div>` + card("Latest", table(["Message", "Why", "Read as", "Device", "When"], d.recent.map((r) => [esc(r.text) + (r.internal ? ' <span class="adm-tag">internal</span>' : ""), tag(r.reason), esc(r.kind || ""), esc(r.device), when(r.created_at)]), "Nothing logged yet.")))}`;
   box.querySelector("#c-internal").onchange = (e) => { A.chatInternal = e.target.checked; viewAdmin(host, "chat"); };
   const el = host.querySelector("#c-days");
   // Four colours: the top three reasons and "Other" when there are more than four.
@@ -88,20 +92,16 @@ function business(box, d) {
   const tabTotal = d.tabs.reduce((x, t) => x + t.count, 0);
   const savingsAssumptions = d.changes.filter((r) => r.event.startsWith("savings:"));
   const life = Object.fromEntries(d.lifecycle.map((r) => [r.event, r]));
+  const wk1 = (d.cohorts.find((c) => c.weeks[0] != null) || { weeks: [] }).weeks[0] ?? null;
   const lc = (e) => (life[e] ? `${num(life[e].count)} <span class="muted">(${num(life[e].users)} users)</span>` : "0");
   box.innerHTML = `
-    <div class="kpis">
-      ${metric("Real use today", num(k.real_today), `7-day average ${k.real_avg_7} · ${num(k.real_days_10)} day(s) with 10+ in ${d.days} days`)}
-      ${metric("Using it without an account", `${num(k.local_today)} / ${num(k.local_week)}`, `today / last 7 days (person-days, before signing up)`)}
-      ${metric("Total users", num(k.users), `${num(k.new_users)} new in ${d.days} days`)}
-      ${metric("Active users", num(k.active_window), `in the last ${d.days} days`)}
-      ${metric("Daily / weekly / monthly", `${num(k.dau)} / ${num(k.wau)} / ${num(k.mau)}`, `stickiness (daily ÷ monthly) ${k.stickiness}%`)}
-      ${metric("Using it for real", num(k.with_transactions), `${pct(k.with_transactions, k.users)} of users have transactions`)}
-      ${metric("Stuck at sign-up", num(k.stalled_signups), "signed up, never created a vault")}
-      ${metric("Gone quiet", num(k.dormant_users), "had data, not seen in 30+ days")}
-      ${metric("Records stored", num(k.records), `${num(k.google_users)} users sign in with Google`)}
-      ${metric("Accounts deleted", num(k.deleted_accounts), `in the last ${d.days} days`)}
-    </div>
+    ${tiles(
+      metric("Active today", num(k.real_today), `7-day avg ${k.real_avg_7}`),
+      metric("New sign-ups", num(k.new_users), `in ${d.days} days`),
+      metric("Weekly active", num(k.wau), `stickiness ${k.stickiness}%`),
+      metric("Activated", pct(k.with_transactions, k.users), `${num(k.with_transactions)} of ${num(k.users)} have transactions`),
+      metric("Week-1 retention", wk1 == null ? "—" : wk1 + "%", "latest signup week"),
+      metric("Stuck at sign-up", `<span class="${k.stalled_signups ? "bad" : ""}">${num(k.stalled_signups)}</span>`, "no vault created"))}
     ${card("New and returning users", bars("b-users"), "Bars: people who used the app with their own data each day: new (signed up that day), returning, and not signed up yet (using it in their browser only). Line: sign-ups. Demo visits are not counted.")}
     <div class="adm-2">
       ${card("Activation funnel", table(["Step", "Users", "Of sign-ups", "Of previous step"],
@@ -111,6 +111,19 @@ function business(box, d) {
         d.cohorts.map((c) => [short(c.week), num(c.size), ...[0, 1, 2, 3].map((i) => (c.weeks[i] == null ? "" : `<span class="heat" style="--h:${c.weeks[i] / 100}">${c.weeks[i]}%</span>`))])),
         "Share of each week's new users who came back in each following week.")}
     </div>
+    ${card("Most active users", table(["Email", "Joined", "Last seen", `Days active (${d.days}d)`, "Transactions", "Months", "Vault", ""],
+      d.top_users.map((u) => [esc(u.email), short(u.joined), short(u.last_seen), num(u.days_active), num(u.transactions), num(u.months), u.vault ? "Yes" : '<span class="bad">No</span>',
+        `<button type="button" data-internal="${esc(u.email)}" title="Leave this user out of all stats">Mark internal</button>`])),
+      `Good people to ask for feedback. ${num(d.internal_users)} internal testing user(s) are left out of every number on this page; manage them under Admins.`)}
+    ${more(`
+      <div class="kpis">
+        ${metric("Using it without an account", `${num(k.local_today)} / ${num(k.local_week)}`, "today / last 7 days")}
+        ${metric("Daily / weekly / monthly", `${num(k.dau)} / ${num(k.wau)} / ${num(k.mau)}`)}
+        ${metric("Active users", num(k.active_window), `in the last ${d.days} days`)}
+        ${metric("Gone quiet", num(k.dormant_users), "had data, not seen in 30+ days")}
+        ${metric("Records stored", num(k.records), `${num(k.google_users)} users sign in with Google`)}
+        ${metric("Accounts deleted", num(k.deleted_accounts), `in the last ${d.days} days`)}
+      </div>
     ${card("Screens used", table(["Screen", "Opened", "Users", "Share of opens", "Reach (of active users)"],
       d.tabs.map((t) => [esc(t.event), num(t.count), num(t.users), pct(t.count, tabTotal), pct(t.users, k.active_window)])),
       `In the last ${d.days} days. Screens nobody opens are candidates to simplify or promote.`)}
@@ -157,10 +170,7 @@ function business(box, d) {
     ${card("Buttons used", table(["Screen : button", "Clicks", "Users"], d.clicks.map((r) => [esc(r.event), num(r.count), num(r.users)])),
       "Named by button id. Useful to see whether features like export, checkpoints or custom themes get used.")}
     ${card("Settings changed", table(["Screen : field", "Changes", "Users"], d.changes.filter((r) => !r.event.startsWith("savings:")).map((r) => [esc(r.event), num(r.count), num(r.users)])))}
-    ${card("Most active users", table(["Email", "Joined", "Last seen", `Days active (${d.days}d)`, "Transactions", "Months", "Vault", ""],
-      d.top_users.map((u) => [esc(u.email), short(u.joined), short(u.last_seen), num(u.days_active), num(u.transactions), num(u.months), u.vault ? "Yes" : '<span class="bad">No</span>',
-        `<button type="button" data-internal="${esc(u.email)}" title="Leave this user out of all stats">Mark internal</button>`])),
-      `Good people to ask for feedback. ${num(d.internal_users)} internal testing user(s) are left out of every number on this page; manage them under Admins.`)}`;
+`)}`;
   box.querySelectorAll("[data-internal]").forEach((b) => (b.onclick = async () => {
     if (!confirm(`Mark ${b.dataset.internal} as internal testing? Their usage will be left out of all stats.`)) return;
     try { await api("/api/admin/internal", { method: "POST", body: { email: b.dataset.internal, internal: true } }); viewAdmin(host, "business"); }
@@ -175,82 +185,6 @@ function business(box, d) {
   drawBars("b-types", d.records_by_type, C[0]);
   drawBars("b-tx", d.depth.transactions, C[1]);
   drawBars("b-months", d.depth.months, C[2]);
-}
-
-// ================= technical =================
-function tech(box, d) {
-  const t = d.traffic, r = d.requests, db = d.db, h = d.health, labels = d.labels.map(short);
-  const srcLabel = { direct: "Direct / unknown", search: "Search engines", ai: "AI assistants", social: "Social", referral: "Other websites", email: "Email", campaign: "Campaign links", internal: "Internal" };
-  const named = (key, title) => (t.source_names[key] || []).length ? `<h3>${title}</h3>${table(["Source", "Visits"], t.source_names[key].map((x) => [esc(x.label), num(x.value)]))}` : "";
-  const used = db.used_pct ?? null;
-  const lcodes = d.login_codes;
-  box.innerHTML = `
-    <div class="card"><h2>Health</h2>
-      <div class="adm-checks">${h.checks.map((c) => `<span class="${c.ok ? "good" : "bad"}">${c.ok ? "✓" : "✗"} ${esc(c.name)}${c.detail ? ` (${esc(c.detail)})` : ""}</span>`).join("")}</div>
-      <p class="muted">Python ${esc(h.python)} · Django ${esc(h.django)} · ${esc(db.version || db.vendor)} · this process up ${num(h.pid_uptime_min)} min (since ${when(h.process_started)})</p></div>
-    <div class="kpis">
-      ${metric("Visits", num(t.total_visits), `${num(t.unique_visitors)} unique visitors · ${num(t.total_views)} page views`)}
-      ${metric("Requests", num(r.total), `average ${num(r.avg_ms)} ms · ${num(r.slow)} over 1 s`)}
-      ${metric("Server errors (5xx)", `<span class="${r.err5 ? "bad" : "good"}">${num(r.err5)}</span>`, `${pct(r.err5, r.total)} of requests`)}
-      ${metric("Client errors (4xx)", num(r.err4), `${pct(r.err4, r.total)} of requests`)}
-      ${metric("Database", used == null ? bytes(db.size_bytes) : `${used}%`, `${bytes(db.size_bytes)} of ${num(db.limit_mb)} MB free tier`)}
-      ${metric("Email sign-in codes", num(lcodes.sent), `${pct(lcodes.used, lcodes.sent)} used · ${num(lcodes.locked)} locked out`)}
-    </div>
-    ${card("Visitors", bars("t-traffic"), "People (bots excluded). A visit is one visitor's first page on a day. Visitors are counted with a hash that changes daily; no IP addresses are stored.")}
-    <div class="adm-2">
-      ${card("How people arrive", bars("t-src") + named("search", "Search engines") + named("ai", "AI assistants") + named("social", "Social") + named("campaign", "Campaign links (utm_source)") + named("email", "Email"),
-        "Search engines don't pass the search words. For keywords, connect Google Search Console and Bing Webmaster Tools to plannedout.in.")}
-      <div>
-        ${card("Visitor funnel", table(["Step", "Count", "Of visits"], [
-          ["Visits", num(t.funnel.visits), "100%"], ["Opened sign-in page", num(t.funnel.login_page), pct(t.funnel.login_page, t.funnel.visits)],
-          ["Reached the app", num(t.funnel.reached_app), pct(t.funnel.reached_app, t.funnel.visits)], ["New accounts", num(t.funnel.signups), pct(t.funnel.signups, t.funnel.visits)]]))}
-        ${card("Other websites linking here", table(["Website", "Visits"], t.referrers.map((x) => [esc(x.label), num(x.value)])))}
-        ${card("Devices", table(["Device", "Visits"], t.devices.map((x) => [esc(x.label), num(x.value)])))}
-      </div>
-    </div>
-    <div class="adm-2">
-      ${card("Landing pages", table(["Page", "Visits started here"], t.landing_pages.map((x) => [esc(x.label), num(x.value)])), "Where visits start: which guide pages bring people in.")}
-      ${card("Most viewed pages", table(["Page", "Views"], t.top_pages.map((x) => [esc(x.label), num(x.value)])))}
-    </div>
-    <div class="adm-2">
-      ${card("Crawlers and AI bots", table(["Bot", "Pages fetched"], t.bots.map((x) => [esc(x.label), num(x.value)])),
-        "Shows whether Google, Bing and AI assistants (ChatGPT, Claude, Perplexity) are reading the site.")}
-      ${card("Pages AI bots read", table(["Page", "Fetches"], t.ai_bot_pages.map((x) => [esc(x.label), num(x.value)])), "Includes /llms.txt.")}
-    </div>
-    <div class="adm-2">
-      ${card("Broken links (404)", table(["Path", "Hits"], t.not_found.map((x) => [esc(x.label), num(x.value)]), "No missing pages."))}
-      ${card("Slowest pages", table(["Page", "Average ms"], t.slow_pages.map((x) => [esc(x.label), num(x.value)])), "Server time only, pages with 3+ views.")}
-    </div>
-    ${card("Requests and server errors", bars("t-req"))}
-    ${card("Endpoints", table(["Route", "Requests", "4xx", "5xx", "Avg ms", "Max ms", "Over 1 s"],
-      r.routes.map((x) => [esc(x.route), num(x.count), x.err4 ? num(x.err4) : "", x.err5 ? `<span class="bad">${num(x.err5)}</span>` : "", num(x.avg_ms), num(x.max_ms), x.slow ? num(x.slow) : ""])))}
-    ${card("Errors users hit", table(["Where", "Message", "Times", "Users", "Last"],
-      d.errors.grouped.map((e) => [`${esc(e.kind)}<br><span class="muted">${esc(e.path)}</span>`, esc(e.message), num(e.n), num(e.users), when(e.last)]), "No errors. 🎉"),
-      "server = crash on our side · api = a request the app rejected (wrong code, conflict…) · client = a JavaScript error in someone's browser.")}
-    ${d.errors.recent.length ? card("Latest errors", d.errors.recent.map((e) => `<details class="adm-err"><summary><span class="muted">${when(e.at)}</span> · ${esc(e.kind)} · ${esc(e.path)} · ${esc(e.message)}</summary>${e.detail ? `<pre>${esc(e.detail)}</pre>` : ""}</details>`).join("")) : ""}
-    <div class="card"><h2>Database</h2>
-      ${used != null ? `<div class="adm-gauge" role="img" aria-label="${used}% of storage used"><span style="width:${Math.min(100, used)}%" class="${used > 80 ? "hot" : used > 60 ? "warm" : ""}"></span></div>
-        <p>${bytes(db.size_bytes)} of ${num(db.limit_mb)} MB used${db.room_for_records != null ? ` · room for about <strong>${num(db.room_for_records)}</strong> more records at the current average size` : ""}.</p>` : ""}
-      ${db.error ? `<p class="error">${esc(db.error)}</p>` : ""}
-      ${(db.notes || []).map((n) => `<p class="notice">${esc(n)}</p>`).join("")}
-      <div class="kpis">
-        ${metric("Live records", num(db.records), `${num(db.tombstones)} deleted markers kept for sync`)}
-        ${db.connections != null ? metric("Connections", `${num(db.connections)} / ${num(db.max_connections)}`, `${num(db.active_connections)} active now`) : ""}
-        ${db.cache_hit_pct != null ? metric("Cache hit rate", db.cache_hit_pct + "%", "aim for 99%+") : ""}
-        ${metric("Round trip", (db.ping_ms ?? "—") + " ms", "app → database")}
-        ${db.deadlocks != null ? metric("Deadlocks / rollbacks", `${num(db.deadlocks)} / ${db.rollback_pct}%`, "since stats reset") : ""}
-      </div>
-      ${table(["Table", "Size", "Rows", "Dead rows"], (db.tables || []).map((x) => [esc(x.name), bytes(x.bytes), num(x.rows), x.dead_rows == null ? "" : num(x.dead_rows)]))}
-      <p class="muted">Free-tier limits to watch: Neon free gives 0.5 GB storage and suspends compute when idle (first query after a pause is slower). Render free sleeps the app after 15 minutes without traffic; each wake-up is a cold start below. Monitoring data is trimmed automatically (page views and errors after 90 days, hourly stats after 35).</p>
-    </div>
-    ${card("App starts (cold starts)", bars("t-boots"), "Each bar counts app process starts that day (2 workers per start). Many starts means the free host is sleeping often and first visitors wait.")}`;
-
-  lines(box.querySelector("#t-traffic"), { labels, fmt: num, axis: num, series: [
-    { name: "Page views", color: C[0], values: t.views }, { name: "Unique visitors", color: C[1], values: t.visitors }, { name: "Bot fetches", color: C[3], values: t.bot_views, dashed: true }] });
-  drawBars("t-src", t.sources.map((x) => ({ label: srcLabel[x.label] || x.label, value: x.value })), C[0]);
-  stackedBars(box.querySelector("#t-req"), { labels, fmt: num, axis: num, height: 220,
-    stacks: [{ name: "Requests", color: C[0], values: r.daily }], line: { name: "Server errors", color: "var(--bad)", values: r.err5_daily } });
-  stackedBars(box.querySelector("#t-boots"), { labels, fmt: num, axis: num, height: 180, stacks: [{ name: "Process starts", color: C[2], values: d.boots }] });
 }
 
 // ================= traffic explorer =================
@@ -281,44 +215,97 @@ async function traffic(box) {
     const out = box.querySelector("#tr-out");
     out.innerHTML = '<p class="muted">Loading…</p>';
     let d;
-    try { d = await api("/api/admin/traffic?" + query()); } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    const techDays = T.range === "today" || T.range === "7" ? 7 : T.range === "90" ? 90 : 30;
+    let tech;
+    try {
+      [d, tech] = await Promise.all([api("/api/admin/traffic?" + query()), api(`/api/admin/tech?days=${techDays}`).catch((e) => ({ error: e.message }))]);
+    } catch (e) { out.innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    if (!out.isConnected) return;
     const nameSel = box.querySelector("#tr-name");
     nameSel.innerHTML = opt("", "Any site", T.name) + d.options.names.map((n) => opt(n, n, T.name)).join("");
     const t = d.totals, b = d.breakdown, labels = d.labels.map((l) => fmtLabel(l, d.group));
+    const ok = !tech.error, r = ok ? tech.requests : {}, db = ok ? tech.db : {}, h = ok ? tech.health : { checks: [] }, tt = ok ? tech.traffic : null;
+    const used = db.used_pct ?? null, failing = h.checks.filter((c) => !c.ok);
+    const aiVisits = (b.sources.find((x) => x.label === "ai") || { value: 0 }).value;
+    const tlabels = ok ? tech.labels.map(short) : [];
     out.innerHTML = `
-      <div class="kpis">
-        ${metric("People · visits", num(t.visits), "a visitor's first page on a day")}
-        ${metric("People · unique", num(t.visitors))}
-        ${metric("People · page views", num(t.views), `${t.pages_per_visit} pages per visit`)}
-        ${metric("Demo visits", num(t.demo_visits), T.demo ? `${num(t.demo_visitors)} visitors · ${num(t.demo_views)} views` : "add Demo under Count traffic from")}
-        ${metric("Bot fetches", num(t.bots), T.bots ? "" : "add Bots under Count traffic from")}
-      </div>
+      ${tiles(
+        metric("Visits", num(t.visits), `${num(t.visitors)} unique · ${t.pages_per_visit} pages/visit`),
+        metric("Visit → sign-up", tt ? pct(tt.funnel.signups, tt.funnel.visits) : "—", tt ? `${num(tt.funnel.signups)} new accounts (${techDays}d)` : ""),
+        `<div id="k-gsc">${metric("Google clicks", "…", "Search Console")}</div>`,
+        metric("From AI assistants", num(aiVisits), "visits"),
+        metric("Server errors", `<span class="${r.err5 ? "bad" : "good"}">${num(r.err5)}</span>`, ok ? `${pct(r.err5, r.total)} of ${num(r.total)} requests (${techDays}d)` : ""),
+        metric("Database", used == null ? bytes(db.size_bytes) : `<span class="${used > 80 ? "bad" : ""}">${used}%</span>`, ok ? `${bytes(db.size_bytes)} of ${num(db.limit_mb)} MB` : ""))}
+      ${!ok ? `<p class="error">Health data: ${esc(tech.error)}</p>`
+        : `<p class="adm-checks">${failing.length ? failing.map((c) => `<span class="bad">✗ ${esc(c.name)}${c.detail ? ` (${esc(c.detail)})` : ""}</span>`).join("") : `<span class="good">✓ All ${h.checks.length} health checks OK</span>`}</p>`}
       ${card(`Traffic · ${short(d.from)} – ${short(d.to)} · by ${d.group}`, bars("tr-chart"),
         T.split !== "none" ? "Each line is visits from one group (top 6, rest in Other)." : "")}
       <div class="adm-2">
         ${card("Sources", table(["Source", "Visits"], b.sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), "Real use only (no demo, no bots).")}
-        ${card("Demo · how they arrived", table(["Source", "Demo visits"], b.demo_sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), b.demo_names.length ? "Top: " + b.demo_names.slice(0, 5).map((x) => `${esc(x.label)} (${num(x.value)})`).join(", ") : "")}
-      </div>
-      <div class="adm-2">
-        ${card("Sites", table(["Site", "Visits"], b.names.map((x) => [esc(x.label), num(x.value)])))}
-      </div>
-      <div class="adm-2">
         ${card("Landing pages", table(["Page", "Visits"], b.landing.map((x) => [esc(x.label), num(x.value)])))}
-        ${card("Most viewed pages", table(["Page", "Views"], b.pages.map((x) => [esc(x.label), num(x.value)])))}
       </div>
-      <div class="adm-2">
-        ${card("Other websites linking here", table(["Website", "Visits"], b.referrers.map((x) => [esc(x.label), num(x.value)])))}
-        ${card("Devices", table(["Device", "Visits"], b.devices.map((x) => [esc(x.label), num(x.value)])))}
-      </div>
-      <div class="adm-2">
-        ${card("AI assistant landing pages", table(["Page", "Visits from AI"], (d.ai_landing || []).map((x) => [esc(x.label), num(x.value)]), "No AI visits in this period."),
-          "Pages where visitors from ChatGPT, Perplexity, Claude or Gemini arrived (reflects the topic they asked about).")}
-        ${card("Pages AI bots read", table(["Page", "Fetches"], (d.ai_bot_pages || []).map((x) => [esc(x.label), num(x.value)]), "No AI bot fetches in this period."),
-          "Pages fetched by ChatGPT-User, Perplexity-User, ClaudeBot, GPTBot…")}
-      </div>
-      ${T.bots ? card("Bots and crawlers", table(["Bot", "Fetches"], d.bot_names.map((x) => [esc(x.label), num(x.value)]))) : ""}
       <div id="tr-gsc"><p class="muted">Loading Google search queries &amp; rank positions…</p></div>
-      <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`;
+      ${ok ? `<div class="adm-2">
+        ${card("Errors users hit", table(["Where", "Message", "Times", "Users", "Last"],
+          tech.errors.grouped.map((e) => [`${esc(e.kind)}<br><span class="muted">${esc(e.path)}</span>`, esc(e.message), num(e.n), num(e.users), when(e.last)]), "No errors. 🎉"),
+          "server = crash on our side · api = a request the app rejected · client = a JavaScript error in someone's browser.")}
+        ${card("Broken links (404)", table(["Path", "Hits"], tt.not_found.map((x) => [esc(x.label), num(x.value)]), "No missing pages."))}
+      </div>` : ""}
+      ${more(`
+        <div class="kpis">
+          ${metric("Page views", num(t.views))}
+          ${metric("Demo visits", num(t.demo_visits), T.demo ? `${num(t.demo_visitors)} visitors · ${num(t.demo_views)} views` : "add Demo under Count traffic from")}
+          ${metric("Bot fetches", num(t.bots), T.bots ? "" : "add Bots under Count traffic from")}
+          ${ok ? metric("Requests", num(r.total), `average ${num(r.avg_ms)} ms · ${num(r.slow)} over 1 s`) + metric("Client errors (4xx)", num(r.err4), `${pct(r.err4, r.total)} of requests`)
+            + metric("Email sign-in codes", num(tech.login_codes.sent), `${pct(tech.login_codes.used, tech.login_codes.sent)} used · ${num(tech.login_codes.locked)} locked out`) : ""}
+        </div>
+        ${tt ? card("Visitor funnel", table(["Step", "Count", "Of visits"], [
+          ["Visits", num(tt.funnel.visits), "100%"], ["Opened sign-in page", num(tt.funnel.login_page), pct(tt.funnel.login_page, tt.funnel.visits)],
+          ["Reached the app", num(tt.funnel.reached_app), pct(tt.funnel.reached_app, tt.funnel.visits)], ["New accounts", num(tt.funnel.signups), pct(tt.funnel.signups, tt.funnel.visits)]]), `Last ${techDays} days.`) : ""}
+        <div class="adm-2">
+          ${card("Most viewed pages", table(["Page", "Views"], b.pages.map((x) => [esc(x.label), num(x.value)])))}
+          ${card("Sites", table(["Site", "Visits"], b.names.map((x) => [esc(x.label), num(x.value)])))}
+        </div>
+        <div class="adm-2">
+          ${card("Other websites linking here", table(["Website", "Visits"], b.referrers.map((x) => [esc(x.label), num(x.value)])))}
+          ${card("Devices", table(["Device", "Visits"], b.devices.map((x) => [esc(x.label), num(x.value)])))}
+        </div>
+        <div class="adm-2">
+          ${card("Demo · how they arrived", table(["Source", "Demo visits"], b.demo_sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), b.demo_names.length ? "Top: " + b.demo_names.slice(0, 5).map((x) => `${esc(x.label)} (${num(x.value)})`).join(", ") : "")}
+          ${card("AI assistant landing pages", table(["Page", "Visits from AI"], (d.ai_landing || []).map((x) => [esc(x.label), num(x.value)]), "No AI visits in this period."))}
+        </div>
+        <div class="adm-2">
+          ${card("Pages AI bots read", table(["Page", "Fetches"], (d.ai_bot_pages || []).map((x) => [esc(x.label), num(x.value)]), "No AI bot fetches in this period."), "Includes /llms.txt.")}
+          ${card("Crawlers and AI bots", table(["Bot", "Pages fetched"], (tt ? tt.bots : d.bot_names).map((x) => [esc(x.label), num(x.value)])))}
+        </div>
+        ${ok ? `
+        ${card("Requests and server errors", bars("t-req"))}
+        ${card("Endpoints", table(["Route", "Requests", "4xx", "5xx", "Avg ms", "Max ms", "Over 1 s"],
+          r.routes.map((x) => [esc(x.route), num(x.count), x.err4 ? num(x.err4) : "", x.err5 ? `<span class="bad">${num(x.err5)}</span>` : "", num(x.avg_ms), num(x.max_ms), x.slow ? num(x.slow) : ""])))}
+        ${card("Slowest pages", table(["Page", "Average ms"], tt.slow_pages.map((x) => [esc(x.label), num(x.value)])), "Server time only, pages with 3+ views.")}
+        ${tech.errors.recent.length ? card("Latest errors", tech.errors.recent.map((e) => `<details class="adm-err"><summary><span class="muted">${when(e.at)}</span> · ${esc(e.kind)} · ${esc(e.path)} · ${esc(e.message)}</summary>${e.detail ? `<pre>${esc(e.detail)}</pre>` : ""}</details>`).join("")) : ""}
+        <div class="card"><h2>Database</h2>
+          ${used != null ? `<div class="adm-gauge" role="img" aria-label="${used}% of storage used"><span style="width:${Math.min(100, used)}%" class="${used > 80 ? "hot" : used > 60 ? "warm" : ""}"></span></div>
+            <p>${bytes(db.size_bytes)} of ${num(db.limit_mb)} MB used${db.room_for_records != null ? ` · room for about <strong>${num(db.room_for_records)}</strong> more records at the current average size` : ""}.</p>` : ""}
+          ${db.error ? `<p class="error">${esc(db.error)}</p>` : ""}
+          ${(db.notes || []).map((n) => `<p class="notice">${esc(n)}</p>`).join("")}
+          <div class="kpis">
+            ${metric("Live records", num(db.records), `${num(db.tombstones)} deleted markers kept for sync`)}
+            ${db.connections != null ? metric("Connections", `${num(db.connections)} / ${num(db.max_connections)}`, `${num(db.active_connections)} active now`) : ""}
+            ${db.cache_hit_pct != null ? metric("Cache hit rate", db.cache_hit_pct + "%", "aim for 99%+") : ""}
+            ${metric("Round trip", (db.ping_ms ?? "—") + " ms", "app → database")}
+            ${db.deadlocks != null ? metric("Deadlocks / rollbacks", `${num(db.deadlocks)} / ${db.rollback_pct}%`, "since stats reset") : ""}
+          </div>
+          ${table(["Table", "Size", "Rows", "Dead rows"], (db.tables || []).map((x) => [esc(x.name), bytes(x.bytes), num(x.rows), x.dead_rows == null ? "" : num(x.dead_rows)]))}
+          <p class="muted">Python ${esc(h.python)} · Django ${esc(h.django)} · ${esc(db.version || db.vendor)} · process up ${num(h.pid_uptime_min)} min. Neon free: 0.5 GB, compute suspends when idle. Render free sleeps after 15 min idle (cold starts below).</p>
+        </div>
+        ${card("App starts (cold starts)", bars("t-boots"), "App process starts per day (2 workers per start). Many starts means the free host sleeps often.")}` : ""}
+        <p class="muted">Page views are kept for ${d.retention_days} days. Internal testing users are left out.</p>`)}`;
+    if (ok) {
+      stackedBars(out.querySelector("#t-req"), { labels: tlabels, fmt: num, axis: num, height: 220,
+        stacks: [{ name: "Requests", color: C[0], values: r.daily }], line: { name: "Server errors", color: "var(--bad)", values: r.err5_daily } });
+      stackedBars(out.querySelector("#t-boots"), { labels: tlabels, fmt: num, axis: num, height: 180, stacks: [{ name: "Process starts", color: C[2], values: tech.boots }] });
+    }
     let series;
     if (d.split.length) series = d.split.map((s, i) => ({ name: T.split === "source" ? (s.name === "bot" ? "Bots" : s.name === "demo" ? "Demo (all sources)" : SRC[s.name] || s.name) : s.name, dashed: (s.name === "bot" || s.name === "demo") && T.split === "source", color: PALETTE[i % PALETTE.length], values: s.values }));
     else series = [["views", "Page views", C[0]], ["visits", "Visits", C[1]], ["visitors", "Unique visitors", C[2]], ["demo", "Demo visits", "var(--good)", true], ["bots", "Bot fetches", C[3], true]]
@@ -326,7 +313,7 @@ async function traffic(box) {
     const el = out.querySelector("#tr-chart");
     if (series.length) lines(el, { labels, fmt: num, axis: num, series }); else el.innerHTML = '<p class="muted">Pick at least one line.</p>';
     const gscDays = T.range === "7" || T.range === "today" ? 7 : T.range === "90" ? 90 : 28;
-    renderSearchQueries(out.querySelector("#tr-gsc"), gscDays);
+    renderSearchQueries(out.querySelector("#tr-gsc"), gscDays, out.querySelector("#k-gsc"));
   };
 
   box.innerHTML = `<div class="card adm-filters">
@@ -334,7 +321,9 @@ async function traffic(box) {
       <div class="seg" role="group" aria-label="Range">${[["today", "Today"], ["7", "7 days"], ["30", "30 days"], ["90", "90 days"], ["custom", "Custom"]]
         .map(([k, l]) => `<button type="button" data-tr-range="${k}" class="${T.range === k ? "on" : ""}" aria-pressed="${T.range === k}">${l}</button>`).join("")}</div>
       <span id="tr-custom" ${T.range === "custom" ? "" : "hidden"}><input type="date" id="tr-from" value="${T.from}" max="${today}"> – <input type="date" id="tr-to" value="${T.to || today}" max="${today}"></span>
+      <span class="spacer"></span>
     </div>
+    <details class="tr-more"${T.filtersOpen ? " open" : ""}><summary class="muted">More filters</summary>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
       <label>Group by <select id="tr-group">${opt("", "Auto", T.group)}${opt("hour", "Hour", T.group)}${opt("day", "Day", T.group)}${opt("week", "Week", T.group)}</select></label>
       <label>Lines <select id="tr-split">${opt("none", "Totals", T.split)}${opt("source", "By source", T.split)}${opt("device", "By device", T.split)}${opt("page", "By landing page", T.split)}${opt("bot", "By bot", T.split)}</select></label>
@@ -365,7 +354,9 @@ async function traffic(box) {
       <li><b>Count traffic from</b> — three separate groups: <i>People</i> (real use), <i>Demo</i> (the live demo) and <i>Bots</i> (off by default). They are never added together. The source ticks (search, AI, social…) narrow both people and demo.</li>
       <li><b>Chart lines</b> — which measures to draw when Lines is Totals. A <i>page view</i> is any page load; a <i>visit</i> is a visitor's first page on a day; <i>unique visitors</i> are distinct people.</li>
     </ul></details>
+    </details>
   </div><div id="tr-out"></div>`;
+  box.querySelector(".tr-more").addEventListener("toggle", (e) => { if (e.target.classList.contains("tr-more")) T.filtersOpen = e.target.open; });
 
   box.querySelectorAll("[data-tr-range]").forEach((b) => (b.onclick = () => { T.range = b.dataset.trRange; traffic(box); }));
   const on = (id, ev, fn) => (box.querySelector(id)[ev] = fn);
@@ -413,11 +404,15 @@ const fmtPos = (p) => {
   return `<span class="${cls}">#${p.toFixed(1)}</span> <small class="muted">(p.${page})</small>`;
 };
 
-async function renderSearchQueries(el, days = 28) {
+async function renderSearchQueries(el, days = 28, tile = null) {
   if (!el) return;
   let sq;
-  try { sq = await api(`/api/admin/search-queries?days=${days}`); } catch (e) { el.innerHTML = ""; return; }
+  const setTile = (v, sub) => { if (tile && tile.isConnected) tile.innerHTML = metric("Google clicks", v, sub); };
+  try { sq = await api(`/api/admin/search-queries?days=${days}`); } catch (e) { el.innerHTML = ""; setTile("—", "unavailable"); return; }
   if (!el.isConnected) return;
+  const st = sq.totals || {};
+  if (!sq.enabled || sq.error) setTile("—", sq.enabled ? "Search Console error" : "Search Console not connected");
+  else setTile(num(st.clicks), st.position != null ? `avg rank #${st.position.toFixed(1)} · ${sq.days}d` : `${sq.days}d`);
   if (!sq.enabled) {
     el.innerHTML = card("Google search queries & rank position",
       `<p class="muted">Connect Google Search Console (<code>GSC_SERVICE_ACCOUNT_JSON</code>) to see what users searched on Google and where we ranked in the search results.</p>`);
@@ -464,7 +459,7 @@ async function renderSearchQueries(el, days = 28) {
   el.querySelectorAll("[data-sq-days]").forEach((b) => (b.onclick = () => {
     const n = +b.dataset.sqDays;
     el.innerHTML = '<p class="muted">Loading Google search queries &amp; rank positions…</p>';
-    renderSearchQueries(el, n);
+    renderSearchQueries(el, n, tile);
   }));
 }
 
@@ -512,14 +507,12 @@ async function indexing(box) {
       ${S.running
         ? `<button type="button" id="idx-stop">Stop</button> <span class="muted" aria-live="polite">Checking ${done + 1} of ${d.pages.length}…</span>`
         : `<button type="button" class="primary" id="idx-check" ${busy ? "disabled" : ""}>Check all</button>
-           ${missing.length || d.pages.some((p) => !p.checked) ? `<button type="button" id="idx-check-missing" ${busy ? "disabled" : ""}>Check unindexed &amp; unchecked</button>` : ""}`}
-      <div id="idx-gsc" style="margin-top:16px"><p class="muted">Loading Google search queries &amp; rank positions…</p></div>`;
+           ${missing.length || d.pages.some((p) => !p.checked) ? `<button type="button" id="idx-check-missing" ${busy ? "disabled" : ""}>Check unindexed &amp; unchecked</button>` : ""}`}`;
     const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
     on("#idx-check", () => checkAll(d.pages.map((p) => p.path)));
     on("#idx-check-missing", () => checkAll(d.pages.filter((p) => !p.indexed).map((p) => p.path)));
     on("#idx-stop", () => { S.stop = true; box.querySelector("#idx-stop").disabled = true; });
     box.querySelectorAll("[data-idx]").forEach((b) => (b.onclick = () => { S.errors = []; checkOne(b.dataset.idx); }));
-    if (!busy) renderSearchQueries(box.querySelector("#idx-gsc"), S.sqDays);
   };
   draw();
 }
