@@ -32,7 +32,7 @@ export async function viewAdmin(root, view) {
   if (view === "tech") view = "traffic";
   host = root; A.view = view;
   const title = (ADMIN_VIEWS.find(([k]) => k === view) || [, "Admin"])[1];
-  host.innerHTML = `<div class="row"><h1 style="margin:0">Admin · ${esc(title)}</h1><span class="spacer"></span>
+  host.innerHTML = `<div class="row" style="margin-bottom:12px"><h1 style="margin:0">Admin · ${esc(title)}</h1><span class="spacer"></span>
     ${!["admins", "indexing", "traffic"].includes(view) ? `<div class="seg" role="group" aria-label="Period">${[7, 30, 90].map((n) => `<button type="button" data-ad="${n}" class="${A.days === n ? "on" : ""}" aria-pressed="${A.days === n}">${n} days</button>`).join("")}</div>` : ""}
     <button type="button" id="adm-refresh">Refresh</button></div>
     <div id="adm"><p class="muted">Loading…</p></div>`;

@@ -557,7 +557,7 @@ html { scroll-padding-top: 72px; scrollbar-gutter: stable; }
 }
 @media (min-width: 641px) and (max-width: 960px) {
   nav.tabs { gap: 2px; }
-  nav.tabs button, [data-theme^="glass"] nav.tabs button { padding: 6px 8px; font-size: 14px; }
+  nav.tabs button { padding: 6px 8px; font-size: 14px; }
 }
 @media (max-width: 860px) {
   header.site-top { position: sticky; }
@@ -690,106 +690,70 @@ body { overflow-x: clip; }
 .ob-choice.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .ob-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 20px; }
 
-/* ===== iOS Liquid Glass themes ===== */
+/* ===== Liquid Glass theme (calm, crisp) ===== */
 [data-theme="glass"] {
-  --bg: #dce8fc; --surface: rgba(255, 255, 255, 0.46); --surface-2: rgba(255, 255, 255, 0.34);
-  --text: #0f172a; --muted: #475569; --border: rgba(255, 255, 255, 0.68);
-  --accent: #007aff; --accent-text: #ffffff; --good: #15803d; --bad: #dc2626; --warn-bg: rgba(254, 243, 199, 0.65);
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; --radius: 20px;
-  --grid-head: rgba(241, 246, 255, 0.78); --grid-line: rgba(15, 23, 42, 0.1); --grid-sel: rgba(0, 122, 255, 0.16); --grid-active: #007aff;
-  --series-1: #007aff; --series-2: #ff9500; --series-3: #34c759; --series-4: #af52de;
-  --glass-pop: rgba(248, 251, 255, 0.84);
-  --glass-rim: 0 12px 32px -8px rgba(15, 35, 75, 0.12), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.92), inset 0 -1px 0 0 rgba(255, 255, 255, 0.35), inset 1px 0 0 0 rgba(255, 255, 255, 0.48);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.24) 100%);
+  --bg: #e9edf3; --surface: rgba(255, 255, 255, 0.62); --surface-2: rgba(255, 255, 255, 0.45);
+  --text: #111827; --muted: #5b6474; --border: rgba(15, 23, 42, 0.09);
+  --accent: #2f6fdb; --accent-text: #ffffff; --good: #15803d; --bad: #c2410c; --warn-bg: rgba(254, 243, 199, 0.6);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; --radius: 12px;
+  --grid-head: rgba(244, 246, 250, 0.85); --grid-line: rgba(15, 23, 42, 0.08); --grid-sel: rgba(47, 111, 219, 0.12); --grid-active: #2f6fdb;
+  --series-1: #2f6fdb; --series-2: #d9822b; --series-3: #2f9e62; --series-4: #8b5cc7;
+  --glass-pop: rgba(250, 251, 253, 0.9);
+  --glass-rim: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px -6px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-/* Aurora / mesh wallpaper behind translucent glass */
-[data-theme^="glass"] body::before {
-  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-}
+/* Soft, low-contrast wallpaper behind the panels */
 [data-theme="glass"] body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(circle at 14% 18%, rgba(56, 189, 248, 0.55) 0%, transparent 45%),
-    radial-gradient(circle at 84% 14%, rgba(192, 132, 252, 0.52) 0%, transparent 46%),
-    radial-gradient(circle at 78% 82%, rgba(244, 114, 182, 0.45) 0%, transparent 48%),
-    radial-gradient(circle at 20% 80%, rgba(52, 211, 153, 0.42) 0%, transparent 46%),
-    radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.35) 0%, transparent 55%),
-    linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%);
+    radial-gradient(circle at 12% 15%, rgba(147, 175, 220, 0.28) 0%, transparent 50%),
+    radial-gradient(circle at 88% 20%, rgba(185, 170, 215, 0.22) 0%, transparent 50%),
+    radial-gradient(circle at 70% 85%, rgba(160, 200, 200, 0.2) 0%, transparent 55%),
+    linear-gradient(160deg, #eef1f6 0%, #e8ebf2 55%, #ecebf2 100%);
 }
-/* Frosted blur & specular rim highlights on glass surfaces */
-[data-theme^="glass"] header.top,
-[data-theme^="glass"] #bottomnav,
-[data-theme^="glass"] .card,
-[data-theme^="glass"] .kpis .metric,
-[data-theme^="glass"] .flow-end,
-[data-theme^="glass"] .flow-step,
-[data-theme^="glass"] .ins-head,
-[data-theme^="glass"] .acct-sum,
-[data-theme^="glass"] .whatif {
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  background-image: var(--glass-sheen);
+[data-theme="glass"] header.top,
+[data-theme="glass"] #bottomnav,
+[data-theme="glass"] .card,
+[data-theme="glass"] .kpis .metric,
+[data-theme="glass"] .flow-end,
+[data-theme="glass"] .flow-step,
+[data-theme="glass"] .ins-head,
+[data-theme="glass"] .acct-sum,
+[data-theme="glass"] .whatif {
+  backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%);
   box-shadow: var(--glass-rim);
 }
-[data-theme^="glass"] header.top { position: sticky; top: 0; z-index: 30; }
-[data-theme^="glass"] nav.tabs {
-  background: var(--surface-2); padding: 4px; border-radius: 999px; border: 1px solid var(--border);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+[data-theme="glass"] header.top { position: sticky; top: 0; z-index: 30; }
+[data-theme="glass"] nav.tabs { background: var(--surface-2); padding: 3px; border-radius: 10px; border: 1px solid var(--border); }
+[data-theme="glass"] nav.tabs::before { border-radius: 8px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
+[data-theme="glass"] nav.tabs button { border-radius: 8px; padding: 5px 12px; }
+[data-theme="glass"] nav.tabs button.on { background: rgba(255, 255, 255, 0.9); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
+[data-theme="glass"] nav.tabs.ready button.on { background: transparent; box-shadow: none; }
+[data-theme="glass"] button:not(.link):not(.link-btn):not(.month-title):not(.mx-x):not(.mx-opt):not(.mx-ico):not(.more-item):not(.ml-row):not(.fp-sort):not([data-tab]):not([data-ptab]) {
+  border-radius: 8px; box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
 }
-[data-theme^="glass"] nav.tabs::before {
-  border-radius: 999px;
-  background: var(--surface); background-image: var(--glass-sheen);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-[data-theme^="glass"] nav.tabs button { border-radius: 999px; padding: 6px 14px; }
-[data-theme^="glass"] nav.tabs button.on {
-  background: var(--surface); background-image: var(--glass-sheen);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-[data-theme^="glass"] nav.tabs.ready button.on {
-  background: transparent; background-image: none; box-shadow: none;
-}
-[data-theme^="glass"] button:not(.link):not(.link-btn):not(.month-title):not(.mx-x):not(.mx-opt):not(.mx-ico):not(.more-item):not(.ml-row):not(.fp-sort):not([data-tab]):not([data-ptab]) {
-  border-radius: 999px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-}
-[data-theme^="glass"] button.primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, #ffffff) 0%, var(--accent) 100%);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-[data-theme^="glass"] input:not(.xl-editor):not(.xl-formula):not([type="checkbox"]):not([type="range"]),
-[data-theme^="glass"] select:not(.xl select) {
-  border-radius: 12px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-[data-theme^="glass"] .mx-grid { padding-top: 0; gap: 14px; }
-[data-theme^="glass"] .mx-row { row-gap: 14px; }
-[data-theme^="glass"] .mx-tile .label {
+[data-theme="glass"] button.primary { box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+[data-theme="glass"] input:not(.xl-editor):not(.xl-formula):not([type="checkbox"]):not([type="range"]),
+[data-theme="glass"] select:not(.xl select) { border-radius: 8px; }
+[data-theme="glass"] .mx-tile .label {
   position: static; padding: 0; margin-bottom: 4px; max-width: 100%;
   background: transparent; font-weight: 500;
 }
-[data-theme^="glass"] .mx-pop,
-[data-theme^="glass"] .month-menu,
-[data-theme^="glass"] .ml-sheet,
-[data-theme^="glass"] .xl-fpanel,
-[data-theme^="glass"] .xl-opts,
-[data-theme^="glass"] .chart-tip {
+[data-theme="glass"] .mx-pop,
+[data-theme="glass"] .month-menu,
+[data-theme="glass"] .ml-sheet,
+[data-theme="glass"] .xl-fpanel,
+[data-theme="glass"] .xl-opts,
+[data-theme="glass"] .chart-tip {
   background: var(--glass-pop); border-color: var(--border);
-  backdrop-filter: blur(28px) saturate(200%); -webkit-backdrop-filter: blur(28px) saturate(200%);
-  box-shadow: var(--glass-rim);
+  backdrop-filter: blur(18px) saturate(120%); -webkit-backdrop-filter: blur(18px) saturate(120%);
+  box-shadow: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
 }
-[data-theme^="glass"] .ml-actions { background: transparent; }
-[data-theme^="glass"] .xl { border-radius: 14px; overflow: hidden; background: var(--surface-2); }
-[data-theme^="glass"] .xl-table thead th,
-[data-theme^="glass"] .xl-table .xl-rn,
-[data-theme^="glass"] .xl-corner,
-[data-theme^="glass"] table.yt thead th,
-[data-theme^="glass"] table.yt th.rowh {
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-}
+[data-theme="glass"] .ml-actions { background: transparent; }
+[data-theme="glass"] .xl { border-radius: 10px; overflow: hidden; background: var(--surface-2); }
 @media (max-width: 640px) {
-  [data-theme^="glass"] #bottomnav {
+  [data-theme="glass"] #bottomnav {
     left: 10px; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom));
-    border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 14px; padding: 4px 8px;
   }
 }
 
@@ -1332,7 +1296,7 @@ body.menu-signout header.top > form { display: none; }
 .sum-status .hero-prog { width: 90px; margin: 0; }
 .sum-status span + span { border-left: 1px solid var(--border); padding-left: 12px; }
 .hero-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0; margin-bottom: 12px; }
-.hero-grid > .card { margin: 0; }
+.hero-grid > .card, #root[data-view="home"] .hero-grid > .verdict { margin: 0; }
 .hero-grid > .hero-l { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .hero-grid > .hero-r { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 0; background: var(--surface-2); }
 .hero-badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }

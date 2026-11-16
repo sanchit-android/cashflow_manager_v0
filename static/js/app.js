@@ -31,7 +31,7 @@ const THEMES = {
   paper: ["Paper", "#f7f6f2", "#2457c5"],
   excel: ["Excel", "#ffffff", "#217346"],
   planned: ["PlannedOut Dark", "#1c1e24", "#34d399"],
-  glass: ["Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "linear-gradient(135deg,rgba(255,255,255,.95),#007aff)"],
+  glass: ["Liquid Glass", "linear-gradient(160deg,#eef1f6,#e8ebf2)", "#2f6fdb"],
 };
 // Themes we no longer offer map to the closest one we keep (also done in theme.js before first paint).
 const LEGACY_THEME = { night: "planned", "metro-dark": "planned", "glass-dark": "planned", ink: "clean", "metro-light": "clean",
@@ -1923,6 +1923,7 @@ const MONTH_METRICS = [
   ["regular_net", "Regular income − regular expense", (s) => s.regular_net, "What a normal month leaves over (or takes from savings)", 1],
   ["total_spend", "All spending", (s) => s.monthly_expense + s.annual_expense, "Regular + one-off + annual items", -1],
   ["oneoff_net", "One-off income − one-off expense", (s) => s.oneoff_inflow - s.oneoff_expense, "", 1],
+  ["fixed_total", "Total monthly fixed", (s) => s.commitments_total, "All monthly commitments, paid or not", -1],
   ["pending", "Commitments still due", (s) => s.commitments_pending, "Monthly commitments not yet marked paid", 0],
   ["card_payments", "Card bills paid", (s) => s.card_payments, "Payments from the bank to credit cards", 0],
   ["burn", "3-month average burn", (s, r) => r.burn, "Spending incl. annual items minus regular income", -1],
@@ -1939,6 +1940,7 @@ const FORMULA_VARS = [
   ["investments", "Investments", (s) => s.investments],
   ["all_spending", "All spending", (s) => s.monthly_expense + s.annual_expense],
   ["regular_net", "Regular income − regular expense", (s) => s.regular_net],
+  ["monthly_fixed", "Total monthly fixed", (s) => s.commitments_total],
   ["commitments_due", "Commitments still due", (s) => s.commitments_pending],
   ["card_bills_paid", "Card bills paid", (s) => s.card_payments],
   ["opening", "Opening balance", (s) => s.opening],

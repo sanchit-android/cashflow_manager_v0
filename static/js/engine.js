@@ -161,6 +161,7 @@ export function summarize(db, period) {
     : { kind: "drawing", amount: -s.net_after_investing };
 
   s.commitments = commitmentStatus(db, period, txns);
+  s.commitments_total = round(s.commitments.reduce((x, c) => x + num(c.amount), 0));
   s.commitments_pending = round(s.commitments.filter((c) => !c.paid).reduce((x, c) => x + num(c.amount), 0));
   // Spend still expected this period reduces the headroom.
   s.headroom = round(s.net_after_investing - s.commitments_pending);

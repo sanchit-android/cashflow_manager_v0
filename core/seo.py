@@ -1329,7 +1329,7 @@ THEMES = [
     ("paper", "Paper", "#f7f6f2", "#2457c5", "Warm off-white with blue ink"),
     ("excel", "Excel", "#ffffff", "#217346", "Classic green spreadsheet look"),
     ("planned", "PlannedOut Dark", "#1c1e24", "#34d399", "Charcoal and teal brand theme, dark"),
-    ("glass", "Liquid Glass", "linear-gradient(135deg,#93c5fd,#e9d5ff,#fbcfe8)", "#007aff", "Frosted translucent panels over a pastel gradient"),
+    ("glass", "Liquid Glass", "linear-gradient(160deg,#eef1f6,#e8ebf2)", "#2f6fdb", "Soft frosted panels over a calm grey-blue backdrop"),
 ]
 # Themes that have a real screenshot in static/img/screenshots/themes/ (made by scripts/make_theme_shots.py).
 # The rest fall back to a colour preview.
