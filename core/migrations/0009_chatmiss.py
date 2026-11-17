@@ -20,7 +20,6 @@ class Migration(migrations.Migration):
                 ('kind', models.CharField(blank=True, default='', max_length=24)),
                 ('device', models.CharField(default='desktop', max_length=8)),
                 ('local', models.BooleanField(default=False)),
-                ('internal', models.BooleanField(default=False)),
             ],
         ),
     ]
