@@ -19,7 +19,7 @@ export const HELP = [
   ["Ask", ["how much did I spend?", "food total in oct", "totals by category", "what's left to pay", "infinia bill", "runway", "list swiggy"]],
   ["Accounts and cards", ["add card hdfc regalia", "new savings account sbi", "infinia billed 23,450", "unbill infinia"]],
   ["Custom numbers", ["add metric savings = income - spend", "show metrics", "remove metric savings"]],
-  ["Trends and charts", ["spend trend", "food trend 12 months", "category trend", "top merchants", "savings rate", "compare oct vs sep"]],
+  ["Trends and charts", ["spend trend", "food trend 12 months", "category trend", "top merchants", "savings rate", "compare oct vs sep", "average food expense this year", "max food expense in which month"]],
 ];
 
 // ---------------- months ----------------
@@ -188,6 +188,26 @@ function parseChart(t, ctx) {
   return { ...base, type: "spend" };
 }
 
+// "average food expense this year", "max food expense in which month", "lowest spend last 6 months"
+const STAT_RE = /\b(average|avg|mean|typical|per month|a month|monthly average|max|maximum|highest|most|biggest|largest|peak|top month|min|minimum|lowest|least|smallest)\b/;
+function parseStat(t, ctx) {
+  const m = STAT_RE.exec(t);
+  if (!m || /\b(where|merchants?|places?|trend|chart)\b/.test(t) || parseAmount(stripMonthYear(t).replace(/\b\d{1,2}\s*months?\b/, ""))) return null;
+  const w = m[1], stat = /^(max|maximum|highest|most|biggest|largest|peak|top month)$/.test(w) ? "max" : /^(min|minimum|lowest|least|smallest)$/.test(w) ? "min" : "avg";
+  const [ty, tm] = ctx.today.split("-").map(Number), cur = `${ty}-${pad(tm)}`;
+  let end = cur, months = 12, span = "last 12 months";
+  const nm = /\b(?:last|past)?\s*(\d{1,2})\s*months?\b/.exec(t), yr = /\b(20\d{2})\b/.exec(t);
+  if (/\b(this|current)\s+year\b|\bytd\b|\bso far\b/.test(t)) { months = tm; span = "this year"; }
+  else if (/\b(last|previous|prev)\s+year\b/.test(t)) { end = `${ty - 1}-12`; span = String(ty - 1); }
+  else if (yr) { const y = +yr[1]; end = y >= ty ? cur : `${y}-12`; months = y >= ty ? tm : 12; span = String(y); }
+  else if (nm) { months = Math.max(2, Math.min(36, +nm[1])); span = `last ${months} months`; }
+  const rest = t.replace(STAT_RE, " ");
+  const what = /\b(income|earn|earned|salary)\b/.test(rest) ? "income" : /\b(saving|savings|saved|net)\b/.test(rest) ? "net" : "spend";
+  const cat = what === "spend" ? rest.split(/\s+/).map((x) => categoryOf(x, ctx)).find(Boolean) : null;
+  if (!cat && !/\b(spen|expense|cost|income|earn|salary|saving|saved|net|month)/.test(rest)) return null;
+  return { kind: "stat", stat, what, category: cat || null, end, months, span };
+}
+
 const Q_START = /^(how|what|whats|what's|which|show|list|tell|give|total|totals|did|do|am|is|are|where|when|any|sum|check|review|see)\b/;
 const Q_ALONE = /^(runway|summary|overview|totals?|categories|category totals|by category|breakdown|income|spend|spending|expenses?|net|balance|balances|due|pending|(?:card |credit card )?bills?|cards|status)$/;
 const Q_STOP = new Set(["how", "much", "many", "did", "do", "does", "i", "we", "me", "my", "spend", "spent", "spending", "on", "at", "for", "in", "the", "what", "whats", "what's",
@@ -228,5 +248,5 @@ export function parseCommand(text, ctx) {
   const t = normalize(raw).replace(/[.!]+$/, "").trim();
   if (!t) return null;
   if (/^(help|\?|commands|what can (you|i) do|what can i (say|type|ask)|how does this work)\??$/.test(t)) return { kind: "help" };
-  return parseMetric(t, raw) || parseAccount(t, ctx) || parseBill(t, ctx) || parseRemove(t, ctx) || parseEdit(t, ctx) || parseChart(t, ctx) || parseQuery(t, ctx);
+  return parseMetric(t, raw) || parseAccount(t, ctx) || parseBill(t, ctx) || parseRemove(t, ctx) || parseEdit(t, ctx) || parseStat(t, ctx) || parseChart(t, ctx) || parseQuery(t, ctx);
 }

@@ -747,6 +747,7 @@ async function runCommand(cmd) {
   }
   if (cmd.kind === "metric") return metricCommand(cmd);
   if (cmd.kind === "chart") return chartCommand(cmd, d);
+  if (cmd.kind === "stat") return statCommand(cmd, d);
   if (cmd.kind === "query") return queryCommand(cmd, d);
   return { unknown: true, text: "I didn't understand that. Type “help” for examples." };
 }
@@ -844,6 +845,24 @@ function queryCommand(cmd, d) {
     }
   }
   return { unknown: true, text: "I didn't understand that. Type “help” for examples." };
+}
+
+function statCommand(cmd, d) {
+  const has = new Set(d.transaction.map((t) => t.period));
+  const ps = N.windowPeriods(d, cmd.end, cmd.months).filter((p) => has.has(p));
+  const name = cmd.category || { spend: "Spending", income: "Income", net: "Net saved" }[cmd.what];
+  if (!ps.length) return { text: `No data for ${cmd.span} yet.` };
+  const f = (s) => cmd.category ? s.by_category[cmd.category] || 0 : cmd.what === "income" ? s.regular_inflow + (s.oneoff_inflow || 0) : cmd.what === "net" ? s.regular_inflow + (s.oneoff_inflow || 0) - spendOf(s) : spendOf(s);
+  const vals = ps.map((p) => Math.round(f(E.summarize(d, p)))), labels = ps.map(P.periodLabel);
+  const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length), total = vals.reduce((a, b) => a + b, 0);
+  const iMax = vals.indexOf(Math.max(...vals)), iMin = vals.indexOf(Math.min(...vals));
+  const n = `${ps.length} month${ps.length === 1 ? "" : "s"}`;
+  const text = cmd.stat === "max" ? `Highest was ${labels[iMax]} at ${inr(vals[iMax])}. Average is ${inr(avg)} a month over ${n}.`
+    : cmd.stat === "min" ? `Lowest was ${labels[iMin]} at ${inr(vals[iMin])}. Average is ${inr(avg)} a month over ${n}.`
+    : `${inr(avg)} a month on average over ${n} (${inr(total)} in all). Highest ${labels[iMax]} at ${inr(vals[iMax])}, lowest ${labels[iMin]} at ${inr(vals[iMin])}.`;
+  const out = { title: `${name} · ${cmd.span}`, text, month: ps[cmd.stat === "min" ? iMin : iMax] };
+  if (ps.length > 1) out.chart = (host) => lines(host, { labels, series: [{ name, color: COLORS[0], values: vals, dots: true }], title: `${name} by month` });
+  return out;
 }
 
 function chartCommand(cmd, d) {
