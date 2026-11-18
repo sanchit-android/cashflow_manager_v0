@@ -533,7 +533,7 @@ initChat({
     // Commitments already paid this period, so "paid maid" twice is noticeable.
     commitments: (() => { const d = db(), p = E.currentPeriod(d, today()), paid = new Set(d.transaction.filter((t) => t.period === p && t.recurring_id).map((t) => t.recurring_id));
       return rowsOf("commitment").map((c) => ({ ...c, paid: paid.has(c.id) })); })(),
-    defaultAccountId: viewAccount() || (mainAccount() || {}).id, infer: (desc) => suggest.infer(desc),
+    defaultAccountId: viewAccount() || (mainAccount() || {}).id, viewAccountId: viewAccount(), infer: (desc) => suggest.infer(desc),
   }),
   async save(drafts) {
     const newAccts = new Map(), ids = [];

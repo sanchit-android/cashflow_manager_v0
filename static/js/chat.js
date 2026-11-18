@@ -359,7 +359,8 @@ export function openChat({ accountId, focus = true, mode = "default" } = {}) {
   const fit = () => { const vv = window.visualViewport; if (vv) panel.style.height = Math.round(vv.height - 8) + "px"; };
   if (phone && window.visualViewport) { window.visualViewport.addEventListener("resize", fit); fit(); }
 
-  const ctx = () => ({ ...deps.ctx(), ...(accountId ? { defaultAccountId: accountId } : {}) });
+  // Live: the account open right now (the dock outlives account switches), else the one it was opened with.
+  const ctx = () => { const c = deps.ctx(); return c.viewAccountId !== undefined ? { ...c, defaultAccountId: c.viewAccountId || c.defaultAccountId } : { ...c, ...(accountId ? { defaultAccountId: accountId } : {}) }; };
   const keepFocus = () => input.focus({ preventScroll: true });
   // Failed or undone messages are logged (redacted) to improve the parser.
   const miss = (reason, text, kind = "") => logMiss(reason, text || current, { kind, accounts: ctx().accounts || [] });
