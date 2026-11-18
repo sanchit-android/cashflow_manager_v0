@@ -1043,6 +1043,8 @@ def traffic(request):
         "breakdown": {
             "sources": _top(Counter(p["source"] for p in vlist), 10),
             "names": _top(Counter(p["source_name"] for p in vlist if p["source_name"]), 15),
+            "source_names": {src: _top(Counter(p["source_name"] or "Unknown" for p in vlist if p["source"] == src), 10)
+                             for src in {p["source"] for p in vlist} if src != "direct"},
             "landing": _top(Counter(p["path"] for p in vlist), 15),
             "pages": _top(Counter(p["path"] for p in humans), 15),
             "devices": _top(Counter(p["device"] for p in vlist), 5),

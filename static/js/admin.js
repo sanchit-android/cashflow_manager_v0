@@ -241,7 +241,8 @@ async function traffic(box) {
       ${card(`Traffic · ${short(d.from)} – ${short(d.to)} · by ${d.group}`, bars("tr-chart"),
         T.split !== "none" ? "Each line is visits from one group (top 6, rest in Other)." : "")}
       <div class="adm-2">
-        ${card("Sources", table(["Source", "Visits"], b.sources.map((x) => [esc(SRC[x.label] || x.label), num(x.value)])), "Real use only (no demo, no bots).")}
+        ${card("Sources", table(["Source", "Visits"], b.sources.flatMap((x) => [[`<b>${esc(SRC[x.label] || x.label)}</b>`, `<b>${num(x.value)}</b>`],
+          ...((b.source_names || {})[x.label] || []).map((n) => [`<span class="muted">&nbsp;&nbsp;&nbsp;↳ ${esc(n.label)}</span>`, num(n.value)])])), "Real use only (no demo, no bots).")}
         ${card("Landing pages", table(["Page", "Visits"], b.landing.map((x) => [esc(x.label), num(x.value)])))}
       </div>
       <div id="tr-gsc"><p class="muted">Loading Google search queries &amp; rank positions…</p></div>
