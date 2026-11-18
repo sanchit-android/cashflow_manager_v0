@@ -1872,14 +1872,21 @@ function waterfall(s) {
 }
 
 /** The user's chosen numbers as a compact list, each with a bar against this year's average. */
+/** Bar of this month against the average: fill = this month, tick = average. Works for zero and negative numbers too. */
+function avgBar(v, a, fmt, label) {
+  if (v == null || a == null || !isFinite(v) || !isFinite(a)) return "";
+  const mx = Math.max(Math.abs(v), Math.abs(a)) || 1, neg = v < 0;
+  const p = a ? Math.round((v / a) * 100) + "% of " + label : v ? "avg was 0" : "same as avg";
+  return `<div class="mx-bar"><span class="${neg ? "neg" : ""}" style="width:${(Math.abs(v) / mx) * 100}%"></span><i style="left:${(Math.abs(a) / mx) * 100}%"></i></div><div class="mx-avg2"><span>${p}</span><span>avg ${fmtValue(fmt, a)}</span></div>`;
+}
 function cockpitMetrics(s, r) {
   const { shown, add } = mxParts("+ Add");
   const avg = yearAverages(shown), yr = S.period.slice(0, 4);
   return `<div class="card ck-card ck-mx"><div class="ck-mx-head"><span class="rw-head">vs ${yr} average</span>${add}</div>
     ${shown.map(([k, l, f, hint, , fmt = inr]) => {
-      const v = f(s, r), a = avg[k], ok = a != null && v != null && a > 0 && v >= 0, mx = ok ? Math.max(v, a) : 1;
+      const v = f(s, r), a = avg[k];
       return `<div class="ck-mrow" ${hint ? `title="${esc(hint)}"` : ""}><div class="ck-kv"><span>${esc(l)}</span><strong class="${v < 0 ? "bad" : ""}">${fmtValue(fmt, v)}</strong></div>
-        ${ok ? `<div class="mx-bar"><span style="width:${(v / mx) * 100}%"></span><i style="left:${(a / mx) * 100}%"></i></div><div class="mx-avg2"><span>${Math.round((v / a) * 100)}%</span><span>avg ${fmtValue(fmt, a)}</span></div>` : ""}</div>`;
+        ${avgBar(v, a, fmt, "avg")}</div>`;
     }).join("") || '<p class="muted">Add numbers to compare with your average.</p>'}</div>`;
 }
 
@@ -2109,17 +2116,13 @@ function extraMetrics(s, r) {
   const tileHtml = shown.map(([k, l, f, hint, better, fmt = inr]) => {
     // An average already smooths months out, so comparing it to the year average adds noise.
     const isAvg = /\b(average|avg)\b/i.test(l) || /\bavg\s*\(/i.test(hint || "");
-    const v = f(s, r), a = isAvg ? null : avg[k];
+    const v = f(s, r), a = isAvg ? null : avg[k]; // no trend arrow for averages, but the bar still shows
     let arrow = "";
     if (better && v != null && a != null && Math.round(v) !== Math.round(a)) {
       const good = (v > a) === (better > 0);
       arrow = `<span class="mx-trend ${good ? "good" : "bad"}" title="${good ? "Better" : "Worse"} than this year's average">${v > a ? "▲" : "▼"}</span>`;
     }
-    const yr = S.period.slice(0, 4);
-    const barOk = a != null && v != null && a > 0 && v >= 0, mx = barOk ? Math.max(v, a) : 1;
-    const avgHtml = a == null ? "" : barOk
-      ? `<div class="mx-bar"><span style="width:${(v / mx) * 100}%"></span><i style="left:${(a / mx) * 100}%"></i></div><div class="mx-avg"><span>${Math.round((v / a) * 100)}% of ${yr} avg</span><span>avg ${fmtValue(fmt, a)}</span></div>`
-      : `<div class="mx-avg"><span>${yr} avg</span>${fmtValue(fmt, a)}</div>`;
+    const avgHtml = avgBar(v, avg[k], fmt, S.period.slice(0, 4) + " avg");
     return `<div class="card metric mx-tile" data-mx-key="${esc(k)}" ${hint ? `title="${esc(hint)}"` : ""}><button class="mx-x" data-mx-hide="${esc(k)}" type="button" aria-label="Hide ${esc(l)}">×</button><div class="label">${esc(l)}</div><div class="value">${fmtValue(fmt, v)}${arrow}</div>${avgHtml}</div>`;
   });
   const rows = mxRows(shown.map(([k]) => k)), byKey = Object.fromEntries(shown.map(([k], i) => [k, tileHtml[i]]));
